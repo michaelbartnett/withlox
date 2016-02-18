@@ -1,0 +1,11 @@
+{
+    "display_name": "Cloak of Shadows",
+    "min_level": 21,
+    "business_time": {
+        "visiting_hours": {
+            "from": 800,
+            "to": 1200,
+        },
+        "state": "Oregon",
+    }
+}

@@ -1,0 +1,1 @@
+test/rpgitem/shield.json test/rpgitem/wizardhat.json
