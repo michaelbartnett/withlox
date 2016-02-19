@@ -7,20 +7,19 @@ if(CMAKE_BUILD_TYPE STREQUAL "")
 endif()
 # (you can also set it on the command line: -D CMAKE_BUILD_TYPE=Release)
 
+set(C_SOURCES json.c)
+set(CXX_SOURCES main.cpp)
+set(SOURCES ${C_SOURCES} ${CXX_SOURCES})
 
-set(SOURCES
-  main.cpp
-  json.c)
-
-add_executable(${PROJECT_NAME}
-  ${SOURCES})
+add_executable(${PROJECT_NAME} ${SOURCES})
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 98)
 
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+  set_property(SOURCE ${CXX_SOURCES} PROPERTY COMPILE_FLAGS --std=c++03)
+
   target_compile_options(${PROJECT_NAME}
     PRIVATE
-    # --std=c++03
     -g
     -pedantic
     -Weverything
@@ -42,3 +41,4 @@ if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     -Wno-old-style-cast
     )
 endif()
+
