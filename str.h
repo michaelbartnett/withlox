@@ -29,55 +29,25 @@ struct Str
 };
 
 
-Str str_alloc(u16 str_size)
-{
-    assert(str_size < UINT16_MAX);
-    Str result;
-    result.data = MALLOC_ARRAY(char, str_size + 1);
-    result.data[0] = 0;
-    result.length = 0;
-    result.capacity = (u16)str_size;
-    return result;
-}
+Str str_alloc(u16 str_size);
+Str str(const char *cstr, u16 len);
+Str str(const char *cstr);
+void str_free(Str *str);
+void str_free(Str *str);
+Str str_concated_v_impl(StrSlice first_slice...);
 
 
-Str str(const char *cstr, u16 len)
-{
-    Str result = str_alloc(len);
-    result.length = result.capacity;
-
-    // careful: https://randomascii.wordpress.com/2013/04/03/stop-using-strncpy-already/
-    std::strncpy(result.data, cstr, len + 1);
-    result.data[result.length] = 0;
-
-    return result;
-}
-
-Str str(const char *cstr)
-{
-    size_t len = std::strlen(cstr);
-    assert(len < UINT16_MAX);
-    return str(cstr, (u16)len);
-}
-
-Str str(StrSlice strslice)
+inline Str str(StrSlice strslice)
 {
     return str(strslice.data, strslice.length);
 }
 
-Str str(const Str &src)
+
+inline Str str(const Str &src)
 {
     return str(src.data, src.length);
 }
-
-void str_free(Str *str)
-{
-    assert(str->data);
-    std::free(str->data);
-    str->capacity = 0;
-    str->length = 0;
-}
-
+    
 
 inline StrSlice str_slice(const char* cstr)
 {
@@ -106,57 +76,7 @@ union SliceOrZero
 };
 
 
-Str str_concated_v_impl(StrSlice first_slice...)
-{
-    u16 len = first_slice.length;
-    va_list args;
-    int count = 0;
-    va_start(args, first_slice);
-    for (;;)
-    {
-        SliceOrZero arg = va_arg(args, SliceOrZero);
-        if (!arg.zero)
-        {
-            break;
-        }
-
-        StrSlice slice = arg.slice;
-
-        len += slice.length;
-        ++count;
-    }
-    va_end(args);
-
-    Str result = str_alloc(len);
-    result.length = len;
-    char *location = result.data;
-    std::strncpy(location, first_slice.data, first_slice.length);
-    location += first_slice.length;
-    va_start(args, first_slice);
-    for (int i = 0; i < count; ++i)
-    {
-        SliceOrZero arg = va_arg(args, SliceOrZero);
-        StrSlice slice = arg.slice;
-        std::strncpy(location, slice.data, slice.length);
-
-        location += slice.length;
-    }
-    va_end(args);
-
-    result.data[result.length] = 0;
-
-    return result;
-}
-
 #define str_concated(...) str_concated_v_impl(__VA_ARGS__, 0);
-
-// Str str_concated(StrSlice a, StrSlice b)
-// {
-//     Str result = str_alloc(a.length + b.length);
-//     std::strncpy(result.data, a.data, a.length);
-//     std::strncpy(result.data + a.length, b.data, b.length);
-//     return result;
-// }
 
 
 inline bool str_equal(const StrSlice &a, const StrSlice &b)
@@ -209,6 +129,21 @@ inline bool str_equal(const StrSlice &a, const char *b)
 inline bool str_equal(const char *a, const StrSlice &b)
 {
     return str_equal(b, str_slice(a));
+}
+
+
+
+
+
+
+inline u32 str_hash(const char *const &str)
+{
+    u32 sum = 0;
+    StrSlice slice = str_slice(str);
+    for (int i = 0; i < slice.length; ++i) {
+        sum += (u32)slice.data[i];
+    }
+    return sum;
 }
 
 

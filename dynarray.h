@@ -4,7 +4,7 @@
 
 #include "common.h"
 #include "numeric_types.h"
-
+#include <cassert>
 
 template<typename T>
 struct DynArray

@@ -8,7 +8,7 @@ endif()
 # (you can also set it on the command line: -D CMAKE_BUILD_TYPE=Release)
 
 set(C_SOURCES json.c)
-set(CXX_SOURCES main.cpp)
+set(CXX_SOURCES main.cpp hashtable_tests.cpp str.cpp)
 set(SOURCES ${C_SOURCES} ${CXX_SOURCES})
 
 add_executable(${PROJECT_NAME} ${SOURCES})

@@ -1,5 +1,18 @@
 #ifndef COMMON_H
 
+#include <cstdlib>
+#include <cstdio>
+
+using std::printf;
+using std::size_t;
+
+#define printf_indent(indent, fmt, ...) printf("%*s" fmt, (indent), "", __VA_ARGS__)
+#define printf_ln(fmt, ...) printf(fmt "\n", __VA_ARGS__)
+#define printf_ln_indent(indent, fmt, ...) printf("%*s" fmt "\n", indent, "", __VA_ARGS__)
+#define println(text) printf("%s\n", text)
+#define println_indent(indent, text) printf_ln_indent(indent, "%s", text)
+
+
 #define CALLOC(type) ((type *)std::calloc(1, sizeof (type)))
 #define CALLOC_ARRAY(type, count) ((type *)std::calloc(count, sizeof (type)))
 
