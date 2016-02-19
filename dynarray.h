@@ -16,7 +16,7 @@ struct DynArray
 
 
 template<typename T>
-DynArray<T> dynarray_alloc(u32 capacity)
+DynArray<T> dynarray_init(u32 capacity)
 {
     DynArray<T> result;
     result.data = MALLOC_ARRAY(T, capacity);

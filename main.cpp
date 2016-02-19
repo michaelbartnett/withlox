@@ -5,13 +5,20 @@
 
 #include <cstdlib>
 #include <cstdio>
-#include <sys/stat.h>
+#include <algorithm>
+// #include <sys/stat.h>
 
 #include "common.h"
 #include "platform.cpp"
 
 using std::printf;
 using std::size_t;
+
+#define printf_indent(indent, fmt, ...) printf("%*s" fmt, (indent), "", __VA_ARGS__)
+#define printf_ln(fmt, ...) printf(fmt "\n", __VA_ARGS__)
+#define printf_ln_indent(indent, fmt, ...) printf("%*s" fmt "\n", indent, "", __VA_ARGS__)
+#define println(text) printf("%s\n", text)
+#define println_indent(indent, text) printf_ln_indent(indent, "%s", text)
 
 
 /*
@@ -124,8 +131,16 @@ struct OAHashtable
     u32 bucket_count;
     Bucket *buckets;
     Entry *entries;
+    u32 count;
 };
 
+
+template <typename TKey, typename TValue>
+void ht_deinit(OAHashtable<TKey, TValue> *ht)
+{
+    free(ht->buckets);
+    free(ht->entries);
+}
 
 template <typename TKey, typename TValue>
 void ht_init(OAHashtable<TKey, TValue> *ht, u32 bucket_count,
@@ -135,19 +150,78 @@ void ht_init(OAHashtable<TKey, TValue> *ht, u32 bucket_count,
     typedef typename OAHashtable<TKey, TValue>::Entry Entry;
     typedef typename OAHashtable<TKey, TValue>::Bucket Bucket;
 
+    ht->count = 0;
     ht->hashfn = hashfn;
     ht->keys_equal_fn = keys_equal_fn;
     ht->bucket_count = bucket_count;
-    ht->buckets = MALLOC_ARRAY(Bucket, bucket_count);
-    ht->entries = MALLOC_ARRAY(Entry, bucket_count);
+    ht->buckets = CALLOC_ARRAY(Bucket, bucket_count);
+    ht->entries = CALLOC_ARRAY(Entry, bucket_count);
+}
+
+
+template <typename TKey, typename TValue>
+void ht_rehash(OAHashtable<TKey, TValue> *ht, u32 new_bucket_count)
+{
+    typedef typename OAHashtable<TKey, TValue>::Entry Entry;
+    typedef typename OAHashtable<TKey, TValue>::Bucket Bucket;
+    typedef typename OAHashtable<TKey, TValue>::BucketState BucketState;
+
+    // don't shrink
+    new_bucket_count = std::max(ht->bucket_count, new_bucket_count);
+
+    Bucket *new_buckets = CALLOC_ARRAY(Bucket, new_bucket_count);
+    Entry *new_entries = CALLOC_ARRAY(Entry, new_bucket_count);
+
+    for (u32 i = 0; i < ht->bucket_count; ++i)
+    {
+        u32 hash = ht->buckets[i].hash;
+        u32 start_bucket = hash % new_bucket_count;;
+        bool picked = false;
+        u32 picked_index = 0;
+        if (ht->buckets[i].state != BucketState::Filled)
+        {
+            continue;
+        }
+
+        for (u32 inew = start_bucket; inew < new_bucket_count; ++inew)
+        {
+            if (new_buckets[inew].state != BucketState::Filled)
+            {
+                picked = true;
+                picked_index = inew;
+                break;
+            }
+        }
+        
+        if (!picked)
+        {
+            for (u32 inew = 0; inew < start_bucket; ++inew)
+            {
+                if (new_buckets[inew].state != BucketState::Filled)
+                {
+                    picked = true;
+                    picked_index = inew;
+                    break;
+                }
+            }
+        }
+
+        assert(picked);
+        new_entries[picked_index] = ht->entries[i];
+        new_buckets[picked_index] = ht->buckets[i];
+    }
+
+    free(ht->buckets);
+    free(ht->entries);
+    ht->bucket_count = new_bucket_count;
+    ht->buckets = new_buckets;
+    ht->entries = new_entries;    
 }
 
 
 template <typename TKey, typename TValue>
 TValue *ht_find(OAHashtable<TKey, TValue> *ht, TKey key)
 {
-    // typedef OAHashtable<TKey, TValue>::Entry Entry;
-    // typedef OAHashtable<TKey, TValue>::Bucket Bucket;
     typedef typename OAHashtable<TKey, TValue>::BucketState BucketState;
 
     u32 hash = ht->hashfn(key);
@@ -204,8 +278,10 @@ void ht_set(OAHashtable<TKey, TValue> *ht, TKey key, TValue value)
     // typedef OAHashtable<TKey, TValue>::Bucket Bucket;
     typedef typename OAHashtable<TKey, TValue>::BucketState BucketState;
 
-
-    // TODO(mike): rehash if too few buckets (2/3 is what Nathan Reed does. )
+    // if (ht->count * 3 > ht->bucket_count * 2)
+    // {
+    //     ht_rehash(ht, ht->bucket_count * 2);
+    // }
 
     u32 hash = ht->hashfn(key);
 
@@ -215,7 +291,8 @@ void ht_set(OAHashtable<TKey, TValue> *ht, TKey key, TValue value)
 
     for (u32 i = bucket_idx, ie = ht->bucket_count; i < ie; ++i)
     {
-        if (ht->buckets[i].state != BucketState::Filled)
+        if (ht->buckets[i].state != BucketState::Filled
+            || ht->keys_equal_fn(ht->entries[i].key, key))
         {
             picked_index = i;
             picked = true;
@@ -226,7 +303,8 @@ void ht_set(OAHashtable<TKey, TValue> *ht, TKey key, TValue value)
     {
         for (u32 i = 0, ie = bucket_idx; i < ie; ++i)
         {
-            if (ht->buckets[i].state != BucketState::Filled)
+            if (ht->buckets[i].state != BucketState::Filled ||
+                ht->keys_equal_fn(ht->entries[i].key, key))
             {
                 picked_index = i;
                 picked = true;
@@ -237,10 +315,15 @@ void ht_set(OAHashtable<TKey, TValue> *ht, TKey key, TValue value)
 
     assert(picked);
 
+    u32 count_inc = ht->buckets[picked_index].state == BucketState::Empty;
+    assert(count_inc == 0 || count_inc == 1);
+    ht->count += count_inc;
     ht->buckets[picked_index].hash = hash;
     ht->buckets[picked_index].state = BucketState::Filled;
     ht->entries[picked_index].key = key;
     ht->entries[picked_index].value = value;
+
+    assert(ht->count <= ht->bucket_count);
 }
 
 
@@ -266,6 +349,7 @@ bool ht_remove(OAHashtable<TKey, TValue> *ht, TKey key)
                     && ht->keys_equal_fn(key, ht->entries[i].key))
                 {
                     ht->buckets[i].state = BucketState::Removed;
+                    --ht->count;
                     return true;
                 }
                 break;
@@ -287,6 +371,7 @@ bool ht_remove(OAHashtable<TKey, TValue> *ht, TKey key)
                     && ht->keys_equal_fn(key, ht->entries[i].key))
                 {
                     ht->buckets[i].state = BucketState::Removed;
+                    --ht->count;
                     return true;
                 }
                 break;
@@ -358,7 +443,7 @@ TypeDescriptor *type_desc_from_json(json_value_s *jv)
         {
             json_object_s *jso = (json_object_s *)jv->payload;
             assert(jso->length < UINT32_MAX);
-            result->members = dynarray_alloc<TypeMember>((u32)jso->length);
+            result->members = dynarray_init<TypeMember>((u32)jso->length);
 
             for (json_object_element_s *elem = jso->start;
                  elem;
@@ -394,7 +479,7 @@ TypeDescriptor *clone(const TypeDescriptor *type_desc);
 
 DynArray<TypeMember> clone(const DynArray<TypeMember> memberset)
 {
-    DynArray<TypeMember> result = dynarray_alloc<TypeMember>(memberset.count);
+    DynArray<TypeMember> result = dynarray_init<TypeMember>(memberset.count);
     
     // TypeMemberSet *result = type_member_set_alloc(memberset->count);
 
@@ -541,12 +626,6 @@ TypeDescriptor *merge_compound_types(const TypeDescriptor *typedesc_a, const Typ
     return result;
 }
 
-#define printf_indent(indent, fmt, ...) printf("%*s" fmt, (indent), "", __VA_ARGS__)
-#define printf_ln(fmt, ...) printf(fmt "\n", __VA_ARGS__)
-#define printf_ln_indent(indent, fmt, ...) printf("%*s" fmt "\n", indent, "", __VA_ARGS__)
-#define println(text) printf("%s\n", text)
-#define println_indent(indent, text) printf_ln_indent(indent, "%s", text)
-
 
 void pretty_print(TypeDescriptor *type_desc, int indent = 0)
 {
@@ -584,9 +663,10 @@ bool basic_equality(const T &a, const T &b)
     return a == b;
 }
 
-bool str_key_equals(const char *const &a, const char *const &b)
+template<typename T>
+u32 basic_hash(const T &value)
 {
-    return str_equal(str_slice(a), str_slice(b));
+    return ((u32)value + 23 * 17) ^ 541;
 }
 
 u32 str_hash(const char *const &str)
@@ -599,42 +679,105 @@ u32 str_hash(const char *const &str)
     return sum;
 }
 
+
+struct HashtableTest
+{
+    u32 bucket_count;
+    u64 begin_abstime;
+    u64 end_abstime;
+    u32 fail_count;
+};
+
+
+void test_fill_hashtable(HashtableTest *test)
+{
+    assert(test->bucket_count < INT32_MAX);
+    const s32 iterations = (s32)test->bucket_count;
+
+    OAHashtable<s32, s32> numbas = {};
+    ht_init(&numbas, test->bucket_count, &basic_hash, &basic_equality);
+
+
+    test->begin_abstime = query_abstime();
+    for (s32 i = 0; i < iterations; ++i)
+    {
+        ht_set(&numbas, i, i);
+    }
+    test->end_abstime = query_abstime();
+
+    // printf_ln("%i:%llu", test_bucket_count, end_ticks - begin_ticks);
+
+    // s32 fail_count = 0;
+    // for (s32 i = 0; i < iterations; ++i) {
+    //     s32 result = *ht_find(&numbas, i);
+    //     if (result != i) {
+    //         ++fail_count;
+    //     }
+    // }
+
+    // if (fail_count > 0) {
+    //     printf_ln("\n%i cases failed", fail_count);
+    // }
+
+    ht_deinit(&numbas);
+}
+
+
+void run_hashtable_tests()
+{
+    const u32 limit = 100;
+    DynArray<HashtableTest> tests = dynarray_init<HashtableTest>(limit);
+    for (u32 i = 0; i < limit; ++i)
+    {
+        HashtableTest *test = append(&tests);
+        test->bucket_count = i * 1000;
+    }
+
+    for (u32 i = 0; i < tests.count; ++i)
+    {
+        printf_ln("Running test %i", i);
+        test_fill_hashtable(get(tests, i));
+    }
+
+    println("Hashtable Fill Test Results:");
+    for (u32 i = 0; i < tests.count; ++i)
+    {
+        HashtableTest *test = get(tests, i);
+        printf_ln("%i\t%f\tmilliseconds", test->bucket_count, milliseconds_since(test->end_abstime, test->begin_abstime));
+    }
+
+    // test_hashtable(1 << 8);
+    // test_hashtable(1 << 9);
+    // test_hashtable(1 << 10);
+    // test_hashtable(1 << 11);
+    // test_hashtable(1 << 12);
+    // test_hashtable(1 << 13);
+    // test_hashtable(1 << 14);
+    // test_hashtable(1 << 15);
+    // test_hashtable(1 << 16);
+    // test_hashtable(1 << 17);
+    // test_hashtable(1 << 18);
+    // test_hashtable(1 << 19);
+    // test_hashtable(1 << 20);
+    // test_hashtable(1 << 21);
+    // test_hashtable(1 << 22);
+    // test_hashtable(1 << 23);
+    // test_hashtable(1 << 24);
+    // test_hashtable(1 << 25);
+    // test_hashtable(1 << 26);
+    // test_hashtable(1 << 27);
+    // test_hashtable(1 << 28);
+    // test_hashtable(1 << 29);
+    // test_hashtable(1 << 30);
+}
+
+
 #include <unistd.h>
 int main(int argc, char **argv)
 {
-    typedef OAHashtable<const char*, s32> NumMap;
-    NumMap number_names;
-// (OAHashtable<TKey, TValue> *ht, u32 bucket_count, typename OAHashtable<TKey, TValue>::HashFn hashfn)
-    ht_init(&number_names, 256, &str_hash, &str_equal);
+    run_hashtable_tests();
 
-    ht_set(&number_names, "one", 1);
-    ht_set(&number_names, "two", 2);
-    ht_set(&number_names, "three", 3);
-    ht_set(&number_names, "four", 4);
-    
-    int *intarray = MALLOC_ARRAY(int, 25);
-    for (int i = 0; i < 25; ++i)
-    {
-        intarray[i] = i + 1;
-    }
-
-    printf_ln("intarray[0]=%i", intarray[0]);
-    
-    // auto *buckets = number_names.buckets;
-    // auto *entries = number_names.entries;
-
-    int one = *ht_find(&number_names, "one");
-    printf_ln("%s: %i", "one", one);
-    int two = *ht_find(&number_names, "two");
-    printf_ln("%s: %i", "two", two);
-
-    int three = *ht_find(&number_names, "three");
-    printf_ln("%s: %i", "three", three);
-
-    int four = *ht_find(&number_names, "four");
-    printf_ln("%s: %i", "four", four);
-
-    return 0;
+    return 0;  
     
     
 
