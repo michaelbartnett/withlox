@@ -6,10 +6,13 @@
   probably be a bunch of temporary TypeDescriptors being created when interpreting types
   from JSON. This is okay, we can use a scratch allocator for those.
 
-- [ ] Make a symbol table that contains bindings from names (symbols, so they're
+- [.] Make a symbol table that contains bindings from names (symbols, so they're
   interned) to stored TypeDescriptors.
+  PROGRESS NOTE: Made a hashtable! This can be the lookup structure for both symbols and bindings.
+  PROGRESS NOTE: Made a name table! I wanted to store and intern all names, and this accomodates that.
+                 Now a symbol table can map NameRefs to TypeDecsriptors
   
-- [ ] Get this in a git repo.
+- [x] Get this in a git repo.
 
 ## Modifying types, and propagating those chagnes
 

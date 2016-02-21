@@ -5,6 +5,7 @@
 #include "numeric_types.h"
 #include "common.h"
 #include <algorithm>
+#include "MurmurHash3.h"
 #include <cassert>
 
 /*
@@ -41,6 +42,16 @@ https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
 http://www.gamedev.net/topic/634740-help-with-string-hashing/
 http://www.isthe.com/chongo/tech/comp/fnv/
 https://en.wikipedia.org/wiki/MurmurHash
+
+
+AMAZING LINK:
+http://programmers.stackexchange.com/questions/49550/which-hashing-algorithm-is-best-for-uniqueness-and-speed
+
+http://research.neustar.biz/2011/12/05/choosing-a-good-hash-function-part-1/
+http://research.neustar.biz/2011/12/29/choosing-a-good-hash-function-part-2/
+http://research.neustar.biz/2012/02/02/choosing-a-good-hash-function-part-3/
+
+
 
  */
 
@@ -85,25 +96,66 @@ http://bitsquid.blogspot.com/2011/06/strings-redux.html
  */
 
 
-template<typename T>
-bool basic_hash_key_equality(const T &a, const T &b)
+
+// template<typename T>
+// struct BasicEquality
+// {
+//     bool operator()(const T &a, const T &b)
+//     {
+//         return a == b;
+//     }
+// };
+
+
+// template<typename T>
+// struct IntegralHash
+// {
+//     u32 operator()(const T&value)
+//     {
+//         return ((u32)value + 23 * 17) ^ 541;
+//     }
+// };
+
+
+template <typename T>
+bool hashtable_keys_equal(const T &lhs, const T &rhs)
 {
-    return a == b;
+    return lhs == rhs;
 }
 
 
 template<typename T>
-u32 basic_integral_hash(const T &value)
+struct OAHashtable_DefaultKeysEqual
 {
-    return ((u32)value + 23 * 17) ^ 541;
-}
+    bool operator()(const T &lhs, const T &rhs)
+    {
+        return hashtable_keys_equal(lhs, rhs);
+    }
+};
 
 
-template<typename TKey, typename TValue>
+template<typename T>
+struct OAHashtable_DefaultHash
+{
+    u32 operator()(const T& value)
+    {
+        const u32 seed = 541;
+        u32 result;
+        MurmurHash3_x86_32(&value, sizeof(T), seed, &result);
+        return result;
+    }
+};
+
+
+template<typename TKey, typename TValue,
+         typename FKeyHash=OAHashtable_DefaultHash<TValue>,
+         typename FKeysEqual=OAHashtable_DefaultKeysEqual<TValue>
+         >
 struct OAHashtable
 {
-    typedef u32 (HashFn)(const TKey &val);
-    typedef bool (KeysEqualFn)(const TKey &a, const TKey &b);
+    typedef FKeyHash HashFn;
+    typedef FKeysEqual KeyEqualFn;
+    typedef u32 hash_type;
 
     struct BucketState
     {
@@ -127,48 +179,43 @@ struct OAHashtable
         TValue value;
     };
 
-    HashFn *hashfn;
-    KeysEqualFn *keys_equal_fn;
-    u32 bucket_count;
+    hash_type bucket_count;
     Bucket *buckets;
     Entry *entries;
     u32 count;
 };
 
 
-template <typename TKey, typename TValue>
-void ht_deinit(OAHashtable<TKey, TValue> *ht)
+template<typename TKey, typename TValue, typename FKeyHash, typename FKeysEqual>
+void ht_deinit(OAHashtable<TKey, TValue, FKeyHash, FKeysEqual> *ht)
 {
     free(ht->buckets);
     free(ht->entries);
 }
 
-template <typename TKey, typename TValue>
-OAHashtable<TKey, TValue>
-ht_init(u32 bucket_count,
-        typename OAHashtable<TKey, TValue>::HashFn hashfn,
-        typename OAHashtable<TKey, TValue>::KeysEqualFn keys_equal_fn)
-{
-    typedef typename OAHashtable<TKey, TValue>::Entry Entry;
-    typedef typename OAHashtable<TKey, TValue>::Bucket Bucket;
 
-    OAHashtable<TKey, TValue> ht;
-    ht.count = 0;
-    ht.hashfn = hashfn;
-    ht.keys_equal_fn = keys_equal_fn;
-    ht.bucket_count = bucket_count;
-    ht.buckets = CALLOC_ARRAY(Bucket, bucket_count);
-    ht.entries = CALLOC_ARRAY(Entry, bucket_count);
-    return ht;
+template<typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
+void ht_init(OAHashtable<TKey, TValue, FKeyHash, FKeysEqual> *ht,
+             u32 initial_bucket_count = 23)
+{
+    typedef typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::Entry Entry;
+    typedef typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::Bucket Bucket;
+
+    ht->count = 0;
+    // ht.hashfn = hashfn;
+    // ht.keys_equal_fn = keys_equal_fn;
+    ht->bucket_count = initial_bucket_count;
+    ht->buckets = CALLOC_ARRAY(Bucket, initial_bucket_count);
+    ht->entries = CALLOC_ARRAY(Entry, initial_bucket_count);
 }
 
 
-template <typename TKey, typename TValue>
-void ht_rehash(OAHashtable<TKey, TValue> *ht, u32 new_bucket_count)
+template<typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
+void ht_rehash(OAHashtable<TKey, TValue, FKeyHash, FKeysEqual> *ht, u32 new_bucket_count)
 {
-    typedef typename OAHashtable<TKey, TValue>::Entry Entry;
-    typedef typename OAHashtable<TKey, TValue>::Bucket Bucket;
-    typedef typename OAHashtable<TKey, TValue>::BucketState BucketState;
+    typedef typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::Entry Entry;
+    typedef typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::Bucket Bucket;
+    typedef typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::BucketState BucketState;
 
     // don't shrink
     new_bucket_count = std::max(ht->bucket_count, new_bucket_count);
@@ -223,12 +270,14 @@ void ht_rehash(OAHashtable<TKey, TValue> *ht, u32 new_bucket_count)
 }
 
 
-template <typename TKey, typename TValue>
-TValue *ht_find(OAHashtable<TKey, TValue> *ht, TKey key)
+template<typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
+TValue *ht_find(OAHashtable<TKey, TValue, FKeyHash, FKeysEqual> *ht, TKey key)
 {
-    typedef typename OAHashtable<TKey, TValue>::BucketState BucketState;
+    typedef typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::BucketState BucketState;
+    typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::HashFn hashfn;
+    typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::KeyEqualFn keys_equal_fn;
 
-    u32 hash = ht->hashfn(key);
+    u32 hash = hashfn(key);
     u32 bucket_idx = hash % ht->bucket_count;
 
     for (u32 i = bucket_idx, e = ht->bucket_count; i < e; ++i)
@@ -240,7 +289,7 @@ TValue *ht_find(OAHashtable<TKey, TValue> *ht, TKey key)
 
             case BucketState::Filled:
                 if (ht->buckets[i].hash == hash
-                    && ht->keys_equal_fn(key, ht->entries[i].key))
+                    && keys_equal_fn(key, ht->entries[i].key))
                 {
                     return &ht->entries[i].value;
                 }
@@ -260,7 +309,7 @@ TValue *ht_find(OAHashtable<TKey, TValue> *ht, TKey key)
 
             case BucketState::Filled:
                 if (ht->buckets[i].hash == hash
-                    && ht->keys_equal_fn(key, ht->entries[i].key))
+                    && keys_equal_fn(key, ht->entries[i].key))
                 {
                     return &ht->entries[i].value;
                 }
@@ -275,19 +324,22 @@ TValue *ht_find(OAHashtable<TKey, TValue> *ht, TKey key)
 }
 
 
-template <typename TKey, typename TValue>
-void ht_set(OAHashtable<TKey, TValue> *ht, TKey key, TValue value)
+template<typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
+void ht_set(OAHashtable<TKey, TValue, FKeyHash, FKeysEqual> *ht, TKey key, TValue value)
 {
     // typedef OAHashtable<TKey, TValue>::Entry Entry;
     // typedef OAHashtable<TKey, TValue>::Bucket Bucket;
-    typedef typename OAHashtable<TKey, TValue>::BucketState BucketState;
+    typedef typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::BucketState BucketState;
 
-    // if (ht->count * 3 > ht->bucket_count * 2)
-    // {
-    //     ht_rehash(ht, ht->bucket_count * 2);
-    // }
+    typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::HashFn hashfn;
+    typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::KeyEqualFn keys_equal_fn;
 
-    u32 hash = ht->hashfn(key);
+    if (ht->count * 3 > ht->bucket_count * 2)
+    {
+        ht_rehash(ht, ht->bucket_count * 2 + 1);
+    }
+
+    u32 hash = hashfn(key);
 
     u32 bucket_idx = hash % ht->bucket_count;
     u32 picked_index = ht->bucket_count;
@@ -296,7 +348,7 @@ void ht_set(OAHashtable<TKey, TValue> *ht, TKey key, TValue value)
     for (u32 i = bucket_idx, ie = ht->bucket_count; i < ie; ++i)
     {
         if (ht->buckets[i].state != BucketState::Filled
-            || ht->keys_equal_fn(ht->entries[i].key, key))
+            || keys_equal_fn(ht->entries[i].key, key))
         {
             picked_index = i;
             picked = true;
@@ -308,7 +360,7 @@ void ht_set(OAHashtable<TKey, TValue> *ht, TKey key, TValue value)
         for (u32 i = 0, ie = bucket_idx; i < ie; ++i)
         {
             if (ht->buckets[i].state != BucketState::Filled ||
-                ht->keys_equal_fn(ht->entries[i].key, key))
+                keys_equal_fn(ht->entries[i].key, key))
             {
                 picked_index = i;
                 picked = true;
@@ -331,14 +383,17 @@ void ht_set(OAHashtable<TKey, TValue> *ht, TKey key, TValue value)
 }
 
 
-template <typename TKey, typename TValue>
-bool ht_remove(OAHashtable<TKey, TValue> *ht, TKey key)
+template<typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
+bool ht_remove(OAHashtable<TKey, TValue, FKeyHash, FKeysEqual> *ht, TKey key)
 {
     // typedef OAHashtable<TKey, TValue>::Entry Entry;
     // typedef OAHashtable<TKey, TValue>::Bucket Bucket;
-    typedef typename OAHashtable<TKey, TValue>::BucketState::Enum BucketState;
+    typedef typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::BucketState::Enum BucketState;
 
-    u32 hash = ht->hashfn(key);
+    typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::HashFn hashfn;
+    typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::KeyEqualFn keys_equal_fn;
+
+    u32 hash = hashfn(key);
     u32 bucket_idx = hash % ht->bucket_count;
 
     for (u32 i = bucket_idx, e = ht->bucket_count; i < e; ++i)
@@ -350,7 +405,7 @@ bool ht_remove(OAHashtable<TKey, TValue> *ht, TKey key)
 
             case BucketState::Filled:
                 if (ht->buckets[i].hash == hash
-                    && ht->keys_equal_fn(key, ht->entries[i].key))
+                    && keys_equal_fn(key, ht->entries[i].key))
                 {
                     ht->buckets[i].state = BucketState::Removed;
                     --ht->count;
@@ -372,7 +427,7 @@ bool ht_remove(OAHashtable<TKey, TValue> *ht, TKey key)
 
             case BucketState::Filled:
                 if (ht->buckets[i].hash == hash
-                    && ht->keys_equal_fn(key, ht->entries[i].key))
+                    && keys_equal_fn(key, ht->entries[i].key))
                 {
                     ht->buckets[i].state = BucketState::Removed;
                     --ht->count;

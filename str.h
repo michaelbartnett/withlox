@@ -10,12 +10,14 @@
 #include <cassert>
 #include <cstring>
 
+typedef u16 StrLen;
+
 // For referencing string memory
 // TODO(mike): 'length' should probably be 'size' because utf8
 struct StrSlice
 {
     const char *data;
-    u16 length;
+    StrLen length;
 };
 
 
@@ -24,18 +26,25 @@ struct StrSlice
 struct Str
 {
     char *data;
-    u16 length;
-    u16 capacity;
+    StrLen length;
+    StrLen capacity;
 };
 
 
-Str str_alloc(u16 str_size);
-Str str(const char *cstr, u16 len);
+Str str_alloc(StrLen str_size);
+Str str(const char *cstr, StrLen len);
 Str str(const char *cstr);
 void str_free(Str *str);
 void str_free(Str *str);
 Str str_concated_v_impl(StrSlice first_slice...);
 
+inline StrSlice empty_str_slice()
+{
+    StrSlice result;
+    result.data = "";
+    result.length = 0;
+    return result;
+}
 
 inline Str str(StrSlice strslice)
 {
@@ -55,7 +64,7 @@ inline StrSlice str_slice(const char* cstr)
     result.data = cstr;
     size_t len = strlen(cstr);
     assert(len < UINT16_MAX);
-    result.length = (u16)len;
+    result.length = (StrLen)len;
     return result;
 }
 
@@ -136,15 +145,15 @@ inline bool str_equal(const char *a, const StrSlice &b)
 
 
 
-inline u32 str_hash(const char *const &str)
-{
-    u32 sum = 0;
-    StrSlice slice = str_slice(str);
-    for (int i = 0; i < slice.length; ++i) {
-        sum += (u32)slice.data[i];
-    }
-    return sum;
-}
+// inline u32 str_hash(const char *const &str)
+// {
+//     u32 sum = 0;
+//     StrSlice slice = str_slice(str);
+//     for (int i = 0; i < slice.length; ++i) {
+//         sum += (u32)slice.data[i];
+//     }
+//     return sum;
+// }
 
 
 #define STR_H

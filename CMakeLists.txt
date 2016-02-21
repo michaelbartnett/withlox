@@ -8,12 +8,22 @@ endif()
 # (you can also set it on the command line: -D CMAKE_BUILD_TYPE=Release)
 
 set(C_SOURCES json.c)
-set(CXX_SOURCES main.cpp hashtable_tests.cpp str.cpp)
+
+set(CXX_SOURCES
+  main.cpp
+  str.cpp
+  MurmurHash3.cpp
+  hashtable_test.cpp
+  nametable_test.cpp
+  test.cpp
+)
+
 set(SOURCES ${C_SOURCES} ${CXX_SOURCES})
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 98)
+
 
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
   set_property(SOURCE ${CXX_SOURCES} PROPERTY COMPILE_FLAGS --std=c++03)
@@ -40,5 +50,7 @@ if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     -Wno-variadic-macros
     -Wno-old-style-cast
     )
+
+  set_property(SOURCE MurmurHash3.cpp PROPERTY COMPILE_FLAGS "-Wno-sign-conversion -Wno-cast-align")
 endif()
 

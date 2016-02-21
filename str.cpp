@@ -1,19 +1,19 @@
 #include "str.h"
 
 
-Str str_alloc(u16 str_size)
+Str str_alloc(StrLen str_size)
 {
     assert(str_size < UINT16_MAX);
     Str result;
     result.data = MALLOC_ARRAY(char, str_size + 1);
     result.data[0] = 0;
     result.length = 0;
-    result.capacity = (u16)str_size;
+    result.capacity = (StrLen)str_size;
     return result;
 }
 
 
-Str str(const char *cstr, u16 len)
+Str str(const char *cstr, StrLen len)
 {
     Str result = str_alloc(len);
     result.length = result.capacity;
@@ -30,7 +30,7 @@ Str str(const char *cstr)
 {
     size_t len = std::strlen(cstr);
     assert(len < UINT16_MAX);
-    return str(cstr, (u16)len);
+    return str(cstr, (StrLen)len);
 }
 
 
@@ -45,7 +45,7 @@ void str_free(Str *str)
 
 Str str_concated_v_impl(StrSlice first_slice...)
 {
-    u16 len = first_slice.length;
+    StrLen len = first_slice.length;
     va_list args;
     int count = 0;
     va_start(args, first_slice);

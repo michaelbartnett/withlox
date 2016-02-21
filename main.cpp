@@ -1,9 +1,30 @@
 #include "types.h"
+
 #include "hashtable.h"
 #include "json_error.h"
 #include "json.h"
 #include "common.h"
 #include "platform.h"
+
+
+
+// void symboltable_init(SymbolTable *st, size_t storage_size)
+// {
+//     st->storage = CALLOC_ARRAY(char, storage_size);
+//     // st->lookup = ht_init();
+// }
+
+
+
+
+
+
+
+
+struct ProgramMemory
+{
+};
+
 
 
 TypeDescriptor *type_desc_from_json(json_value_s *jv)
@@ -239,10 +260,15 @@ void pretty_print(TypeDescriptor *type_desc, int indent = 0)
     }
 }
 
+void run_tests();
 
 #include <unistd.h>
 int main(int argc, char **argv)
 {
+    // run_tests();
+    // return 0;
+
+
     if (argc < 2)
     {
         printf("No file specified\n");

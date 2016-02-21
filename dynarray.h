@@ -6,25 +6,46 @@
 #include "numeric_types.h"
 #include <cassert>
 
+typedef u32 DynArrayCount;
+
 template<typename T>
 struct DynArray
 {
+    typedef u32 count_type;
+
     T *data;
-    u32 count;
-    u32 capacity;    
+    count_type count;
+    count_type capacity;    
 };
 
 
 template<typename T>
-DynArray<T> dynarray_init(u32 capacity)
+void dynarray_init(DynArray<T> *dynarr, DynArrayCount capacity)
+{
+    dynarr->data = MALLOC_ARRAY(T, capacity);
+    dynarr->count = 0;
+    dynarr->capacity = capacity;
+}
+
+template<typename T>
+DynArray<T> dynarray_init(DynArrayCount capacity)
 {
     DynArray<T> result;
-    result.data = MALLOC_ARRAY(T, capacity);
-    result.count = 0;
-    result.capacity = capacity;
+    dynarray_init(&result, capacity);
     return result;
 }
 
+
+template<typename T>
+void dynarray_deinit(DynArray<T> *dynarray)
+{
+    free(dynarray->data);
+    dynarray->data = 0;
+    dynarray->count = 0;
+    dynarray->capacity = 0;
+}
+
+ 
 
 template<typename T>
 T *append(DynArray<T> *dynarray)
@@ -34,7 +55,7 @@ T *append(DynArray<T> *dynarray)
 
     if (dynarray->count == dynarray->capacity)
     {
-        u32 new_capacity = dynarray->capacity * 2;
+        DynArrayCount new_capacity = dynarray->capacity * 2;
         dynarray->data = REALLOC_ARRAY(dynarray->data, T, new_capacity);
         dynarray->capacity = new_capacity;
     }
@@ -59,7 +80,7 @@ T *last(DynArray<T> *dynarray)
 }
 
 template<typename T>
-T *get(const DynArray<T> &dynarray, u32 index)
+T *get(const DynArray<T> &dynarray, DynArrayCount index)
 {
     return &dynarray.data[index];
 }

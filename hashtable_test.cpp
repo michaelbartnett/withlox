@@ -84,6 +84,7 @@ http://bitsquid.blogspot.com/2011/06/strings-redux.html
 
 struct HashtableTest
 {
+    const char *name;
     u32 bucket_count;
     u64 begin_abstime;
     u64 end_abstime;
@@ -96,7 +97,8 @@ void test_fill_hashtable(HashtableTest *test)
     assert(test->bucket_count < INT32_MAX);
     const s32 iterations = (s32)test->bucket_count;
 
-    OAHashtable<s32, s32> numbas = ht_init<s32, s32>(test->bucket_count, &basic_integral_hash, &basic_hash_key_equality);
+    OAHashtable<s32, s32> numbas;
+    ht_init(&numbas, test->bucket_count);
 
     test->begin_abstime = query_abstime();
     for (s32 i = 0; i < iterations; ++i)
@@ -114,7 +116,8 @@ void test_hashtable_lookup(HashtableTest *test)
     assert(test->bucket_count < INT32_MAX);
     const s32 iterations = (s32)test->bucket_count;
 
-    OAHashtable<s32, s32> numbas = ht_init<s32, s32>(test->bucket_count, &basic_integral_hash, &basic_hash_key_equality);
+    OAHashtable<s32, s32> numbas;
+    ht_init(&numbas, test->bucket_count);
 
     for (s32 i = 0; i < iterations; ++i)
     {
@@ -140,29 +143,82 @@ void test_hashtable_lookup(HashtableTest *test)
 }
 
 
-void run_hashtable_tests()
+s32 run_hashtable_tests()
 {
-    const u32 limit = 100;
-    DynArray<HashtableTest> tests = dynarray_init<HashtableTest>(limit);
-    for (u32 i = 0; i < limit; ++i)
-    {
-        HashtableTest *test = append(&tests);
-        test->bucket_count = i * 1000;
+    s32 total_fail_count = 0;
+
+    { // Insertion
+        const char *testname = "Hashtable Fill";
+        const u32 limit = 100;
+        DynArray<HashtableTest> tests = dynarray_init<HashtableTest>(limit);
+        for (u32 i = 0; i < limit; ++i)
+        {
+            HashtableTest *test = append(&tests);
+            test->name = testname;
+            test->bucket_count = i * 1000;
+        }
+
+        for (u32 i = 0; i < tests.count; ++i)
+        {
+            HashtableTest *test = get(tests, i);
+            printf_ln("Running test '%s'   [%i]", test->name, i);
+            test_fill_hashtable(test);
+        }
+
+        u32 fails = 0;
+        printf_ln("Test '%s' Results:", testname);
+        for (u32 i = 0; i < tests.count; ++i)
+        {
+            HashtableTest *test = get(tests, i);
+            printf_ln("%i\t%f\tmilliseconds", test->bucket_count, milliseconds_since(test->end_abstime, test->begin_abstime));
+            if (test->fail_count > 0) {
+                printf_ln("FAILED: %i", test->fail_count);
+                fails += test->fail_count;
+            }
+        }
+        printf_ln("There were %i fails", fails);
+        dynarray_deinit(&tests);
+        total_fail_count += fails;
     }
 
-    for (u32 i = 0; i < tests.count; ++i)
-    {
-        printf_ln("Running test %i", i);
-        test_fill_hashtable(get(tests, i));
+    { // Lookup
+        const char *testname = "Hashtable Lookup";
+        const u32 limit = 100;
+        DynArray<HashtableTest> tests = dynarray_init<HashtableTest>(limit);
+        for (u32 i = 0; i < limit; ++i)
+        {
+            HashtableTest *test = append(&tests);
+            test->name = testname;
+            test->bucket_count = i * 1000;
+        }
+
+        for (u32 i = 0; i < tests.count; ++i)
+        {
+            HashtableTest *test = get(tests, i);
+            printf_ln("Running test '%s'   [%i]", test->name, i);
+            test_hashtable_lookup(test);
+        }
+
+        
+        u32 fails = 0;
+        printf_ln("Test '%s' Results:", testname);
+        for (u32 i = 0; i < tests.count; ++i)
+        {
+            HashtableTest *test = get(tests, i);
+            printf_ln("%i\t%f\tmilliseconds", test->bucket_count, milliseconds_since(test->end_abstime, test->begin_abstime));
+            if (test->fail_count > 0) {
+                printf_ln("FAILED: %i", test->fail_count);
+                fails += test->fail_count;
+            }
+        }
+        printf_ln("There were %i Hashtable test failures", fails);
+        dynarray_deinit(&tests);
+        total_fail_count += fails;
     }
 
-    println("Hashtable Fill Test Results:");
-    for (u32 i = 0; i < tests.count; ++i)
-    {
-        HashtableTest *test = get(tests, i);
-        printf_ln("%i\t%f\tmilliseconds", test->bucket_count, milliseconds_since(test->end_abstime, test->begin_abstime));
-    }
+    return total_fail_count;
 }
+
 
 // int main()
 // {
