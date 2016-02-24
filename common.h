@@ -6,6 +6,10 @@
 using std::printf;
 using std::size_t;
 
+#define KILOBYTES(n) (n*1024)
+#define MEGABYTES(n) (KILOBYTES(n)*1024)
+#define GIGABYTES(n)
+
 #define ARRAY_DIM(array) (sizeof(array) / sizeof(array[0]))
 
 #define printf_indent(indent, fmt, ...) printf("%*s" fmt, (indent), "", __VA_ARGS__)
@@ -25,6 +29,7 @@ using std::size_t;
 #define REALLOC_ARRAY(ptr, type, count) ((type *)std::realloc(ptr, count * sizeof (type)))
 
 #define ZERO_ARRAY(ptr, type, count) std::memset(ptr, 0, sizeof (type) * count)
+#define ZERO_PTR(ptr) std::memset(ptr, 0, sizeof(*ptr))
 
 #define COMMON_H
 #endif

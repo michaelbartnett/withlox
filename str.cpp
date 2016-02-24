@@ -84,3 +84,24 @@ Str str_concated_v_impl(StrSlice first_slice...)
 
     return result;
 }
+
+
+bool str_equal(const StrSlice &a, const StrSlice &b)
+{
+    if (a.length != b.length)
+    {
+        return false;
+    }
+
+    const char *ca = a.data;
+    const char *cb = b.data;
+    for (int i = 0, len = a.length; i < len; ++i)
+    {
+        if (ca[i] != cb[i])
+        {
+            return false;
+        }
+    }
+
+    return true;
+}

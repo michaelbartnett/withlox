@@ -11,6 +11,7 @@
 #include <cstring>
 
 typedef u16 StrLen;
+#define STR_LENGTH_MAX UINT16_MAX
 
 // For referencing string memory
 // TODO(mike): 'length' should probably be 'size' because utf8
@@ -57,15 +58,19 @@ inline Str str(const Str &src)
     return str(src.data, src.length);
 }
     
-
-inline StrSlice str_slice(const char* cstr)
+inline StrSlice str_slice(const char *cstr, size_t length)
 {
     StrSlice result;
+    assert(length < STR_LENGTH_MAX);
+    result.length = (StrLen)length;
     result.data = cstr;
+    return result;    
+}
+
+inline StrSlice str_slice(const char *cstr)
+{
     size_t len = strlen(cstr);
-    assert(len < UINT16_MAX);
-    result.length = (StrLen)len;
-    return result;
+    return str_slice(cstr, len);
 }
 
 
@@ -87,27 +92,7 @@ union SliceOrZero
 
 #define str_concated(...) str_concated_v_impl(__VA_ARGS__, 0);
 
-
-inline bool str_equal(const StrSlice &a, const StrSlice &b)
-{
-    if (a.length != b.length)
-    {
-        return false;
-    }
-
-    const char *ca = a.data;
-    const char *cb = b.data;
-    for (int i = 0, len = a.length; i < len; ++i)
-    {
-        if (ca[i] != cb[i])
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
-
+bool str_equal(const StrSlice &a, const StrSlice &b);
 
 inline bool str_equal(const char *const &a, const char *const &b)
 {

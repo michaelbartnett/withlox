@@ -22,7 +22,7 @@ struct DynArray
 template<typename T>
 void dynarray_init(DynArray<T> *dynarr, DynArrayCount capacity)
 {
-    dynarr->data = MALLOC_ARRAY(T, capacity);
+    dynarr->data = capacity > 0 ? MALLOC_ARRAY(T, capacity) : 0;
     dynarr->count = 0;
     dynarr->capacity = capacity;
 }
@@ -50,12 +50,12 @@ void dynarray_deinit(DynArray<T> *dynarray)
 template<typename T>
 T *append(DynArray<T> *dynarray)
 {
-    assert(dynarray->data);
+    // assert(dynarray->data);
     assert(dynarray->count <= dynarray->capacity);
 
     if (dynarray->count == dynarray->capacity)
     {
-        DynArrayCount new_capacity = dynarray->capacity * 2;
+        DynArrayCount new_capacity = (dynarray->capacity + 1) * 2;
         dynarray->data = REALLOC_ARRAY(dynarray->data, T, new_capacity);
         dynarray->capacity = new_capacity;
     }
@@ -84,6 +84,13 @@ T *get(const DynArray<T> &dynarray, DynArrayCount index)
 {
     return &dynarray.data[index];
 }
+
+template<typename T>
+T *get(const DynArray<T> *dynarray, DynArrayCount index)
+{
+    return &dynarray->data[index];
+}
+
 
 #define DYNARRAY_H
 #endif

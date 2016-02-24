@@ -147,10 +147,14 @@ struct OAHashtable_DefaultHash
 };
 
 
-template<typename TKey, typename TValue,
-         typename FKeyHash=OAHashtable_DefaultHash<TValue>,
-         typename FKeysEqual=OAHashtable_DefaultKeysEqual<TValue>
-         >
+#define OAHASH_TPARAMS <typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
+#define OAHASH_TYPE OAHashtable <TKey, TValue, FKeysEqual, FKeyHash>
+template
+<
+    typename TKey, typename TValue,
+    typename FKeysEqual=OAHashtable_DefaultKeysEqual<TKey>,
+    typename FKeyHash=OAHashtable_DefaultHash<TKey>
+>
 struct OAHashtable
 {
     typedef FKeyHash HashFn;
@@ -186,20 +190,22 @@ struct OAHashtable
 };
 
 
-template<typename TKey, typename TValue, typename FKeyHash, typename FKeysEqual>
-void ht_deinit(OAHashtable<TKey, TValue, FKeyHash, FKeysEqual> *ht)
+// template<typename TKey, typename TValue, typename FKeyHash, typename FKeysEqual>
+template OAHASH_TPARAMS
+void ht_deinit(OAHASH_TYPE *ht)
 {
     free(ht->buckets);
     free(ht->entries);
 }
 
 
-template<typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
-void ht_init(OAHashtable<TKey, TValue, FKeyHash, FKeysEqual> *ht,
+// template<typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
+template OAHASH_TPARAMS
+void ht_init(OAHASH_TYPE *ht,
              u32 initial_bucket_count = 23)
 {
-    typedef typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::Entry Entry;
-    typedef typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::Bucket Bucket;
+    typedef typename OAHASH_TYPE::Entry Entry;
+    typedef typename OAHASH_TYPE::Bucket Bucket;
 
     ht->count = 0;
     // ht.hashfn = hashfn;
@@ -210,12 +216,13 @@ void ht_init(OAHashtable<TKey, TValue, FKeyHash, FKeysEqual> *ht,
 }
 
 
-template<typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
-void ht_rehash(OAHashtable<TKey, TValue, FKeyHash, FKeysEqual> *ht, u32 new_bucket_count)
+// template <typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
+template OAHASH_TPARAMS
+void ht_rehash(OAHASH_TYPE *ht, u32 new_bucket_count)
 {
-    typedef typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::Entry Entry;
-    typedef typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::Bucket Bucket;
-    typedef typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::BucketState BucketState;
+    typedef typename OAHASH_TYPE::Entry Entry;
+    typedef typename OAHASH_TYPE::Bucket Bucket;
+    typedef typename OAHASH_TYPE::BucketState BucketState;
 
     // don't shrink
     new_bucket_count = std::max(ht->bucket_count, new_bucket_count);
@@ -270,12 +277,13 @@ void ht_rehash(OAHashtable<TKey, TValue, FKeyHash, FKeysEqual> *ht, u32 new_buck
 }
 
 
-template<typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
-TValue *ht_find(OAHashtable<TKey, TValue, FKeyHash, FKeysEqual> *ht, TKey key)
+// template<typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
+template OAHASH_TPARAMS
+TValue *ht_find(OAHASH_TYPE *ht, TKey key)
 {
-    typedef typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::BucketState BucketState;
-    typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::HashFn hashfn;
-    typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::KeyEqualFn keys_equal_fn;
+    typedef typename OAHASH_TYPE::BucketState BucketState;
+    typename OAHASH_TYPE::HashFn hashfn;
+    typename OAHASH_TYPE::KeyEqualFn keys_equal_fn;
 
     u32 hash = hashfn(key);
     u32 bucket_idx = hash % ht->bucket_count;
@@ -324,15 +332,16 @@ TValue *ht_find(OAHashtable<TKey, TValue, FKeyHash, FKeysEqual> *ht, TKey key)
 }
 
 
-template<typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
-void ht_set(OAHashtable<TKey, TValue, FKeyHash, FKeysEqual> *ht, TKey key, TValue value)
+// template<typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
+template OAHASH_TPARAMS
+void ht_set(OAHASH_TYPE *ht, TKey key, TValue value)
 {
     // typedef OAHashtable<TKey, TValue>::Entry Entry;
     // typedef OAHashtable<TKey, TValue>::Bucket Bucket;
-    typedef typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::BucketState BucketState;
+    typedef typename OAHASH_TYPE::BucketState BucketState;
 
-    typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::HashFn hashfn;
-    typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::KeyEqualFn keys_equal_fn;
+    typename OAHASH_TYPE::HashFn hashfn;
+    typename OAHASH_TYPE::KeyEqualFn keys_equal_fn;
 
     if (ht->count * 3 > ht->bucket_count * 2)
     {
@@ -383,15 +392,16 @@ void ht_set(OAHashtable<TKey, TValue, FKeyHash, FKeysEqual> *ht, TKey key, TValu
 }
 
 
-template<typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
-bool ht_remove(OAHashtable<TKey, TValue, FKeyHash, FKeysEqual> *ht, TKey key)
+// template<typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
+template OAHASH_TPARAMS
+bool ht_remove(OAHASH_TYPE *ht, TKey key)
 {
     // typedef OAHashtable<TKey, TValue>::Entry Entry;
     // typedef OAHashtable<TKey, TValue>::Bucket Bucket;
-    typedef typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::BucketState::Enum BucketState;
+    typedef typename OAHASH_TYPE::BucketState::Enum BucketState;
 
-    typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::HashFn hashfn;
-    typename OAHashtable<TKey, TValue, FKeyHash, FKeysEqual>::KeyEqualFn keys_equal_fn;
+    typename OAHASH_TYPE::HashFn hashfn;
+    typename OAHASH_TYPE::KeyEqualFn keys_equal_fn;
 
     u32 hash = hashfn(key);
     u32 bucket_idx = hash % ht->bucket_count;
@@ -444,5 +454,6 @@ bool ht_remove(OAHashtable<TKey, TValue, FKeyHash, FKeysEqual> *ht, TKey key)
 }
 
 
+#undef OAHASH_TYPE
 #define HASHTABLE_H
 #endif

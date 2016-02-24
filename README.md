@@ -1,5 +1,17 @@
 [//]: # -*- fill-column: 80  -*-
 
+## Important Feature
+
+Data views.
+
+Every time I want to edit the PowerUpMods for any of the vehicle parts, I have to:
+
+1. Freeze the window to lock the ID column and header rows
+2. Hide all columns except the ID and Special Effect columns
+ 
+It's irritating. It should remember my previous view and just open to that, or
+have that configuration quickly accessible.
+
 ## Next steps
 
 - [ ] Make a Type Table that you can search by type structure. This means that there will

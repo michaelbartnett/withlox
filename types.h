@@ -5,6 +5,7 @@
 #include "numeric_types.h"
 #include "str.h"
 #include "dynarray.h"
+#include "nametable.h"
 
 // enum class TypeFlgas : u32
 // {
@@ -15,6 +16,7 @@
 
 namespace TypeID
 {
+
 enum Enum
 {
     None,
@@ -46,21 +48,37 @@ const char *to_string(TypeID::Enum type_id)
         case TypeID::Compound: return "Compound";
     }
 }
+
 }
+
+
 
 struct TypeDescriptor;
 
+struct TypeDescriptorRef
+{
+    u32 index;
+    DynArray<TypeDescriptor> *owner;
+};
+
+
+bool typedesc_ref_identical(const TypeDescriptorRef &lhs, const TypeDescriptorRef &rhs)
+{
+    return lhs.index == rhs.index
+        && lhs.owner == rhs.owner;
+}
+
 struct TypeMember
 {
-    Str name;
-    TypeDescriptor *type_desc;
+    NameRef name;
+    TypeDescriptorRef typedesc_ref;
+    // TypeDescriptor *type_desc;
 };
 
 
 struct TypeDescriptor
 {
     u32 type_id;
-    // Str name; // TOOD(mike): symbol table
     DynArray<TypeMember> members;
 };
 

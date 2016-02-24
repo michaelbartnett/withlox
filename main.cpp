@@ -1,6 +1,7 @@
 #include "types.h"
 
 #include "hashtable.h"
+#include "nametable.h"
 #include "json_error.h"
 #include "json.h"
 #include "common.h"
@@ -16,48 +17,85 @@
 
 
 
-
-
-
-
-
 struct ProgramMemory
 {
+    NameTable names;
+    DynArray<TypeDescriptor> type_descriptors;
+    OAHashtable<NameRef, TypeDescriptor*> typedesc_bindings;
 };
 
 
 
-TypeDescriptor *type_desc_from_json(json_value_s *jv)
+TypeDescriptor *get_typedesc(TypeDescriptorRef ref)
 {
-    TypeDescriptor *result = MALLOC(TypeDescriptor);
-    memset(result, 0, sizeof(*result));
+    return ref.index && ref.owner ? get(ref.owner, ref.index) : 0;
+}
+
+TypeDescriptorRef add_typedescriptor(ProgramMemory *prgmem, TypeDescriptor **ptr)
+{
+    TypeDescriptor *td = append(&prgmem->type_descriptors);
+    memset(td, 0, sizeof(*td));
+    if (ptr)
+    {
+        *ptr = td;
+    }
+
+    TypeDescriptorRef result;
+    result.index = prgmem->type_descriptors.count - 1;
+    result.owner = &prgmem->type_descriptors;
+    return result;
+}
+
+
+void bind_type_descriptor(ProgramMemory *prgmem, NameRef name, TypeDescriptor *type_desc)
+{
+    ht_set(&prgmem->typedesc_bindings, name, type_desc);
+}
+
+
+// TypeDescriptor *type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv)
+TypeDescriptorRef type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv)
+{
+    // TypeDescriptor *result = MALLOC(TypeDescriptor);
+    // TypeDescriptor *result = append(&prgmem->type_descriptors);
+    // memset(result, 0, sizeof(*result));
+    TypeDescriptor *type_desc;
+    TypeDescriptorRef result = add_typedescriptor(prgmem, &type_desc);
  
     json_type_e jvtype = (json_type_e)jv->type;
     switch (jvtype)
     {
         case json_type_string:
-            result->type_id = TypeID::String;
+            type_desc->type_id = TypeID::String;
             break;
         case json_type_number:
-            result->type_id = TypeID::Float;
+            type_desc->type_id = TypeID::Float;
             break;
 
         case json_type_object:
         {
             json_object_s *jso = (json_object_s *)jv->payload;
             assert(jso->length < UINT32_MAX);
-            result->members = dynarray_init<TypeMember>((u32)jso->length);
+
+            // Create members array and set type ID before adding members, because
+            // adding members could create additional typedescriptors and invalidate
+            // pointers into the type descriptor storage
+            type_desc->members = dynarray_init<TypeMember>((u32)jso->length);
+            type_desc->type_id = TypeID::Compound;
 
             for (json_object_element_s *elem = jso->start;
                  elem;
                  elem = elem->next)
             {
-                TypeMember *member = append(&result->members);
+                type_desc = get_typedesc(result);
+                TypeMember *member = append(&type_desc->members);
                 assert(elem->name->string_size < UINT16_MAX);
-                member->name = str(elem->name->string, (u16)elem->name->string_size);
-                member->type_desc = type_desc_from_json(elem->value);
+                StrSlice nameslice = str_slice(elem->name->string, (u16)elem->name->string_size);
+                member->name = nametable_find_or_add(&prgmem->names, nameslice);
+                    // str_slice(elem->name->string, (u16)elem->name->string_size);
+                // member->type_desc = type_desc_from_json(prgmem, elem->value);
+                member->typedesc_ref = type_desc_from_json(prgmem, elem->value);
             }
-            result->type_id = TypeID::Compound;
             break;
         }
 
@@ -67,11 +105,11 @@ TypeDescriptor *type_desc_from_json(json_value_s *jv)
  
         case json_type_true:
         case json_type_false:
-            result->type_id = TypeID::Bool;
+            type_desc->type_id = TypeID::Bool;
             break;
 
        case json_type_null:
-            result->type_id = TypeID::None;
+            type_desc->type_id = TypeID::None;
             break   ;
     }
 
@@ -80,7 +118,7 @@ TypeDescriptor *type_desc_from_json(json_value_s *jv)
 
 TypeDescriptor *clone(const TypeDescriptor *type_desc);
 
-DynArray<TypeMember> clone(const DynArray<TypeMember> memberset)
+DynArray<TypeMember> clone(const DynArray<TypeMember> &memberset)
 {
     DynArray<TypeMember> result = dynarray_init<TypeMember>(memberset.count);
     
@@ -88,22 +126,45 @@ DynArray<TypeMember> clone(const DynArray<TypeMember> memberset)
 
     for (u32 i = 0; i < memberset.count; ++i)
     {
+        printf_ln("1 Members count... %i, srcdata address %px  destdata address %px",
+                  memberset.count, memberset.data, result.data);
         TypeMember *src_member = get(memberset, i);
+        
+        printf_ln("2 Members count... %i, srcdata address %px  destdata address %px",
+                  memberset.count, memberset.data, result.data);
         TypeMember *dest_member = append(&result);
-        dest_member->name = str(src_member->name);
-        dest_member->type_desc = clone(src_member->type_desc);
+        ZERO_PTR(dest_member);
+        printf_ln("3 Members count... %i, srcdata address %px  destdata address %px",
+                  memberset.count, memberset.data, result.data);
+        NameRef newname = src_member->name;
+        printf_ln("newname index %li, src_member address: %px", newname.offset, src_member);
+        printf_ln("4 Members count... %i, srcdata address %px  destdata address %px",
+                  memberset.count, memberset.data, result.data);
+        dest_member->name = newname;
+        printf_ln("5 Members count... %i, srcdata address %px  destdata address %px",
+                  memberset.count, memberset.data, result.data);
+        // dest_member->typedesc_ref = src_member->typedesc_ref;
+
+        // dest_member->type_desc = clone(prgmem, src_member->type_desc);
     }
 
     return result;
 }
 
 
-TypeDescriptor *clone(const TypeDescriptor *type_desc)
+// TypeDescriptor *clone(ProgramMemory *prgmem, const TypeDescriptor *type_desc)
+TypeDescriptorRef clone(ProgramMemory *prgmem, const TypeDescriptor *src_typedesc, TypeDescriptor **ptr)
 {
-    TypeDescriptor *result = MALLOC(TypeDescriptor);
+    // TypeDescriptor *result = MALLOC(TypeDescriptor);
+    TypeDescriptor *dest_typedesc;
+    TypeDescriptorRef result = add_typedescriptor(prgmem, &dest_typedesc);
+    if (ptr)
+    {
+        *ptr = dest_typedesc;
+    }
     
-    result->type_id = type_desc->type_id;
-    switch ((TypeID::Enum)result->type_id)
+    dest_typedesc->type_id = src_typedesc->type_id;
+    switch ((TypeID::Enum)dest_typedesc->type_id)
     {
         case TypeID::None:
         case TypeID::String:
@@ -114,7 +175,8 @@ TypeDescriptor *clone(const TypeDescriptor *type_desc)
             break;
 
         case TypeID::Compound:
-            result->members = clone(type_desc->members);
+            printf_ln("Member count: %i", src_typedesc->members.count);
+            dest_typedesc->members = clone(src_typedesc->members);
             break;
     }
 
@@ -127,7 +189,8 @@ bool equal(const TypeDescriptor *a, const TypeDescriptor *b);
 
 bool equal(const TypeMember *a, const TypeMember *b)
 {
-    return str_equal(a->name, b->name) && equal(a->type_desc, b->type_desc);
+    return nameref_identical(a->name, b->name)
+        && typedesc_ref_identical(a->typedesc_ref, b->typedesc_ref);
 }
 
 
@@ -162,14 +225,14 @@ bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
 }
 
 
-TypeMember *find_member(const TypeDescriptor &type_desc, const StrSlice name)
+TypeMember *find_member(const TypeDescriptor &type_desc, NameRef name)
 {
     size_t count = type_desc.members.count;
     for (u32 i = 0; i < count; ++i)
     {
         TypeMember *mem = get(type_desc.members, i);
 
-        if (str_equal(mem->name, name))
+        if (nameref_identical(mem->name, name))
         {
             return mem;
         }
@@ -179,10 +242,13 @@ TypeMember *find_member(const TypeDescriptor &type_desc, const StrSlice name)
 }
 
 void add_member(TypeDescriptor *type_desc, const TypeMember &member)
+// void add_member(TypeDescriptor *typedesc_ref, const TypeMember &member)
 {
+    // TypeDescriptor *type_desc = get_typedesc(typedesc_ref);
     TypeMember *new_member = append(&type_desc->members);
     new_member->name = member.name;
-    new_member->type_desc = clone(member.type_desc);
+    new_member->typedesc_ref = member.typedesc_ref;
+    // new_member->typedesc = clone(member.type_desc);
 }
 
 // TypeDescriptor *merge_type_descriptors(TypeDescriptor *typedesc_a, TypeDescriptor *typedesc_b)
@@ -210,27 +276,53 @@ void add_member(TypeDescriptor *type_desc, const TypeMember &member)
 // }
 
 
-TypeDescriptor *merge_compound_types(const TypeDescriptor *typedesc_a, const TypeDescriptor *typedesc_b)
+// TypeDescriptorRef merge_compound_types(const TypeDescriptorRef typedescref_a, const TypeDescriptorRef typedescref_b)
+// {
+    
+// }
+
+TypeDescriptorRef merge_compound_types(ProgramMemory *prgmem,
+                                       const TypeDescriptor *typedesc_a,
+                                       const TypeDescriptor *typedesc_b,
+                                       TypeDescriptor **ptr)
 {
     assert(typedesc_a->type_id == TypeID::Compound);
     assert(typedesc_b->type_id == TypeID::Compound);
-    TypeDescriptor *result = clone(typedesc_a);
 
-    for (u32 ib = 0; ib < typedesc_b->members.count; ++ib)
+    TypeDescriptor *result_ptr;
+    TypeDescriptorRef result_ref = clone(prgmem, typedesc_a, &result_ptr);
+
+    // for (u32 ib = 0; ib < typedesc_b->members.count; ++ib)
+    // {
+    //     TypeMember *b_member = get(typedesc_b->members, ib);
+    //     TypeMember *a_member = find_member(*typedesc_a, b_member->name);
+
+    //     // if (! (a_member && equal(a_member->type_desc, b_member->type_desc)))
+    //     if (! (a_member && typedesc_ref_identical(a_member->typedesc_ref, b_member->typedesc_ref)))
+    //     {
+    //         add_member(result_ptr, *b_member);
+    //     }
+    // }
+
+    if (ptr)
     {
-        TypeMember *b_member = get(typedesc_b->members, ib);
-        TypeMember *a_member = find_member(*typedesc_a, str_slice(b_member->name));
-
-        if (! (a_member && equal(a_member->type_desc, b_member->type_desc)))
-        {
-            add_member(result, *b_member);
-        }
+        *ptr = result_ptr;
     }
-    return result;
+    return result_ref;
 }
 
 
-void pretty_print(TypeDescriptor *type_desc, int indent = 0)
+void pretty_print(TypeDescriptor *type_desc, int indent = 0);
+
+
+void pretty_print(TypeDescriptorRef typedesc_ref, int indent = 0)
+{
+    TypeDescriptor *td = get_typedesc(typedesc_ref);
+    pretty_print(td, indent);
+}
+
+
+void pretty_print(TypeDescriptor *type_desc, int indent)
 {
     TypeID::Enum type_id = (TypeID::Enum)type_desc->type_id;
     switch (type_id)
@@ -250,8 +342,9 @@ void pretty_print(TypeDescriptor *type_desc, int indent = 0)
             for (u32 i = 0; i < type_desc->members.count; ++i)
             {
                 TypeMember *member = get(type_desc->members, i);
-                printf_indent(indent, "%s: ", member->name.data);
-                pretty_print(member->type_desc, indent);
+                printf_indent(indent, "%s: ", str_slice(member->name).data);
+                // pretty_print(member->type_desc, indent);
+                pretty_print(member->typedesc_ref, indent);
             }
 
             indent -= 2;
@@ -260,14 +353,24 @@ void pretty_print(TypeDescriptor *type_desc, int indent = 0)
     }
 }
 
-void run_tests();
+
+void prgmem_init(ProgramMemory *prgmem)
+{
+    nametable_init(&prgmem->names, MEGABYTES(2));
+    dynarray_init(&prgmem->type_descriptors, 0);
+    append(&prgmem->type_descriptors);
+    ht_init(&prgmem->typedesc_bindings);
+}
 
 #include <unistd.h>
 int main(int argc, char **argv)
 {
+    // void run_tests();
     // run_tests();
     // return 0;
 
+    ProgramMemory prgmem;
+    prgmem_init(&prgmem);
 
     if (argc < 2)
     {
@@ -280,7 +383,7 @@ int main(int argc, char **argv)
         | json_parse_flags_allow_c_style_comments
         ;
 
-    TypeDescriptor *result_td = 0;
+    TypeDescriptorRef result_ref = {};
 
     for (int i = 1; i < argc; ++i) {
         const char *filename = argv[i];
@@ -300,22 +403,26 @@ int main(int argc, char **argv)
             return 1;
         }
 
-        TypeDescriptor *type_desc = type_desc_from_json(jv);
+        // TypeDescriptor *type_desc = type_desc_from_json(&prgmem, jv);
+        TypeDescriptorRef typedesc_ref = type_desc_from_json(&prgmem, jv);
         
         println("New type desciptor:");
-        pretty_print(type_desc);
+        // pretty_print(type_desc);
+        pretty_print(typedesc_ref);
 
-        if (!result_td)
+        if (!result_ref.index)
         {
-            result_td = type_desc;
+            result_ref = typedesc_ref;
         }
         else
         {
-            result_td = merge_compound_types(result_td, type_desc);
+            TypeDescriptor *result_ptr = get_typedesc(result_ref);
+            TypeDescriptor *type_desc = get_typedesc(typedesc_ref);
+            result_ref = merge_compound_types(&prgmem, result_ptr, type_desc, 0);
         }
     }
 
     println("completed without errors");
 
-    pretty_print(result_td);
+    pretty_print(result_ref);
 }

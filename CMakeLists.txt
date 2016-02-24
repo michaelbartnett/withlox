@@ -13,6 +13,7 @@ set(CXX_SOURCES
   main.cpp
   str.cpp
   MurmurHash3.cpp
+  nametable.cpp
   hashtable_test.cpp
   nametable_test.cpp
   test.cpp
