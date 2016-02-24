@@ -27,7 +27,7 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 98)
 
 
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-  set_property(SOURCE ${CXX_SOURCES} PROPERTY COMPILE_FLAGS --std=c++03)
+  set_property(SOURCE ${CXX_SOURCES} PROPERTY COMPILE_FLAGS "--std=c++03")
 
   target_compile_options(${PROJECT_NAME}
     PRIVATE

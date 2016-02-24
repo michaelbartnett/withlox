@@ -8,6 +8,10 @@
 #include "platform.h"
 
 
+// Debugging
+// http://stackoverflow.com/questions/312312/what-are-some-reasons-a-release-build-would-run-differently-than-a-debug-build
+// http://www.codeproject.com/Articles/548/Surviving-the-Release-Version
+
 
 // void symboltable_init(SymbolTable *st, size_t storage_size)
 // {
@@ -121,28 +125,39 @@ TypeDescriptor *clone(const TypeDescriptor *type_desc);
 DynArray<TypeMember> clone(const DynArray<TypeMember> &memberset)
 {
     DynArray<TypeMember> result = dynarray_init<TypeMember>(memberset.count);
-    
+     
     // TypeMemberSet *result = type_member_set_alloc(memberset->count);
 
     for (u32 i = 0; i < memberset.count; ++i)
     {
-        printf_ln("1 Members count... %i, srcdata address %px  destdata address %px",
-                  memberset.count, memberset.data, result.data);
+        printf_ln("[%i] 1 Members count... %i, srcdata address %px  destdata address %px memberset address %px",
+                  i, memberset.count, memberset.data, result.data, &memberset);
+        printf_ln("[%i] end of result.data == &memberset ? %i",
+                  i, (char*)(result.data + result.count) == (char*)&memberset);
         TypeMember *src_member = get(memberset, i);
         
-        printf_ln("2 Members count... %i, srcdata address %px  destdata address %px",
-                  memberset.count, memberset.data, result.data);
+        printf_ln("[%i] 2 Members count... %i, srcdata address %px  destdata address %px memberset address %px",
+                  i, memberset.count, memberset.data, result.data, &memberset);
+        printf_ln("[%i] end of result.data == &memberset ? %i",
+                  i, (char*)(result.data + result.count) == (char*)&memberset);
         TypeMember *dest_member = append(&result);
         ZERO_PTR(dest_member);
-        printf_ln("3 Members count... %i, srcdata address %px  destdata address %px",
-                  memberset.count, memberset.data, result.data);
+        printf_ln("[%i] 3 Members count... %i, srcdata address %px  destdata address %px memberset address %px"
+                  "\n    dest_member == memberset ? %i",
+                  i, memberset.count, memberset.data, result.data, &memberset,
+                  (char *)dest_member == (char *)&memberset);
         NameRef newname = src_member->name;
         printf_ln("newname index %li, src_member address: %px", newname.offset, src_member);
-        printf_ln("4 Members count... %i, srcdata address %px  destdata address %px",
-                  memberset.count, memberset.data, result.data);
+        printf_ln("[%i] 4 Members count... %i, srcdata address %px  destdata address %px memberset address %px"
+                  "\n    dest_member == memberset ? %i",
+                  i, memberset.count, memberset.data, result.data, &memberset,
+                  (char *)dest_member == (char *)&memberset);
         dest_member->name = newname;
-        printf_ln("5 Members count... %i, srcdata address %px  destdata address %px",
-                  memberset.count, memberset.data, result.data);
+        printf_ln("[%i] 5 Members count... %i, srcdata address %px  destdata address %px memberset address %px"
+                  "\n    dest_member == memberset ? %i"
+                  "\n--------------",
+                  i, memberset.count, memberset.data, result.data, &memberset,
+                  (char *)dest_member == (char *)&memberset);
         // dest_member->typedesc_ref = src_member->typedesc_ref;
 
         // dest_member->type_desc = clone(prgmem, src_member->type_desc);
