@@ -91,6 +91,27 @@ T *get(const DynArray<T> *dynarray, DynArrayCount index)
     return &dynarray->data[index];
 }
 
+template<typename T>
+void set(DynArray<T> *dynarray, u32 index, T value)
+{
+    assert(dynarray->count > index);
+    dynarray.data[index] = value;
+}
 
+template<typename T>
+u32 pop(const DynArray<T> dynarray)
+{
+    if (dynarray->count > 0)
+    {
+        --dynarray->count;
+    }
+    return dynarray->count;
+}
+
+template<typename T>
+void clear(const DynArray<T> dynarray)
+{
+    dynarray->count = 0;
+}
 #define DYNARRAY_H
 #endif

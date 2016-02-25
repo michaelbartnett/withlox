@@ -66,7 +66,7 @@ void prgmem_init(ProgramMemory *prgmem)
 }
 
 
-TypDescriptorRef make_typeref(ProgramMemory *prgmem, u32 index)
+TypeDescriptorRef make_typeref(ProgramMemory *prgmem, u32 index)
 {
     TypeDescriptorRef result = {index, &prgmem->type_descriptors};
     return result;
@@ -123,22 +123,21 @@ TypeDescriptorRef type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv)
 
         case json_type_object:
         {
-            result = add_typedescriptor(prgmem, &type_desc);
             json_object_s *jso = (json_object_s *)jv->payload;
             assert(jso->length < UINT32_MAX);
 
             // Create members array and set type ID before adding members, because
-            // adding members could create additional typedescriptors and invalidate
-            // pointers into the type descriptor storage
-            type_desc->members = dynarray_init<TypeMember>((u32)jso->length);
-            type_desc->type_id = TypeID::Compound;
+                              // adding members could create additional typedescriptors and invalidate
+                                        // pointers into the type descriptor storage
+
+            DynArray<TypeMember> members;
+            dynarray_init(&members, (u32)jso->length);
 
             for (json_object_element_s *elem = jso->start;
                  elem;
                  elem = elem->next)
             {
-                type_desc = get_typedesc(result);
-                TypeMember *member = append(&type_desc->members);
+                TypeMember *member = append(&members);
                 assert(elem->name->string_size < UINT16_MAX);
                 StrSlice nameslice = str_slice(elem->name->string, (u16)elem->name->string_size);
                 member->name = nametable_find_or_add(&prgmem->names, nameslice);
@@ -146,6 +145,11 @@ TypeDescriptorRef type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv)
                 // member->type_desc = type_desc_from_json(prgmem, elem->value);
                 member->typedesc_ref = type_desc_from_json(prgmem, elem->value);
             }
+
+            result = add_typedescriptor(prgmem, &type_desc);
+            type_desc = get_typedesc(result);
+            type_desc->members = members;
+            type_desc->type_id = TypeID::Compound;
             break;
         }
 
@@ -290,7 +294,7 @@ TypeDescriptorRef find_equiv_typedesciptor(ProgramMemory *prgmem, TypeDescriptor
     for (u32 i = 0; i < count; ++i)
     {
         TypeDescriptorRef ref = make_typeref(prgmem, i);
-        TypeDescriptor *predefined = get(ref);
+        TypeDescriptor *predefined = get_typedesc(ref);
         if (equal(type_desc, predefined))
         {
             result = ref;
