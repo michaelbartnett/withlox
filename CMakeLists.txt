@@ -7,6 +7,13 @@ if(CMAKE_BUILD_TYPE STREQUAL "")
 endif()
 # (you can also set it on the command line: -D CMAKE_BUILD_TYPE=Release)
 
+
+if(WIN32)
+  set(CXX_PLATFORM_SOURCES platform_win32.cpp)
+elseif(APPLE)
+  set(CXX_PLATFORM_SOURCES platform_macosx.cpp)
+endif()
+
 set(C_SOURCES json.c)
 
 set(CXX_SOURCES
@@ -17,16 +24,20 @@ set(CXX_SOURCES
   hashtable_test.cpp
   nametable_test.cpp
   test.cpp
-)
+  ${CXX_PLATFORM_SOURCES}
+  )
 
 set(SOURCES ${C_SOURCES} ${CXX_SOURCES})
+
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 98)
 
 
-if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+if("${CMAKE_CXX_COMPILER_ID}" MATCHES "MSVC")
+ 
+elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
   set_property(SOURCE ${CXX_SOURCES} PROPERTY COMPILE_FLAGS "--std=c++03")
 
   target_compile_options(${PROJECT_NAME}

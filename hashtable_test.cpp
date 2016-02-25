@@ -1,7 +1,7 @@
 #include "dynarray.h"
 #include "hashtable.h"
 #include "common.h"
-#include "platform.cpp"
+#include "platform.h"
 
 
 /*
@@ -156,6 +156,7 @@ s32 run_hashtable_tests()
             HashtableTest *test = append(&tests);
             test->name = testname;
             test->bucket_count = i * 1000;
+			test->fail_count = 0;
         }
 
         for (u32 i = 0; i < tests.count; ++i)
@@ -190,6 +191,7 @@ s32 run_hashtable_tests()
             HashtableTest *test = append(&tests);
             test->name = testname;
             test->bucket_count = i * 1000;
+			test->fail_count = 0;
         }
 
         for (u32 i = 0; i < tests.count; ++i)
