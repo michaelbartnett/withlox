@@ -18,6 +18,7 @@ using std::size_t;
 #define println(text) printf("%s\n", text)
 #define println_indent(indent, text) printf_ln_indent(indent, "%s", text)
 
+#define IGNORE(x)
 
 #define CALLOC(type) ((type *)std::calloc(1, sizeof (type)))
 #define CALLOC_ARRAY(type, count) ((type *)std::calloc(count, sizeof (type)))

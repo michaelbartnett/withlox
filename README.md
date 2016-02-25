@@ -1,5 +1,26 @@
 [//]: # -*- fill-column: 80  -*-
 
+## Expanding on type refs, bindings, and descriptors
+
+So what's the situation with the "symbol table." It's really the binding
+table. Let's call it that.
+
+The idea is to associate names with TypeDecsriptors. Why do I care about this?
+
+The advantage of having type names is that you can change the definition of the
+type, and anything referring to that type by name will be converted to the new
+type representation.
+
+So TypeMembers should actually have a TypeBinding, which has a TypeRef, refers
+to a TypeDescriptor.
+
+Why do TypeRefs exist? Well, we want "anonymous" types, because that's a useful
+concept, and you might want to import a bunch of JSON files, design a type
+schema to assign to them, and then set the type for a row, column (or cell??) to
+be that named type. And, if you then want to make a change to all rows that now
+have that type, it should be possible to propagate that change every place where
+the type is referenced.
+
 ## Important Feature
 
 Data views.
