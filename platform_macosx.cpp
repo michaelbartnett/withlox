@@ -1,7 +1,13 @@
 // -*- c++ -*-
 
 #include "platform.h"
+#include <sys/stat.h>
 #include <mach/mach_time.h>
+void waitkey()
+{
+    println("Press return to continue...");
+    getchar();
+}
 
 
 Str read_file(const char *filename)

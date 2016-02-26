@@ -5,10 +5,12 @@
 #include <cassert>
 
 
+
 void waitkey()
 {
 	system("pause");
 }
+
 
 Str read_file(const char *filename)
 {
@@ -18,6 +20,7 @@ Str read_file(const char *filename)
     
     Str result = {};
     struct stat statbuf;
+
     int err = stat(filename, &statbuf);
 
     if (0 != err)
@@ -68,4 +71,3 @@ u64 nanoseconds_since(u64 later, u64 earlier)
     result /= counter_frequency;
     return result;
 }
-
