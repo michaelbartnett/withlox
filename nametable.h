@@ -63,5 +63,12 @@ NameRef nametable_find_or_add(NameTable *nt, StrSlice name);
 
 NameRef nametable_find_or_add(NameTable *nt, const char *name);
 
+inline NameRef nametable_find_or_add(NameTable *nt, const char *name, size_t length)
+{
+    assert(length < UINT16_MAX);
+    StrSlice nameslice = str_slice(name, (u16)length);
+    return nametable_find_or_add(nt, nameslice);
+}
+
 #define NAMETABLE_H
 #endif

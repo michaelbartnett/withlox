@@ -11,11 +11,10 @@ typedef u32 DynArrayCount;
 template<typename T>
 struct DynArray
 {
-    typedef u32 count_type;
 
     T *data;
-    count_type count;
-    count_type capacity;    
+    DynArrayCount count;
+    DynArrayCount capacity;    
 };
 
 
@@ -67,10 +66,11 @@ T *append(DynArray<T> *dynarray)
 
 
 template<typename T>
-void append(DynArray<T> *dynarray, T item)
+T *append(DynArray<T> *dynarray, T item)
 {
-    append(dynarray);
-    dynarray->data[dynarray->count] = item;
+    T *result = append(dynarray);
+    *result = item;
+    return result;
 }
 
 template<typename T>
@@ -95,7 +95,7 @@ template<typename T>
 void set(DynArray<T> *dynarray, u32 index, T value)
 {
     assert(dynarray->count > index);
-    dynarray.data[index] = value;
+    dynarray->data[index] = value;
 }
 
 template<typename T>

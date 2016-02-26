@@ -17,7 +17,7 @@
 namespace TypeID
 {
 
-enum Enum
+enum Tag
 {
     None,
     String,
@@ -36,7 +36,7 @@ enum Enum
 // }
 
 
-const char *to_string(TypeID::Enum type_id)
+const char *to_string(TypeID::Tag type_id)
 {
     switch (type_id)
     {
