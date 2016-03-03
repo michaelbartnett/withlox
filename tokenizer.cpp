@@ -5,6 +5,18 @@
 namespace tokenizer
 {
 
+Token unknown_token()
+{
+    Token result = {};
+    return result;
+}
+
+Token eof_token()
+{
+    Token result = {TokenType::Eof, {}};
+    return result;
+}
+
 void init(State *state, const char *input)
 {
     ZERO_PTR(state);
@@ -101,15 +113,13 @@ Token read_number(State *tokstate)
         // Must be able to advance to a digit
         if (!advance(tokstate))
         {
-            Token unknown = {};
-            return unknown;
+            return unknown_token();
         }
     }
 
     if (!is_numeric(tokstate->current[0]))
     {
-        Token unknown = {};
-        return unknown;
+        return unknown_token();
     }
 
     bool has_decimal = false;
@@ -148,8 +158,7 @@ Token read_number(State *tokstate)
 
         if (!is_numeric(c))
         {
-            Token unknown = {};
-            return unknown;
+            return unknown_token();
         }
     }
 
@@ -183,12 +192,10 @@ Token read_number(State *tokstate)
 
             if (!is_numeric(c))
             {
-                Token unknown = {};
-                return unknown;
+                return unknown_token();
             }
         }
     }
-
 
     Token result;
     result.type = is_float ? TokenType::Float : TokenType::Int;
@@ -213,10 +220,11 @@ void skip_whitespace(State *tokstate)
 
 Token read_token(State *tokstate)
 {
+    Token result;
     if (tokstate->current == tokstate->end)
     {
-        Token eof_result = {TokenType::Eof, {}};
-        return eof_result;
+        result = eof_token();
+        return result;
     }
 
     skip_whitespace(tokstate);
@@ -243,7 +251,16 @@ Token read_token(State *tokstate)
         *tokstate = bookmark;
     }
 
-    return read_word(tokstate);
+    Token token_result = read_word(tokstate);
+    if (str_equal_ignore_case(token_result.text, "true"))
+    {
+        token_result.type = TokenType::True;
+    }
+    else if (str_equal_ignore_case(token_result.text, "false"))
+    {
+        token_result.type = TokenType::False;
+    }
+    return token_result;
 }
 
 } // namespace tokenizer

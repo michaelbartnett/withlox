@@ -1,11 +1,11 @@
 #include "types.h"
-
 #include "hashtable.h"
 #include "nametable.h"
 #include "json_error.h"
-#include "json.h"
+#include "str.h"
 #include "common.h"
 #include "platform.h"
+#include "json.h"
 #include "linenoise.h"
 
 // Debugging
@@ -380,7 +380,6 @@ TypeDescriptorRef merge_compound_types(ProgramMemory *prgmem,
 
 void pretty_print(TypeDescriptor *type_desc, int indent = 0);
 
-
 void pretty_print(TypeDescriptorRef typedesc_ref, int indent = 0)
 {
     TypeDescriptor *td = get_typedesc(typedesc_ref);
@@ -416,6 +415,85 @@ void pretty_print(TypeDescriptor *type_desc, int indent)
             println_indent(indent, "}");
             break;
     }
+}
+
+
+void pretty_print(Value *value)
+{
+    TypeDescriptor *type_desc = get_typedesc(value->typedesc_ref);
+
+    switch ((TypeID::Tag)type_desc->type_id)
+    {
+        case TypeID::None:
+            println("NONE");
+            break;
+
+        case TypeID::String:
+            printf_ln("%s", value->str_val.data);
+            break;
+
+        case TypeID::Int:
+            printf_ln("%i", value->s32_val);
+            break;
+
+        case TypeID::Float:
+            printf_ln("%f", value->f32_val);
+            break;
+
+        case TypeID::Bool:
+            printf_ln("%s", (value->bool_val ? "True" : "False"));
+            break;
+
+        case TypeID::Compound:
+            println("Printing compounds not supported yet");
+    }
+}
+
+Value create_value_from_token(ProgramMemory *prgmem, tokenizer::Token token)
+{
+    Str token_copy = str(token.text);
+    Value result = {};
+
+    switch (token.type)
+    {
+        case tokenizer::TokenType::Eof:
+        case tokenizer::TokenType::Unknown:
+            result.typedesc_ref = prgmem->prim_none;
+            break;
+
+        case tokenizer::TokenType::String:
+            result.str_val = token_copy;
+            result.typedesc_ref = prgmem->prim_string;
+            // indicate no need to free            
+            token_copy.data = 0;
+            break;
+
+        case tokenizer::TokenType::Int:
+            result.s32_val = atoi(token_copy.data);
+            result.typedesc_ref = prgmem->prim_int;
+            break;
+
+        case tokenizer::TokenType::Float:
+            result.f32_val = (float)atof(token_copy.data);
+            result.typedesc_ref = prgmem->prim_float;
+            break;
+
+        case tokenizer::TokenType::True:
+            result.typedesc_ref = prgmem->prim_bool;
+            result.bool_val = true;
+            break;
+
+        case tokenizer::TokenType::False:
+            result.typedesc_ref = prgmem->prim_bool;
+            result.bool_val = false;
+            break;
+    }
+
+    if (token_copy.data)
+    {
+        str_free(&token_copy);
+    }
+    return result;
 }
 
 
@@ -510,6 +588,11 @@ int main(int argc, char **argv)
             std::strncpy(token_output, token.text.data, len);
             token_output[len] = 0;
             printf_ln("Got token type: %s = '%s'", tokenizer::to_string(token.type), token_output);
+            Value value = create_value_from_token(&prgmem, token);
+            print("Value: ");
+            pretty_print(&value);
+            print("Type: ");
+            pretty_print(value.typedesc_ref);
         }
     }
 

@@ -12,6 +12,7 @@ using std::size_t;
 
 #define ARRAY_DIM(array) (sizeof(array) / sizeof(array[0]))
 
+#define print(str) printf("%s", str)
 #define printf_indent(indent, fmt, ...) printf("%*s" fmt, (indent), "", __VA_ARGS__)
 #define printf_ln(fmt, ...) printf(fmt "\n", __VA_ARGS__)
 #define printf_ln_indent(indent, fmt, ...) printf("%*s" fmt "\n", indent, "", __VA_ARGS__)

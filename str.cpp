@@ -85,6 +85,46 @@ Str str_concated_v_impl(StrSlice first_slice...)
     return result;
 }
 
+static bool is_ascii_upper(char c)
+{
+    return c >= 'A' && c <= 'Z';
+}
+
+
+static char to_ascii_lower(char c)
+{
+    if (is_ascii_upper(c))
+    {
+        c += ('a' - 'A');
+    }
+
+    return c;
+}
+
+
+bool str_equal_ignore_case(const StrSlice &a, const StrSlice &b)
+{    
+    if (a.length != b.length)
+    {
+        return false;
+    }
+
+    const char *ca = a.data;
+    const char *cb = b.data;
+    for (int i = 0, len = a.length; i < len; ++i)
+    {
+        char achar = to_ascii_lower(ca[i]);
+        char bchar = to_ascii_lower(cb[i]);
+
+        if (achar != bchar)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 
 bool str_equal(const StrSlice &a, const StrSlice &b)
 {

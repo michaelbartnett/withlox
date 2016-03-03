@@ -82,18 +82,17 @@ struct TypeDescriptor
     DynArray<TypeMember> members;
 };
 
-
 struct ValueMember;
-
 
 struct Value
 {
-    TypeDescriptor *type_desc;
+    TypeDescriptorRef typedesc_ref;
     union
     {
         Str str_val;
         f32 f32_val;
         s32 s32_val;
+        bool bool_val;
         DynArray<ValueMember> members;
     };
 };
@@ -103,7 +102,7 @@ struct ValueMember
 {
     // Assertion on save: member_desc->type_desc == value->type_desc
     // Maybe could exist in a being-edited state where the type is not satisfied?
-    TypeMember *member_desc;
+    NameRef name;
     Value value;
 };
 

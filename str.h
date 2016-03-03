@@ -36,7 +36,6 @@ Str str_alloc(StrLen str_size);
 Str str(const char *cstr, StrLen len);
 Str str(const char *cstr);
 void str_free(Str *str);
-void str_free(Str *str);
 Str str_concated_v_impl(StrSlice first_slice...);
 
 inline StrSlice empty_str_slice()
@@ -99,6 +98,7 @@ union SliceOrZero
 #define str_concated(...) str_concated_v_impl(__VA_ARGS__, 0);
 
 bool str_equal(const StrSlice &a, const StrSlice &b);
+bool str_equal_ignore_case(const StrSlice &a, const StrSlice &b);
 
 inline bool str_equal(const char *const &a, const char *const &b)
 {
@@ -129,6 +129,39 @@ inline bool str_equal(const StrSlice &a, const char *b)
 inline bool str_equal(const char *a, const StrSlice &b)
 {
     return str_equal(b, str_slice(a));
+}
+
+
+
+inline bool str_equal_ignore_case(const char *const &a, const char *const &b)
+{
+    return str_equal_ignore_case(str_slice(a), str_slice(b));
+}
+
+
+inline bool str_equal_ignore_case(const Str &a, const StrSlice &b)
+{
+    return str_equal_ignore_case(str_slice(a), b);
+}
+
+inline bool str_equal_ignore_case(const StrSlice &a, const Str &b)
+{
+    return str_equal_ignore_case(a, str_slice(b));
+}
+
+inline bool str_equal_ignore_case(const Str &a, const Str &b)
+{
+    return str_equal_ignore_case(str_slice(a), str_slice(b));
+}
+
+inline bool str_equal_ignore_case(const StrSlice &a, const char *b)
+{
+    return str_equal_ignore_case(a, str_slice(b));
+}
+
+inline bool str_equal_ignore_case(const char *a, const StrSlice &b)
+{
+    return str_equal_ignore_case(b, str_slice(a));
 }
 
 

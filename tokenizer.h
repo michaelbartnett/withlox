@@ -24,11 +24,12 @@ inline StrLen chars_remaining(State *tokstate)
 
 namespace TokenType
 { enum Tag {
-    Unknown,
+    Unknown = 0,
     String,
     Int,
     Float,
-    Bool,
+    True,
+    False,
     Eof
 };}
 
@@ -41,7 +42,8 @@ inline const char *to_string(TokenType::Tag token_type)
         case TokenType::String:  return "String";
         case TokenType::Int:     return "Int";
         case TokenType::Float:   return "Float";
-        case TokenType::Bool:    return "Bool";
+        case TokenType::True:    return "True";
+        case TokenType::False:    return "False";
         case TokenType::Eof:     return "Eof";
     }
 }
