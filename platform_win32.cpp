@@ -4,7 +4,10 @@
 #include <sys/stat.h>
 #include <cassert>
 
-
+void end_of_program()
+{
+    waitkey();
+}
 
 void waitkey()
 {

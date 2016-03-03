@@ -14,7 +14,7 @@ elseif(APPLE)
   set(CXX_PLATFORM_SOURCES platform_macosx.cpp)
 endif()
 
-set(C_SOURCES json.c)
+set(C_SOURCES json.c linenoise.c)
 
 set(CXX_SOURCES
   main.cpp
@@ -23,6 +23,7 @@ set(CXX_SOURCES
   nametable.cpp
   hashtable_test.cpp
   nametable_test.cpp
+  tokenizer.cpp
   test.cpp
   ${CXX_PLATFORM_SOURCES}
   )
@@ -63,6 +64,7 @@ elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     -Wno-old-style-cast
     )
 
-  set_property(SOURCE MurmurHash3.cpp PROPERTY COMPILE_FLAGS "-Wno-sign-conversion -Wno-cast-align")
+  set_property(SOURCE MurmurHash3.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-sign-conversion -Wno-cast-align")
+  set_property(SOURCE linenoise.c APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-unreachable-code-return -Wno-conversion -Wno-sign-conversion -Wno-shorten-64-to-32 -Wno-gnu-zero-variadic-macro-arguments")
 endif()
 

@@ -3,6 +3,8 @@
 #include "str.h"
 #include "numeric_types.h"
 
+void end_of_program();
+
 void waitkey();
 
 Str read_file(const char *filename);

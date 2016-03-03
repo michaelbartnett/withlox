@@ -67,6 +67,12 @@ inline StrSlice str_slice(const char *cstr, size_t length)
     return result;    
 }
 
+inline StrSlice str_slice(const char *begin, const char *end)
+{
+    assert(end >= begin);
+    return str_slice(begin, (size_t)(end - begin));
+}
+
 inline StrSlice str_slice(const char *cstr)
 {
     size_t len = strlen(cstr);

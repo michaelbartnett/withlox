@@ -1,5 +1,63 @@
 [//]: # -*- fill-column: 80  -*-
 
+## What now?
+
+I now am able to parse a JSON file, infer some types, build a structure, and
+build a table of type descriptors such that there are no shared type structures.
+
+The code that ensures there are no duplicate equivalently-structured types
+descriptors is a little dumb (`find_equiv_typedescriptor`), but it works, and
+can be turned into a hash lookup later.
+
+Things that this system is missing are: arrays, enums, and unions.
+
+I think I can move forward without implementing those just yet, because I want
+to work with the TypeDescriptor code a little more before making any decisions
+that might have to last a while.
+
+Things that I could tackle next:
+
+- Basic UI, integrate dearimgui and start drawing a table of editable values
+
+- Even more basic UI, just integrate dearimgui enough to make a command prompt
+
+- Terminal command prompt, just some basic command processing with type
+  inference (strings, integers, floats)
+
+- Representation of Values as bound to an associated type
+
+- Named Type Ref: A type member should be able to refer to a typedescriptor by
+  name, and update when that type updates
+  
+I think the most critical missing piece is a value representation. After all,
+what good is this program if it doesn't know about value? However, I also
+think I need to do a basic command line parser, because when do start dealing with
+values I want a quick way to set/unset/change type to verify things are working.
+
+So next steps:
+
+- [ ] Command reader that works like the following:
+
+  First token is a symbol/string that must refer to a registered command
+
+  Each subsequent token is parsed into one of the following types:
+  
+  - String: lookslikethis "looks like this"
+  - Int: 123432 -12309 +1238923
+  - Float: 123.321 -123.321 +123.321
+  - Bool: true false
+  
+  No compound literals(yet).
+  
+  Commands will be things like setvalue, and will probably rely on creating
+  named values, and operating on the value named by the first string parameter
+
+- [ ] Represent and store values, and be able to change them via CLI.
+
+The parser could become a really integral part of this. It would be cool if the
+syntax for type definition files and the syntax for editing values in cells and
+for inputting into the command line were all very similar.
+
 ## Expanding on type refs, bindings, and descriptors
 
 So what's the situation with the "symbol table." It's really the binding
@@ -35,11 +93,11 @@ have that configuration quickly accessible.
 
 ## Next steps
 
-- [ ] Make a Type Table that you can search by type structure. This means that there will
+- [x] Make a Type Table that you can search by type structure. This means that there will
   probably be a bunch of temporary TypeDescriptors being created when interpreting types
   from JSON. This is okay, we can use a scratch allocator for those.
 
-- [.] Make a symbol table that contains bindings from names (symbols, so they're
+- [x] Make a symbol table that contains bindings from names (symbols, so they're
   interned) to stored TypeDescriptors.
   PROGRESS NOTE: Made a hashtable! This can be the lookup structure for both symbols and bindings.
   PROGRESS NOTE: Made a name table! I wanted to store and intern all names, and this accomodates that.

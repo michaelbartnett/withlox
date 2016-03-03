@@ -3,6 +3,12 @@
 #include "platform.h"
 #include <sys/stat.h>
 #include <mach/mach_time.h>
+
+void end_of_program()
+{
+    // noop
+}
+
 void waitkey()
 {
     println("Press return to continue...");
