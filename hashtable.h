@@ -163,7 +163,7 @@ struct OAHashtable
 
     struct BucketState
     {
-        enum Enum
+        enum Tag
         {
             Empty,
             Filled,
@@ -290,7 +290,7 @@ TValue *ht_find(OAHASH_TYPE *ht, TKey key)
 
     for (u32 i = bucket_idx, e = ht->bucket_count; i < e; ++i)
     {        
-        switch ((typename BucketState::Enum)ht->buckets[i].state)
+        switch ((typename BucketState::Tag)ht->buckets[i].state)
         {
             case BucketState::Empty:
                 return 0;
@@ -310,7 +310,7 @@ TValue *ht_find(OAHASH_TYPE *ht, TKey key)
 
     for (u32 i = 0, e = bucket_idx; i < e; ++i)
     {
-        switch ((typename BucketState::Enum)ht->buckets[i].state)
+        switch ((typename BucketState::Tag)ht->buckets[i].state)
         {
             case BucketState::Empty:
                 return 0;
@@ -332,7 +332,79 @@ TValue *ht_find(OAHASH_TYPE *ht, TKey key)
 }
 
 
-// template<typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
+// returns true if inserting new value
+template OAHASH_TPARAMS
+bool ht_set_if_unset(OAHASH_TYPE *ht, TKey key, TValue value)
+{
+    typedef typename OAHASH_TYPE::BucketState BucketState;
+
+    typename OAHASH_TYPE::HashFn hashfn;
+    typename OAHASH_TYPE::KeyEqualFn keys_equal_fn;
+
+    if (ht->count * 3 > ht->bucket_count * 2)
+    {
+        ht_rehash(ht, ht->bucket_count * 2 + 1);
+    }
+
+    u32 hash = hashfn(key);
+
+    u32 bucket_idx = hash % ht->bucket_count;
+    u32 picked_index = ht->bucket_count;
+    bool picked = false;
+
+    for (u32 i = bucket_idx, ie = ht->bucket_count; i < ie; ++i)
+    {
+        if (ht->buckets[i].state == BucketState::Filled)
+        {
+            if (ht->buckets[i].hash == hash &&
+                keys_equal_fn(ht->entries[i].key, key))
+            {
+                return false;
+            }
+        }
+        else
+        {
+            picked_index = i;
+            picked = true;
+            break;
+        }
+    }
+    if (!picked)
+    {
+        for (u32 i = 0, ie = bucket_idx; i < ie; ++i)
+        {
+            if (ht->buckets[i].state == BucketState::Filled)
+            {
+                if (ht->buckets[i].hash == hash &&
+                    keys_equal_fn(ht->entries[i].key, key))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                picked_index = i;
+                picked = true;
+                break;
+            }
+        }
+    }
+
+    assert(picked);
+
+    u32 count_inc = ht->buckets[picked_index].state == BucketState::Empty;
+    assert(count_inc == 0 || count_inc == 1);
+    ht->count += count_inc;
+    ht->buckets[picked_index].hash = hash;
+    ht->buckets[picked_index].state = BucketState::Filled;
+    ht->entries[picked_index].key = key;
+    ht->entries[picked_index].value = value;
+
+    assert(ht->count <= ht->bucket_count);
+    return true;
+}
+
+
 template OAHASH_TPARAMS
 void ht_set(OAHASH_TYPE *ht, TKey key, TValue value)
 {
@@ -356,8 +428,8 @@ void ht_set(OAHASH_TYPE *ht, TKey key, TValue value)
 
     for (u32 i = bucket_idx, ie = ht->bucket_count; i < ie; ++i)
     {
-        if (ht->buckets[i].state != BucketState::Filled
-            || keys_equal_fn(ht->entries[i].key, key))
+        if (ht->buckets[i].state != BucketState::Filled ||
+            (ht->buckets[i].hash == hash && keys_equal_fn(ht->entries[i].key, key)))
         {
             picked_index = i;
             picked = true;
@@ -369,7 +441,7 @@ void ht_set(OAHASH_TYPE *ht, TKey key, TValue value)
         for (u32 i = 0, ie = bucket_idx; i < ie; ++i)
         {
             if (ht->buckets[i].state != BucketState::Filled ||
-                keys_equal_fn(ht->entries[i].key, key))
+                (ht->buckets[i].hash == hash && keys_equal_fn(ht->entries[i].key, key)))
             {
                 picked_index = i;
                 picked = true;
@@ -398,7 +470,7 @@ bool ht_remove(OAHASH_TYPE *ht, TKey key)
 {
     // typedef OAHashtable<TKey, TValue>::Entry Entry;
     // typedef OAHashtable<TKey, TValue>::Bucket Bucket;
-    typedef typename OAHASH_TYPE::BucketState::Enum BucketState;
+    typedef typename OAHASH_TYPE::BucketState::Tag BucketState;
 
     typename OAHASH_TYPE::HashFn hashfn;
     typename OAHASH_TYPE::KeyEqualFn keys_equal_fn;
