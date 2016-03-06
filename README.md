@@ -36,7 +36,7 @@ values I want a quick way to set/unset/change type to verify things are working.
 
 So next steps:
 
-- [ ] Command reader that works like the following:
+- [X] Command reader that works like the following:
 
   First token is a symbol/string that must refer to a registered command
 
@@ -279,7 +279,9 @@ Or maybe it should match that Open Game Data spec that Eric Lengyel amde.
   Maybe I could support union types in the lower layer of the infrastructure,
   but prevent that in the UI/API layer?
 
-- [ ] Load values in, validate them against type descriptors.
+- [X] Load values in
+
+- [ ] Validate values against type descriptors.
 
 - [ ] UI. Was looking at Qt. Maybe that won't suck. it probably will. dear imgui?
 

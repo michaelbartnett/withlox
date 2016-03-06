@@ -5,13 +5,13 @@
 namespace tokenizer
 {
 
-Token unknown_token()
+static Token unknown_token()
 {
     Token result = {};
     return result;
 }
 
-Token eof_token()
+static Token eof_token()
 {
     Token result = {TokenType::Eof, {}};
     return result;
@@ -26,7 +26,7 @@ void init(State *state, const char *input)
 }
 
 
-bool advance(State *tokstate)
+static bool advance(State *tokstate)
 {
     if (tokstate->current != tokstate->end)
     {
@@ -38,19 +38,19 @@ bool advance(State *tokstate)
 }
 
 
-bool at_one_before_end(State *tokstate)
+static bool at_one_before_end(State *tokstate)
 {
     return (tokstate->current + 1) == tokstate->end;
 }
 
 
-bool at_end(State *tokstate)
+static bool at_end(State *tokstate)
 {
     return tokstate->current == tokstate->end;
 }
 
 
-Token read_word(State *tokstate)
+static Token read_word(State *tokstate)
 {
     const char *start = tokstate->current;
 
@@ -127,7 +127,9 @@ Token read_number(State *tokstate)
 
     for (;;)
     {
-        if (!advance(tokstate))
+        bool advance_ok = advance(tokstate);
+        assert(advance_ok);
+        if (at_end(tokstate))
         {
             break;
         }
@@ -167,7 +169,9 @@ Token read_number(State *tokstate)
         is_float = true;
         for (;;)
         {
-            if (!advance(tokstate))
+            bool advance_ok = advance(tokstate);
+            assert(advance_ok);
+            if (at_end(tokstate))
             {
                 break;
             }
@@ -218,13 +222,31 @@ void skip_whitespace(State *tokstate)
 }
 
 
-Token read_token(State *tokstate)
+Token read_string(State *tokstate)
 {
-    Token result;
     if (tokstate->current == tokstate->end)
     {
-        result = eof_token();
-        return result;
+        return eof_token();
+    }
+
+    skip_whitespace(tokstate);
+
+    char c = tokstate->current[0];
+
+    if (c == '"')
+    {
+        return read_quoted_string(tokstate);
+    }
+
+    return read_word(tokstate);
+}
+
+
+Token read_token(State *tokstate)
+{
+    if (tokstate->current == tokstate->end)
+    {
+        return eof_token();
     }
 
     skip_whitespace(tokstate);

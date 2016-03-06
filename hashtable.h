@@ -332,7 +332,7 @@ TValue *ht_find(OAHASH_TYPE *ht, TKey key)
 }
 
 
-// returns true if inserting new value
+// returns true if something was occupying that spot
 template OAHASH_TPARAMS
 bool ht_set_if_unset(OAHASH_TYPE *ht, TKey key, TValue value)
 {
@@ -359,7 +359,7 @@ bool ht_set_if_unset(OAHASH_TYPE *ht, TKey key, TValue value)
             if (ht->buckets[i].hash == hash &&
                 keys_equal_fn(ht->entries[i].key, key))
             {
-                return false;
+                return true;
             }
         }
         else
@@ -378,7 +378,7 @@ bool ht_set_if_unset(OAHASH_TYPE *ht, TKey key, TValue value)
                 if (ht->buckets[i].hash == hash &&
                     keys_equal_fn(ht->entries[i].key, key))
                 {
-                    return false;
+                    return true;
                 }
             }
             else
@@ -401,12 +401,13 @@ bool ht_set_if_unset(OAHASH_TYPE *ht, TKey key, TValue value)
     ht->entries[picked_index].value = value;
 
     assert(ht->count <= ht->bucket_count);
-    return true;
+    return false;
 }
 
 
+// returns true if slot was previously occupied
 template OAHASH_TPARAMS
-void ht_set(OAHASH_TYPE *ht, TKey key, TValue value)
+bool ht_set(OAHASH_TYPE *ht, TKey key, TValue value)
 {
     // typedef OAHashtable<TKey, TValue>::Entry Entry;
     // typedef OAHashtable<TKey, TValue>::Bucket Bucket;
@@ -425,6 +426,7 @@ void ht_set(OAHASH_TYPE *ht, TKey key, TValue value)
     u32 bucket_idx = hash % ht->bucket_count;
     u32 picked_index = ht->bucket_count;
     bool picked = false;
+    bool was_occupied = false;
 
     for (u32 i = bucket_idx, ie = ht->bucket_count; i < ie; ++i)
     {
@@ -433,6 +435,7 @@ void ht_set(OAHASH_TYPE *ht, TKey key, TValue value)
         {
             picked_index = i;
             picked = true;
+            was_occupied = ht->buckets[i].state == BucketState::Filled;
             break;
         }
     }
@@ -445,6 +448,7 @@ void ht_set(OAHASH_TYPE *ht, TKey key, TValue value)
             {
                 picked_index = i;
                 picked = true;
+                was_occupied = ht->buckets[i].state == BucketState::Filled;
                 break;
             }
         }
@@ -461,6 +465,8 @@ void ht_set(OAHASH_TYPE *ht, TKey key, TValue value)
     ht->entries[picked_index].value = value;
 
     assert(ht->count <= ht->bucket_count);
+
+    return was_occupied;
 }
 
 

@@ -168,9 +168,10 @@ void test_hashtable_set_if_unset(HashtableTest *test)
     for (s32 i = 0; i < iterations; ++i)
     {
         bool key_was_negative = i % 2 != 0;
-        bool inserted = ht_set_if_unset(&numbas, i, i);
-        if ((key_was_negative && inserted) ||
-            (!key_was_negative && !inserted))
+        bool was_occupied = ht_set_if_unset(&numbas, i, i);
+        if (key_was_negative ^ was_occupied)
+        // if ((key_was_negative && !was_occupied) ||
+            // (!key_was_negative && was_occupied))
         {
             ++test->fail_count;
         }

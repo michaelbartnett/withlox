@@ -76,6 +76,7 @@ inline bool is_numeric(char c)
 }
 
 
+Token read_string(State *tokstate);
 Token read_token(State *tokstate);
 
 } // namespace tokenizer

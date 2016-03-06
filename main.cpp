@@ -12,8 +12,67 @@
 // http://stackoverflow.com/questions/312312/what-are-some-reasons-a-release-build-would-run-differently-than-a-debug-build
 // http://www.codeproject.com/Articles/548/Surviving-the-Release-Version
 
+
+// Type theory
+// http://chris-taylor.github.io/blog/2013/02/10/the-algebra-of-algebraic-data-types/
+// https://en.wikipedia.org/wiki/Algebraic_data_type
+// https://en.wikipedia.org/wiki/Generalized_algebraic_data_type
+
+
+// class MemStack
+// {
+// public:
+//     MemoryStack(size_t size)
+//         : size(size)
+//         , top(0)
+//     {
+//         data = malloc(size);
+//     }
+
+//     size_t size;
+//     u8 *data;
+//     u8 *top;
+// /*
+
+
+// ----
+// size_prev:32
+// size_this:30
+// flags:2  ALLOC/FREE (meaning, this block)
+// ----
+// payload
+// ----
+// next header...
+// ----
+
+
+
+// HEADER
+
+// to push, add header
+// to pop, lookup header, remove by size
+
+// FOOTER
+
+
+
+
+//  */
+// }
+
+
 #include "tokenizer.h"
 #include <algorithm>
+
+#define CLI_COMMAND_FN_SIG(name) void name(void *userdata, DynArray<Value> args)
+typedef CLI_COMMAND_FN_SIG(CliCommandFn);
+
+
+struct CliCommand
+{
+    CliCommandFn *fn;
+    void *userdata;
+};
 
 
 struct ProgramMemory
@@ -27,6 +86,8 @@ struct ProgramMemory
     TypeDescriptorRef prim_float;
     TypeDescriptorRef prim_bool;
     TypeDescriptorRef prim_none;
+
+    OAHashtable<NameRef, CliCommand> command_map;
 };
 
 
@@ -59,6 +120,8 @@ void prgmem_init(ProgramMemory *prgmem)
     TypeDescriptor *bool_type;
     prgmem->prim_bool = add_typedescriptor(prgmem, &bool_type);
     bool_type->type_id = TypeID::Bool;
+
+    ht_init(&prgmem->command_map);
 }
 
 
@@ -449,6 +512,25 @@ void pretty_print(Value *value)
     }
 }
 
+
+void pretty_print(tokenizer::Token token)
+{
+    char token_output[256];
+    size_t len = std::min((size_t)token.text.length, sizeof(token_output) - 1);
+    if (len == 0)
+    {
+        token_output[0] = 0;
+    }
+    else
+    {
+        std::strncpy(token_output, token.text.data, len);
+        token_output[len] = 0;
+    }
+
+    printf_ln("Token(%s, \"%s\")", tokenizer::to_string(token.type), token_output);
+}
+
+
 Value create_value_from_token(ProgramMemory *prgmem, tokenizer::Token token)
 {
     Str token_copy = str(token.text);
@@ -497,11 +579,88 @@ Value create_value_from_token(ProgramMemory *prgmem, tokenizer::Token token)
 }
 
 
+void register_command(ProgramMemory *prgmem, NameRef name, CliCommandFn *fnptr, void *userdata)
+{
+    assert(fnptr);
+    CliCommand cmd = {fnptr, userdata};
+    if (ht_set(&prgmem->command_map, name, cmd))
+    {
+        printf_ln("Warning, overriding command: %s", str_slice(name).data);
+    }
+}
+
+void register_command(ProgramMemory *prgmem, StrSlice name, CliCommandFn *fnptr, void *userdata)
+{
+    assert(fnptr);
+    NameRef nameref = nametable_find_or_add(&prgmem->names, name);
+    register_command(prgmem, nameref, fnptr, userdata);
+}
+
+void register_command(ProgramMemory *prgmem, const char *name, CliCommandFn *fnptr, void *userdata)
+{
+    register_command(prgmem, str_slice(name), fnptr, userdata);
+}
+
+#define REGISTER_COMMAND(prgmem, fn_ident, userdata) register_command((prgmem), # fn_ident, &fn_ident, userdata)
+
+
+void exec_command(ProgramMemory *prgmem, NameRef name, DynArray<Value> args)
+{
+    CliCommand *cmd = ht_find(&prgmem->command_map, name);
+
+    if (!cmd)
+    {
+        printf_ln("Command '%s' not found", str_slice(name).data);
+        return;
+    }
+
+    cmd->fn(cmd->userdata, args);
+}
+
+
+void exec_command(ProgramMemory *prgmem, StrSlice name, DynArray<Value> args)
+{
+    NameRef nameref = nametable_find(&prgmem->names, name);
+    if (!nameref.offset)
+    {
+        Str namecopy = str(name);
+        printf_ln("Command '%s' not found", namecopy.data);
+        str_free(&namecopy);
+    }
+    else
+    {
+        exec_command(prgmem, nameref, args);
+    }
+}
+
+
+CLI_COMMAND_FN_SIG(say_hello)
+{
+    UNUSED(userdata);
+    UNUSED(args);
+
+    println("You are calling the say_hello command");
+}
+
+
+CLI_COMMAND_FN_SIG(list_args)
+{
+    UNUSED(userdata);
+    println("list_args:");
+    for (u32 i = 0; i < args.count; ++i)
+    {
+        Value *val = get(&args, i);
+        pretty_print(val->typedesc_ref);
+        pretty_print(val);
+    }
+}
+
+
 int main(int argc, char **argv)
 {
-     //void run_tests();
-     //run_tests();
-     //return 0;
+    // void run_tests();
+    // run_tests();
+    // return 0;
 
     ProgramMemory prgmem;
     prgmem_init(&prgmem);
@@ -542,7 +701,7 @@ int main(int argc, char **argv)
         TypeDescriptorRef typedesc_ref = type_desc_from_json(&prgmem, jv);
         NameRef bound_name = nametable_find_or_add(&prgmem.names, filename);
         bind_typeref(&prgmem, bound_name, typedesc_ref);
-        
+
         println("New type desciptor:");
         // pretty_print(type_desc);
         pretty_print(typedesc_ref);
@@ -563,9 +722,12 @@ int main(int argc, char **argv)
 
     pretty_print(result_ref);
 
+    REGISTER_COMMAND(&prgmem, say_hello, NULL);
+    REGISTER_COMMAND(&prgmem, list_args, NULL);
+
     for (;;)
     {
-        const char *input = linenoise(">> ");
+        char *input = linenoise(">> ");
 
         if (!input)
         {
@@ -575,6 +737,17 @@ int main(int argc, char **argv)
         tokenizer::State tokstate;
         tokenizer::init(&tokstate, input);
 
+        tokenizer::Token first_token = tokenizer::read_string(&tokstate);
+
+        if (first_token.type == tokenizer::TokenType::Eof)
+        {
+            std::free(input);
+            continue;
+        }
+
+        DynArray<Value> cmd_args;
+        dynarray_init(&cmd_args, 10);
+
         for (;;)
         {
             tokenizer::Token token = tokenizer::read_token(&tokstate);
@@ -583,17 +756,16 @@ int main(int argc, char **argv)
                 break;
             }
 
-            char token_output[256];
-            size_t len = std::min((size_t)token.text.length, sizeof(token_output) - 1);
-            std::strncpy(token_output, token.text.data, len);
-            token_output[len] = 0;
-            printf_ln("Got token type: %s = '%s'", tokenizer::to_string(token.type), token_output);
             Value value = create_value_from_token(&prgmem, token);
-            print("Value: ");
-            pretty_print(&value);
-            print("Type: ");
-            pretty_print(value.typedesc_ref);
+            // pretty_print(value.typedesc_ref);
+
+            append(&cmd_args, value);
         }
+
+        exec_command(&prgmem, first_token.text, cmd_args);
+
+        dynarray_deinit(&cmd_args);
+        std::free(input);
     }
 
 	end_of_program();
