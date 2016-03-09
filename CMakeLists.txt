@@ -25,6 +25,12 @@ set(CXX_SOURCES
   nametable_test.cpp
   tokenizer.cpp
   test.cpp
+  pretty.cpp
+  dynarray.h
+  hashtable.h
+  common.h
+  json.h
+  platform.h
   ${CXX_PLATFORM_SOURCES}
   )
 
@@ -34,7 +40,6 @@ set(SOURCES ${C_SOURCES} ${CXX_SOURCES})
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 98)
-
 
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "MSVC")
  
