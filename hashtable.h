@@ -139,6 +139,11 @@ struct OAHashtable_DefaultHash
 {
     u32 operator()(const T& value)
     {
+        return fn(value);
+    }
+
+    static u32 fn(const T& value)
+    {
         const u32 seed = 541;
         u32 result;
         MurmurHash3_x86_32(&value, sizeof(T), seed, &result);
@@ -250,7 +255,7 @@ void ht_rehash(OAHASH_TYPE *ht, u32 new_bucket_count)
                 break;
             }
         }
-        
+
         if (!picked)
         {
             for (u32 inew = 0; inew < start_bucket; ++inew)
@@ -273,23 +278,97 @@ void ht_rehash(OAHASH_TYPE *ht, u32 new_bucket_count)
     free(ht->entries);
     ht->bucket_count = new_bucket_count;
     ht->buckets = new_buckets;
-    ht->entries = new_entries;    
+    ht->entries = new_entries;
 }
 
 
-// template<typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
 template OAHASH_TPARAMS
-TValue *ht_find(OAHASH_TYPE *ht, TKey key)
+bool ht_find_or_add_entry(typename OAHASH_TYPE::Entry **result, OAHASH_TYPE *ht, TKey key)
 {
     typedef typename OAHASH_TYPE::BucketState BucketState;
     typename OAHASH_TYPE::HashFn hashfn;
     typename OAHASH_TYPE::KeyEqualFn keys_equal_fn;
+    typedef typename OAHASH_TYPE::Entry Entry;;
+
+    if (ht->count * 3 > ht->bucket_count * 2)
+    {
+        ht_rehash(ht, ht->bucket_count * 2 + 1);
+    }
+
+    u32 hash = hashfn(key);
+    u32 bucket_idx = hash % ht->bucket_count;
+    u32 picked_index = 0;
+    bool picked = false;
+
+    for (u32 i = bucket_idx, e = ht->bucket_count; i < e; ++i)
+    {
+        if (ht->buckets[i].state == BucketState::Filled)
+        {
+            if (ht->buckets[i].hash == hash
+                && keys_equal_fn(key, ht->entries[i].key))
+            {
+                *result = &ht->entries[i];
+                return true;
+            }
+        }
+        else
+        {
+            picked = true;
+            picked_index = i;
+            break;
+        }
+    }
+
+    if (!picked_index)
+    {
+        for (u32 i = 0, e = bucket_idx; i < e; ++i)
+        {
+            if (ht->buckets[i].state == BucketState::Filled)
+            {
+                if (ht->buckets[i].hash == hash
+                    && keys_equal_fn(key, ht->entries[i].key))
+                {
+                    return &ht->entries[i];
+                }
+            }
+            else
+            {
+                picked = true;
+                picked_index = i;
+                break;
+            }
+        }
+    }
+    assert(picked);
+
+    u32 count_inc = ht->buckets[picked_index].state == BucketState::Empty;
+    assert(count_inc == 0 || count_inc == 1);
+    ht->count += count_inc;
+    ht->buckets[picked_index].hash = hash;
+    ht->buckets[picked_index].state = BucketState::Filled;
+    ht->entries[picked_index].key = key;
+    ZERO_PTR(&ht->entries[picked_index].value);
+
+    assert(ht->count <= ht->bucket_count);
+
+    *result = ht->entries + picked_index;
+    return false;
+}
+
+
+template OAHASH_TPARAMS
+typename OAHASH_TYPE::Entry *ht_find_entry(OAHASH_TYPE *ht, TKey key)
+{
+    typedef typename OAHASH_TYPE::BucketState BucketState;
+    typename OAHASH_TYPE::HashFn hashfn;
+    typename OAHASH_TYPE::KeyEqualFn keys_equal_fn;
+    typedef typename OAHASH_TYPE::Entry Entry;;
 
     u32 hash = hashfn(key);
     u32 bucket_idx = hash % ht->bucket_count;
 
     for (u32 i = bucket_idx, e = ht->bucket_count; i < e; ++i)
-    {        
+    {
         switch ((typename BucketState::Tag)ht->buckets[i].state)
         {
             case BucketState::Empty:
@@ -299,7 +378,7 @@ TValue *ht_find(OAHASH_TYPE *ht, TKey key)
                 if (ht->buckets[i].hash == hash
                     && keys_equal_fn(key, ht->entries[i].key))
                 {
-                    return &ht->entries[i].value;
+                    return &ht->entries[i];
                 }
                 break;
 
@@ -319,7 +398,7 @@ TValue *ht_find(OAHASH_TYPE *ht, TKey key)
                 if (ht->buckets[i].hash == hash
                     && keys_equal_fn(key, ht->entries[i].key))
                 {
-                    return &ht->entries[i].value;
+                    return &ht->entries[i];
                 }
                 break;
 
@@ -332,76 +411,31 @@ TValue *ht_find(OAHASH_TYPE *ht, TKey key)
 }
 
 
+template OAHASH_TPARAMS
+TValue *ht_find(OAHASH_TYPE *ht, TKey key)
+{
+    typedef typename OAHASH_TYPE::Entry Entry;
+
+    Entry *entry = ht_find_entry(ht, key);
+    return entry ? &entry->value : 0;
+}
+
+
 // returns true if something was occupying that spot
 template OAHASH_TPARAMS
 bool ht_set_if_unset(OAHASH_TYPE *ht, TKey key, TValue value)
 {
-    typedef typename OAHASH_TYPE::BucketState BucketState;
+    typedef typename OAHASH_TYPE::Entry Entry;
 
-    typename OAHASH_TYPE::HashFn hashfn;
-    typename OAHASH_TYPE::KeyEqualFn keys_equal_fn;
+    Entry *entry;
+    bool was_occupied = ht_find_or_add_entry(&entry, ht, key);
 
-    if (ht->count * 3 > ht->bucket_count * 2)
+    if (!was_occupied)
     {
-        ht_rehash(ht, ht->bucket_count * 2 + 1);
+        entry->value = value;
     }
 
-    u32 hash = hashfn(key);
-
-    u32 bucket_idx = hash % ht->bucket_count;
-    u32 picked_index = ht->bucket_count;
-    bool picked = false;
-
-    for (u32 i = bucket_idx, ie = ht->bucket_count; i < ie; ++i)
-    {
-        if (ht->buckets[i].state == BucketState::Filled)
-        {
-            if (ht->buckets[i].hash == hash &&
-                keys_equal_fn(ht->entries[i].key, key))
-            {
-                return true;
-            }
-        }
-        else
-        {
-            picked_index = i;
-            picked = true;
-            break;
-        }
-    }
-    if (!picked)
-    {
-        for (u32 i = 0, ie = bucket_idx; i < ie; ++i)
-        {
-            if (ht->buckets[i].state == BucketState::Filled)
-            {
-                if (ht->buckets[i].hash == hash &&
-                    keys_equal_fn(ht->entries[i].key, key))
-                {
-                    return true;
-                }
-            }
-            else
-            {
-                picked_index = i;
-                picked = true;
-                break;
-            }
-        }
-    }
-
-    assert(picked);
-
-    u32 count_inc = ht->buckets[picked_index].state == BucketState::Empty;
-    assert(count_inc == 0 || count_inc == 1);
-    ht->count += count_inc;
-    ht->buckets[picked_index].hash = hash;
-    ht->buckets[picked_index].state = BucketState::Filled;
-    ht->entries[picked_index].key = key;
-    ht->entries[picked_index].value = value;
-
-    assert(ht->count <= ht->bucket_count);
-    return false;
+    return was_occupied;
 }
 
 
@@ -409,63 +443,10 @@ bool ht_set_if_unset(OAHASH_TYPE *ht, TKey key, TValue value)
 template OAHASH_TPARAMS
 bool ht_set(OAHASH_TYPE *ht, TKey key, TValue value)
 {
-    // typedef OAHashtable<TKey, TValue>::Entry Entry;
-    // typedef OAHashtable<TKey, TValue>::Bucket Bucket;
-    typedef typename OAHASH_TYPE::BucketState BucketState;
-
-    typename OAHASH_TYPE::HashFn hashfn;
-    typename OAHASH_TYPE::KeyEqualFn keys_equal_fn;
-
-    if (ht->count * 3 > ht->bucket_count * 2)
-    {
-        ht_rehash(ht, ht->bucket_count * 2 + 1);
-    }
-
-    u32 hash = hashfn(key);
-
-    u32 bucket_idx = hash % ht->bucket_count;
-    u32 picked_index = ht->bucket_count;
-    bool picked = false;
-    bool was_occupied = false;
-
-    for (u32 i = bucket_idx, ie = ht->bucket_count; i < ie; ++i)
-    {
-        if (ht->buckets[i].state != BucketState::Filled ||
-            (ht->buckets[i].hash == hash && keys_equal_fn(ht->entries[i].key, key)))
-        {
-            picked_index = i;
-            picked = true;
-            was_occupied = ht->buckets[i].state == BucketState::Filled;
-            break;
-        }
-    }
-    if (!picked)
-    {
-        for (u32 i = 0, ie = bucket_idx; i < ie; ++i)
-        {
-            if (ht->buckets[i].state != BucketState::Filled ||
-                (ht->buckets[i].hash == hash && keys_equal_fn(ht->entries[i].key, key)))
-            {
-                picked_index = i;
-                picked = true;
-                was_occupied = ht->buckets[i].state == BucketState::Filled;
-                break;
-            }
-        }
-    }
-
-    assert(picked);
-
-    u32 count_inc = ht->buckets[picked_index].state == BucketState::Empty;
-    assert(count_inc == 0 || count_inc == 1);
-    ht->count += count_inc;
-    ht->buckets[picked_index].hash = hash;
-    ht->buckets[picked_index].state = BucketState::Filled;
-    ht->entries[picked_index].key = key;
-    ht->entries[picked_index].value = value;
-
-    assert(ht->count <= ht->bucket_count);
-
+    typedef typename OAHASH_TYPE::Entry Entry;
+    Entry *entry;
+    bool was_occupied = ht_find_or_add_entry(&entry, ht, key);
+    entry->value = value;
     return was_occupied;
 }
 
@@ -485,7 +466,7 @@ bool ht_remove(OAHASH_TYPE *ht, TKey key)
     u32 bucket_idx = hash % ht->bucket_count;
 
     for (u32 i = bucket_idx, e = ht->bucket_count; i < e; ++i)
-    {        
+    {
         switch ((BucketState)ht->buckets[i].state)
         {
             case BucketState::Empty:
@@ -528,7 +509,7 @@ bool ht_remove(OAHASH_TYPE *ht, TKey key)
         }
     }
 
-    return false;    
+    return false;
 }
 
 

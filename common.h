@@ -1,5 +1,7 @@
 #ifndef COMMON_H
 
+#define HEADERFN inline
+
 #include <cstdlib>
 #include <cstdio>
 
@@ -29,11 +31,11 @@ using std::size_t;
 #define MALLOC(type) ((type *)std::malloc(sizeof (type)))
 #define MALLOC_ARRAY(type, count) ((type *)std::malloc(count * sizeof (type)))
 
-#define REALLOC(ptr, type) ((type *)std::realloc(ptr, sizeof (type)))
-#define REALLOC_ARRAY(ptr, type, count) ((type *)std::realloc(ptr, count * sizeof (type)))
+#define REALLOC(ptr, type) ((type *)std::realloc((ptr), sizeof (type)))
+#define REALLOC_ARRAY(ptr, type, count) ((type *)std::realloc((ptr), (count) * sizeof (type)))
 
-#define ZERO_ARRAY(ptr, type, count) std::memset(ptr, 0, sizeof (type) * count)
-#define ZERO_PTR(ptr) std::memset(ptr, 0, sizeof(*ptr))
+#define ZERO_ARRAY(ptr, type, count) std::memset((ptr), 0, sizeof (type) * (count))
+#define ZERO_PTR(ptr) std::memset((ptr), 0, sizeof(*(ptr)))
 
 #define COMMON_H
 #endif

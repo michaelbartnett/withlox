@@ -1,3 +1,5 @@
+#ifndef TOKENIZER_H
+
 #include "str.h"
 #include <cstddef>
 
@@ -80,3 +82,6 @@ Token read_string(State *tokstate);
 Token read_token(State *tokstate);
 
 } // namespace tokenizer
+
+#define TOKENIZER_H
+#endif

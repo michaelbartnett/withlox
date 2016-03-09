@@ -4,6 +4,7 @@
 
 #include "numeric_types.h"
 #include "common.h"
+#include "MurmurHash3.h"
 
 #include <cstdlib>
 #include <cstdarg>
@@ -165,6 +166,24 @@ inline bool str_equal_ignore_case(const char *a, const StrSlice &b)
 }
 
 
+struct StrSliceHash
+{
+    u32 operator()(const StrSlice &slice)
+    {
+        const u32 seed = 541;
+        u32 result;
+        MurmurHash3_x86_32(slice.data, slice.length, seed, &result);
+        return result;
+    }
+};
+
+struct StrSliceEqual
+{
+    bool operator()(const StrSlice &lhs, const StrSlice &rhs)
+    {
+        return str_equal(lhs, rhs);
+    }
+};
 
 
 

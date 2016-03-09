@@ -57,6 +57,11 @@ NameRef nametable_find(NameTable *nt, StrSlice name)
     return result;
 }
 
+// NameRef nametable_find(NameTable *nt, const char *name)
+// {
+//     return nametable_find(nt, str_slice(name));
+// }
+
 
 NameRef nametable_find_or_add(NameTable *nt, StrSlice name)
 {

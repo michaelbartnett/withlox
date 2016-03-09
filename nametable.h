@@ -7,26 +7,6 @@
 
 struct NameTable
 {
-    struct StrSliceHash
-    {
-        u32 operator()(const StrSlice &slice)
-        {
-            const u32 seed = 541;
-            u32 result;
-            MurmurHash3_x86_32(slice.data, slice.length, seed, &result);
-            return result;
-        }
-    };
-
-    struct StrSliceEqual
-    {
-        bool operator()(const StrSlice &lhs, const StrSlice &rhs)
-        {
-            return str_equal(lhs, rhs);
-        }
-    };
-
-
     // This will own the memory for strings
     // And a hashtable mapping keys back to an offset from that memory
     // That offset is the symbol, the handle.
@@ -58,6 +38,8 @@ StrSlice str_slice(const NameRef &nameref);
 void nametable_init(NameTable *nt, size_t storage_size);
 
 NameRef nametable_find(NameTable *nt, StrSlice name);
+
+NameRef nametable_find(NameTable *nt, const char *name);
 
 NameRef nametable_find_or_add(NameTable *nt, StrSlice name);
 
