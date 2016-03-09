@@ -1,3 +1,4 @@
+#include "pretty.h"
 #include "types.h"
 #include "hashtable.h"
 #include "nametable.h"
@@ -64,7 +65,9 @@
 #include "tokenizer.h"
 #include <algorithm>
 
-#define CLI_COMMAND_FN_SIG(name) void name(void *userdata, DynArray<Value> args)
+struct ProgramMemory;
+
+#define CLI_COMMAND_FN_SIG(name) void name(ProgramMemory *prgmem, void *userdata, DynArray<Value> args)
 typedef CLI_COMMAND_FN_SIG(CliCommandFn);
 
 
@@ -74,6 +77,8 @@ struct CliCommand
     void *userdata;
 };
 
+
+typedef OAHashtable<StrSlice, Value, StrSliceEqual, StrSliceHash> StrToValueMap;
 
 struct ProgramMemory
 {
@@ -87,11 +92,40 @@ struct ProgramMemory
     TypeDescriptorRef prim_bool;
     TypeDescriptorRef prim_none;
 
-    OAHashtable<NameRef, CliCommand> command_map;
+    OAHashtable<StrSlice, CliCommand, StrSliceEqual, StrSliceHash> command_map;
+    StrToValueMap value_map;
+
+    u8 *perm_store;
+    size_t perm_store_size;
+    size_t perm_store_allocated;
 };
 
 
+void *alloc_perm(ProgramMemory *prgmem, size_t size)
+{
+    assert(size);
+    assert(prgmem->perm_store_allocated < prgmem->perm_store_allocated + size);
+    assert(prgmem->perm_store_size > prgmem->perm_store_allocated + size);
+
+    void *result = prgmem->perm_store + prgmem->perm_store_allocated;
+    prgmem->perm_store_allocated += size;
+    return result;
+}
+
 TypeDescriptorRef add_typedescriptor(ProgramMemory *prgmem, TypeDescriptor **ptr);
+
+
+void bind_typeref(ProgramMemory *prgmem, NameRef name, TypeDescriptorRef typeref)
+{
+    ht_set(&prgmem->typedesc_bindings, name, typeref);
+}
+
+
+void bind_typeref(ProgramMemory *prgmem, const char *name, TypeDescriptorRef typeref)
+{
+    NameRef nameref = nametable_find_or_add(&prgmem->names, str_slice(name));
+    bind_typeref(prgmem, nameref, typeref);
+}
 
 
 void prgmem_init(ProgramMemory *prgmem)
@@ -104,24 +138,35 @@ void prgmem_init(ProgramMemory *prgmem)
     TypeDescriptor *none_type;
     prgmem->prim_none = add_typedescriptor(prgmem, &none_type);
     none_type->type_id = TypeID::None;
+    bind_typeref(prgmem, TypeID::to_string(none_type->type_id),
+                 prgmem->prim_none);
 
     TypeDescriptor *string_type;
     prgmem->prim_string = add_typedescriptor(prgmem, &string_type);
     string_type->type_id = TypeID::String;
+    bind_typeref(prgmem, TypeID::to_string(string_type->type_id),
+                 prgmem->prim_string);
 
     TypeDescriptor *int_type;
     prgmem->prim_int = add_typedescriptor(prgmem, &int_type);
     int_type->type_id = TypeID::Int;
-    
+    bind_typeref(prgmem, TypeID::to_string(int_type->type_id),
+                 prgmem->prim_int);
+
     TypeDescriptor *float_type;
     prgmem->prim_float = add_typedescriptor(prgmem, &float_type);
     float_type->type_id = TypeID::Float;
-    
+    bind_typeref(prgmem, TypeID::to_string(float_type->type_id),
+                 prgmem->prim_float);
+
     TypeDescriptor *bool_type;
     prgmem->prim_bool = add_typedescriptor(prgmem, &bool_type);
     bool_type->type_id = TypeID::Bool;
+    bind_typeref(prgmem, TypeID::to_string(bool_type->type_id),
+                 prgmem->prim_bool);
 
     ht_init(&prgmem->command_map);
+    ht_init(&prgmem->value_map);
 }
 
 
@@ -129,12 +174,6 @@ TypeDescriptorRef make_typeref(ProgramMemory *prgmem, u32 index)
 {
     TypeDescriptorRef result = {index, &prgmem->type_descriptors};
     return result;
-}
-
-
-TypeDescriptor *get_typedesc(TypeDescriptorRef ref)
-{
-    return ref.index && ref.owner ? get(ref.owner, ref.index) : 0;
 }
 
 
@@ -164,49 +203,6 @@ TypeDescriptorRef add_typedescriptor(ProgramMemory *prgmem, TypeDescriptor **ptr
 {
     TypeDescriptor td = {};
     return add_typedescriptor(prgmem, td, ptr);
-}
-
-
-bool equal(const TypeDescriptor *a, const TypeDescriptor *b);
-
-
-bool equal(const TypeMember *a, const TypeMember *b)
-{
-    return nameref_identical(a->name, b->name)
-        && typedesc_ref_identical(a->typedesc_ref, b->typedesc_ref);
-}
-
-
-bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
-{
-    assert(a);
-    assert(b);
-    switch ((TypeID::Tag)a->type_id)
-    {
-        case TypeID::None:
-        case TypeID::String:
-        case TypeID::Int:
-        case TypeID::Float:
-        case TypeID::Bool:
-            return a->type_id == b->type_id;
-
-        case TypeID::Compound:
-            size_t a_mem_count = a->members.count;
-            if (a_mem_count != b->members.count)
-            {
-                return false;
-            }
-
-            for (u32 i = 0; i < a_mem_count; ++i)
-            {
-                if (! equal(get(a->members, i),
-                            get(b->members, i)))
-                {
-                    return false;
-                }
-            }
-            return true;
-    }
 }
 
 
@@ -244,12 +240,6 @@ TypeDescriptorRef find_equiv_typedescriptor(ProgramMemory *prgmem, TypeDescripto
 }
 
 
-void bind_typeref(ProgramMemory *prgmem, NameRef name, TypeDescriptorRef typeref)
-{
-    ht_set(&prgmem->typedesc_bindings, name, typeref);
-}
-
-
 TypeDescriptorRef find_typeref_by_name(ProgramMemory *prgmem, NameRef name)
 {
     TypeDescriptorRef result = {};
@@ -260,6 +250,23 @@ TypeDescriptorRef find_typeref_by_name(ProgramMemory *prgmem, NameRef name)
     }
     return result;
 }
+
+TypeDescriptorRef find_typeref_by_name(ProgramMemory *prgmem, StrSlice name)
+{
+    TypeDescriptorRef result = {};
+    NameRef nameref = nametable_find(&prgmem->names, name);
+    if (nameref.offset)
+    {
+        result = find_typeref_by_name(prgmem, nameref);
+    }
+    return result;
+}
+
+TypeDescriptorRef find_typeref_by_name(ProgramMemory *prgmem, Str name)
+{
+    return find_typeref_by_name(prgmem, str_slice(name));
+}
+
 
 TypeDescriptor *find_typedesc_by_name(ProgramMemory *prgmem, NameRef name)
 {
@@ -332,6 +339,7 @@ TypeDescriptorRef type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv)
 
     return result;
 }
+
 
 TypeDescriptor *clone(const TypeDescriptor *type_desc);
 
@@ -441,95 +449,6 @@ TypeDescriptorRef merge_compound_types(ProgramMemory *prgmem,
 }
 
 
-void pretty_print(TypeDescriptor *type_desc, int indent = 0);
-
-void pretty_print(TypeDescriptorRef typedesc_ref, int indent = 0)
-{
-    TypeDescriptor *td = get_typedesc(typedesc_ref);
-    pretty_print(td, indent);
-}
-
-
-void pretty_print(TypeDescriptor *type_desc, int indent)
-{
-    TypeID::Tag type_id = (TypeID::Tag)type_desc->type_id;
-    switch (type_id)
-    {
-        case TypeID::None:
-        case TypeID::String:
-        case TypeID::Int:
-        case TypeID::Float:
-        case TypeID::Bool:
-            printf_ln("%s", to_string(type_id));
-            break;
-
-        case TypeID::Compound:
-            println("{");
-            indent += 2;
-
-            for (u32 i = 0; i < type_desc->members.count; ++i)
-            {
-                TypeMember *member = get(type_desc->members, i);
-                printf_indent(indent, "%s: ", str_slice(member->name).data);
-                pretty_print(member->typedesc_ref, indent);
-            }
-
-            indent -= 2;
-            println_indent(indent, "}");
-            break;
-    }
-}
-
-
-void pretty_print(Value *value)
-{
-    TypeDescriptor *type_desc = get_typedesc(value->typedesc_ref);
-
-    switch ((TypeID::Tag)type_desc->type_id)
-    {
-        case TypeID::None:
-            println("NONE");
-            break;
-
-        case TypeID::String:
-            printf_ln("%s", value->str_val.data);
-            break;
-
-        case TypeID::Int:
-            printf_ln("%i", value->s32_val);
-            break;
-
-        case TypeID::Float:
-            printf_ln("%f", value->f32_val);
-            break;
-
-        case TypeID::Bool:
-            printf_ln("%s", (value->bool_val ? "True" : "False"));
-            break;
-
-        case TypeID::Compound:
-            println("Printing compounds not supported yet");
-    }
-}
-
-
-void pretty_print(tokenizer::Token token)
-{
-    char token_output[256];
-    size_t len = std::min((size_t)token.text.length, sizeof(token_output) - 1);
-    if (len == 0)
-    {
-        token_output[0] = 0;
-    }
-    else
-    {
-        std::strncpy(token_output, token.text.data, len);
-        token_output[len] = 0;
-    }
-
-    printf_ln("Token(%s, \"%s\")", tokenizer::to_string(token.type), token_output);
-}
-
 
 Value create_value_from_token(ProgramMemory *prgmem, tokenizer::Token token)
 {
@@ -579,22 +498,18 @@ Value create_value_from_token(ProgramMemory *prgmem, tokenizer::Token token)
 }
 
 
-void register_command(ProgramMemory *prgmem, NameRef name, CliCommandFn *fnptr, void *userdata)
-{
-    assert(fnptr);
-    CliCommand cmd = {fnptr, userdata};
-    if (ht_set(&prgmem->command_map, name, cmd))
-    {
-        printf_ln("Warning, overriding command: %s", str_slice(name).data);
-    }
-}
-
 void register_command(ProgramMemory *prgmem, StrSlice name, CliCommandFn *fnptr, void *userdata)
 {
     assert(fnptr);
-    NameRef nameref = nametable_find_or_add(&prgmem->names, name);
-    register_command(prgmem, nameref, fnptr, userdata);
+    CliCommand cmd = {fnptr, userdata};
+    Str allocated_name = str(name);
+    if (ht_set(&prgmem->command_map, str_slice(allocated_name), cmd))
+    {
+        printf_ln("Warning, overriding command: %s", allocated_name.data);
+        str_free(&allocated_name);
+    }
 }
+
 
 void register_command(ProgramMemory *prgmem, const char *name, CliCommandFn *fnptr, void *userdata)
 {
@@ -604,38 +519,23 @@ void register_command(ProgramMemory *prgmem, const char *name, CliCommandFn *fnp
 #define REGISTER_COMMAND(prgmem, fn_ident, userdata) register_command((prgmem), # fn_ident, &fn_ident, userdata)
 
 
-void exec_command(ProgramMemory *prgmem, NameRef name, DynArray<Value> args)
+void exec_command(ProgramMemory *prgmem, StrSlice name, DynArray<Value> args)
 {
     CliCommand *cmd = ht_find(&prgmem->command_map, name);
 
     if (!cmd)
     {
-        printf_ln("Command '%s' not found", str_slice(name).data);
+        printf_ln("Command '%s' not found", name.data);
         return;
     }
 
-    cmd->fn(cmd->userdata, args);
-}
-
-
-void exec_command(ProgramMemory *prgmem, StrSlice name, DynArray<Value> args)
-{
-    NameRef nameref = nametable_find(&prgmem->names, name);
-    if (!nameref.offset)
-    {
-        Str namecopy = str(name);
-        printf_ln("Command '%s' not found", namecopy.data);
-        str_free(&namecopy);
-    }
-    else
-    {
-        exec_command(prgmem, nameref, args);
-    }
+    cmd->fn(prgmem, cmd->userdata, args);
 }
 
 
 CLI_COMMAND_FN_SIG(say_hello)
 {
+    UNUSED(prgmem);
     UNUSED(userdata);
     UNUSED(args);
 
@@ -645,13 +545,106 @@ CLI_COMMAND_FN_SIG(say_hello)
 
 CLI_COMMAND_FN_SIG(list_args)
 {
+    UNUSED(prgmem);
     UNUSED(userdata);
+
     println("list_args:");
     for (u32 i = 0; i < args.count; ++i)
     {
         Value *val = get(&args, i);
         pretty_print(val->typedesc_ref);
         pretty_print(val);
+    }
+}
+
+
+CLI_COMMAND_FN_SIG(find_type)
+{
+    UNUSED(userdata);
+
+    Value *arg = get(args, 0);
+
+    if (! typedesc_ref_identical(arg->typedesc_ref, prgmem->prim_string))
+    {
+        TypeDescriptor *argtype = get_typedesc(arg->typedesc_ref);
+        printf_ln("Argument must be a string, got a %s intead",
+                  TypeID::to_string(argtype->type_id));
+        return;
+    }
+
+    TypeDescriptorRef typeref = find_typeref_by_name(prgmem, arg->str_val);
+    if (typeref.index)
+    {
+        pretty_print(typeref);
+    }
+    else
+    {
+        printf_ln("Type not found: %s", arg->str_val.data);
+    }
+}
+
+
+CLI_COMMAND_FN_SIG(set_value)
+{
+    UNUSED(userdata);
+
+    if (args.count < 2)
+    {
+        printf_ln("Error: expected 2 arguments, got %i instead", args.count);
+        return;
+    }
+
+    Value *name_arg = get(args, 0);
+
+    TypeDescriptor *type_desc = get_typedesc(name_arg->typedesc_ref);
+    if (type_desc->type_id != TypeID::String)
+    {
+        printf_ln("Error: first argument must be a string, got a %s instead",
+                  TypeID::to_string(type_desc->type_id));
+        return;
+    }
+
+    // This is maybe a bit too manual, but I want everything to be POD, no destructors
+    StrToValueMap::Entry *entry;
+    bool was_occupied = ht_find_or_add_entry(&entry, &prgmem->value_map, str_slice(name_arg->str_val));
+    if (!was_occupied)
+    {
+        // allocate dedicated space
+        Str allocated = str(entry->key);
+        entry->key = str_slice(allocated);
+    }
+
+    entry->value = clone(get(args, 1));
+}
+
+
+CLI_COMMAND_FN_SIG(get_value)
+{
+    UNUSED(userdata);
+
+    if (args.count < 1)
+    {
+        println("Error: expected 1 argument");
+        return;
+    }
+
+    Value *name_arg = get(args, 0);
+    TypeDescriptor *type_desc = get_typedesc(name_arg->typedesc_ref);
+    if (type_desc->type_id != TypeID::String)
+    {
+        printf_ln("Error: first argument must be a string, got a %s instead",
+                  TypeID::to_string(type_desc->type_id));
+        return;
+    }
+
+    Value *value = ht_find(&prgmem->value_map, str_slice(name_arg->str_val));
+    if (value)
+    {
+        pretty_print(value);
+    }
+    else
+    {
+        printf_ln("No value bound to name: '%s'", name_arg->str_val.data);
     }
 }
 
@@ -697,13 +690,11 @@ int main(int argc, char **argv)
             return 1;
         }
 
-        // TypeDescriptor *type_desc = type_desc_from_json(&prgmem, jv);
         TypeDescriptorRef typedesc_ref = type_desc_from_json(&prgmem, jv);
         NameRef bound_name = nametable_find_or_add(&prgmem.names, filename);
         bind_typeref(&prgmem, bound_name, typedesc_ref);
 
         println("New type desciptor:");
-        // pretty_print(type_desc);
         pretty_print(typedesc_ref);
 
         if (!result_ref.index)
@@ -724,6 +715,9 @@ int main(int argc, char **argv)
 
     REGISTER_COMMAND(&prgmem, say_hello, NULL);
     REGISTER_COMMAND(&prgmem, list_args, NULL);
+    REGISTER_COMMAND(&prgmem, find_type, NULL);
+    REGISTER_COMMAND(&prgmem, set_value, NULL);
+    REGISTER_COMMAND(&prgmem, get_value, NULL);
 
     for (;;)
     {

@@ -1,5 +1,38 @@
 [//]: # -*- fill-column: 80  -*-
 
+## Freeing Memory of Hashtable Keys
+
+Something kinda clicked in my brain today. I always found the iterator-heavy C++
+container APIs to be annoying to use, but today I discovered a reason for them
+to be the way they are.
+
+I don't have a strong memory management strategy yet, but I'm at least not
+introducing any (or at least few) memoy leaks. I was about to add one when
+registering commands by mapping StrSlice to Command structure. I didn't yet feel
+comfortable making Str a key of a hashtable, so to store values I use a
+OAHashtable<StrSlice, Value>, where the convention is that those StrSlice values
+own their memory.
+
+This totally breaks my convention, but I want to be able to use StrSlice to do a
+lookup into this table, so I wanted to make the types match, it's just easier
+that way.
+
+(I've been on purposing not using any C++ features besides templates and namespaces,
+and whie this tempted me to think about using destructors, I don't think it's necessary.)
+
+Anyway, that was a tangent!
+
+The reason why I think it's good for my hashtable to support the ability to
+return an iterator / entry object is so that I can replace the key after adding
+or finding. Sounds horrible, right? Well, it could be if you were trying to
+program super-defensively, and I might try to get rid of thisin the future, but
+basically I need to be able to allocate dedicated memory for the key without
+having to go specialize that template for particular type or add a type parameter
+or something for an allocator function.
+
+This might bite me, or it might be totally fine. I don't have the experience to
+tell.
+
 ## What now?
 
 I now am able to parse a JSON file, infer some types, build a structure, and
