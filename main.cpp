@@ -8,6 +8,11 @@
 #include "platform.h"
 #include "json.h"
 #include "linenoise.h"
+#include "dearimgui/imgui.h"
+#include "dearimgui/imgui_impl_sdl.h"
+#include <SDL2/SDL.h>
+#include <OpenGL/OpenGL.h>
+#include <OpenGL/gl.h>
 
 // Debugging
 // http://stackoverflow.com/questions/312312/what-are-some-reasons-a-release-build-would-run-differently-than-a-debug-build
@@ -273,7 +278,7 @@ TypeDescriptor *find_typedesc_by_name(ProgramMemory *prgmem, NameRef name)
     return get_typedesc(find_typeref_by_name(prgmem, name));
 }
 
-// TypeDescriptor *type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv)
+
 TypeDescriptorRef type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv)
 {
     TypeDescriptorRef result;
@@ -343,6 +348,7 @@ TypeDescriptorRef type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv)
 
 TypeDescriptor *clone(const TypeDescriptor *type_desc);
 
+
 DynArray<TypeMember> clone(const DynArray<TypeMember> &memberset)
 {
     DynArray<TypeMember> result = dynarray_init<TypeMember>(memberset.count);
@@ -406,12 +412,14 @@ TypeMember *find_member(const TypeDescriptor &type_desc, NameRef name)
     return 0;
 }
 
+
 void add_member(TypeDescriptor *type_desc, const TypeMember &member)
 {
     TypeMember *new_member = append(&type_desc->members);
     new_member->name = member.name;
     new_member->typedesc_ref = member.typedesc_ref;
 }
+
 
 // NOTE(mike): Merging *any* type descriptor only makes sense if we have sum types
 // That would be cool, but might be a bit much. We'll see.
@@ -447,7 +455,6 @@ TypeDescriptorRef merge_compound_types(ProgramMemory *prgmem,
     }
     return result_ref;
 }
-
 
 
 Value create_value_from_token(ProgramMemory *prgmem, tokenizer::Token token)
@@ -649,21 +656,47 @@ CLI_COMMAND_FN_SIG(get_value)
 }
 
 
-int main(int argc, char **argv)
+CLI_COMMAND_FN_SIG(get_value_type)
 {
-    // void run_tests();
-    // run_tests();
-    // return 0;
+    UNUSED(userdata);
 
-    ProgramMemory prgmem;
-    prgmem_init(&prgmem);
-
-    if (argc < 2)
+    if (args.count < 1)
     {
-        printf("No file specified\n");
-		end_of_program();
-        return 0;
+        println("Error: expected 1 argument");
+        return;
     }
+
+    Value *name_arg = get(args, 0);
+    TypeDescriptor *type_desc = get_typedesc(name_arg->typedesc_ref);
+    if (type_desc->type_id != TypeID::String)
+    {
+        printf_ln("Error: first argument must be a string, got a %s instead",
+                  TypeID::to_string(type_desc->type_id));
+        return;
+    }
+
+    Value *value = ht_find(&prgmem->value_map, str_slice(name_arg->str_val));
+    if (value)
+    {
+        pretty_print(value->typedesc_ref);
+    }
+    else
+    {
+        printf_ln("No value bound to name: '%s'", name_arg->str_val.data);
+    }
+
+    
+}
+
+
+void test_json_import(ProgramMemory *prgmem, int filename_count, char **filenames)
+{
+    if (filename_count < 1)
+    {
+        printf("No files specified\n");
+        return;
+    }
+
 
     size_t jsonflags = json_parse_flags_default
         | json_parse_flags_allow_trailing_comma
@@ -672,8 +705,8 @@ int main(int argc, char **argv)
 
     TypeDescriptorRef result_ref = {};
 
-    for (int i = 1; i < argc; ++i) {
-        const char *filename = argv[i];
+    for (int i = 0; i < filename_count; ++i) {
+        const char *filename = filenames[i];
         Str jsonstr = read_file(filename);
         assert(jsonstr.data);   
 
@@ -687,12 +720,12 @@ int main(int argc, char **argv)
                    json_error_code_string(jp_result.error),
                    jp_result.error_line_no,
                    jp_result.error_row_no);
-            return 1;
+            return;
         }
 
-        TypeDescriptorRef typedesc_ref = type_desc_from_json(&prgmem, jv);
-        NameRef bound_name = nametable_find_or_add(&prgmem.names, filename);
-        bind_typeref(&prgmem, bound_name, typedesc_ref);
+        TypeDescriptorRef typedesc_ref = type_desc_from_json(prgmem, jv);
+        NameRef bound_name = nametable_find_or_add(&prgmem->names, filename);
+        bind_typeref(prgmem, bound_name, typedesc_ref);
 
         println("New type desciptor:");
         pretty_print(typedesc_ref);
@@ -705,19 +738,23 @@ int main(int argc, char **argv)
         {
             TypeDescriptor *result_ptr = get_typedesc(result_ref);
             TypeDescriptor *type_desc = get_typedesc(typedesc_ref);
-            result_ref = merge_compound_types(&prgmem, result_ptr, type_desc, 0);
+            result_ref = merge_compound_types(prgmem, result_ptr, type_desc, 0);
         }
     }
 
     println("completed without errors");
 
-    pretty_print(result_ref);
+    pretty_print(result_ref);    
+}
 
-    REGISTER_COMMAND(&prgmem, say_hello, NULL);
-    REGISTER_COMMAND(&prgmem, list_args, NULL);
-    REGISTER_COMMAND(&prgmem, find_type, NULL);
-    REGISTER_COMMAND(&prgmem, set_value, NULL);
-    REGISTER_COMMAND(&prgmem, get_value, NULL);
+void run_terminal_cli(ProgramMemory *prgmem)
+{
+    REGISTER_COMMAND(prgmem, say_hello, NULL);
+    REGISTER_COMMAND(prgmem, list_args, NULL);
+    REGISTER_COMMAND(prgmem, find_type, NULL);
+    REGISTER_COMMAND(prgmem, set_value, NULL);
+    REGISTER_COMMAND(prgmem, get_value, NULL);
+    REGISTER_COMMAND(prgmem, get_value_type, NULL);
 
     for (;;)
     {
@@ -750,17 +787,104 @@ int main(int argc, char **argv)
                 break;
             }
 
-            Value value = create_value_from_token(&prgmem, token);
+            Value value = create_value_from_token(prgmem, token);
             // pretty_print(value.typedesc_ref);
 
             append(&cmd_args, value);
         }
 
-        exec_command(&prgmem, first_token.text, cmd_args);
+        exec_command(prgmem, first_token.text, cmd_args);
 
         dynarray_deinit(&cmd_args);
         std::free(input);
     }
+}
+
+
+
+
+
+int main(int argc, char **argv)
+{
+    // void run_tests();
+    // run_tests();
+    // return 0;
+
+    ProgramMemory prgmem;
+    prgmem_init(&prgmem);
+
+    test_json_import(&prgmem, argc - 1, argv + 1);
+    // run_terminal_cli(&prgmem);
+
+    if (0 != SDL_Init(SDL_INIT_VIDEO))
+    {
+        printf_ln("Failed to initialize SDL: %s", SDL_GetError());
+        end_of_program();
+        return 1;
+    }
+
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+    SDL_DisplayMode display_mode;
+    SDL_GetCurrentDisplayMode(0, &display_mode);
+    SDL_Window *window = SDL_CreateWindow("jsoneditor",
+                                          SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                                          display_mode.w * 0.75, display_mode.h * 0.75,
+                                          SDL_WINDOW_OPENGL|SDL_WINDOW_RESIZABLE);
+    
+    u32 window_id = SDL_GetWindowID(window);
+    SDL_GLContext gl_context = SDL_GL_CreateContext(window);
+
+    ImVec4 clear_color = ImColor(114, 144, 154);
+    ImGui_ImplSdl_Init(window);
+
+    bool running = true;
+    while (running)
+    {
+        SDL_Event event;
+        while (SDL_PollEvent(&event))
+        {
+            if (!ImGui_ImplSdl_ProcessEvent(&event))
+            {
+                // event not handled by imgui
+                switch (event.type)
+                {
+                    case SDL_QUIT:
+                        running = false;
+                        break;
+
+                    case SDL_WINDOWEVENT:
+                        if (event.window.windowID == window_id &&
+                            event.window.event == SDL_WINDOWEVENT_CLOSE)
+                        {
+                            SDL_Quit();
+                        }
+                        break;
+                }
+            }
+        }
+
+        ImGui_ImplSdl_NewFrame(window);
+
+        ImGui::ShowTestWindow();
+
+        glViewport(0, 0,
+                   (int)ImGui::GetIO().DisplaySize.x, (int)ImGui::GetIO().DisplaySize.y);
+
+        glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+        glClear(GL_COLOR_BUFFER_BIT);
+        ImGui::Render();
+        SDL_GL_SwapWindow(window);
+    }
+
+    ImGui_ImplSdl_Shutdown();
+    SDL_GL_DeleteContext(gl_context);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
 
 	end_of_program();
+    return 0;
 }

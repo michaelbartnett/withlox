@@ -2,6 +2,8 @@
 
 #include "str.h"
 #include "numeric_types.h"
+#include "common.h"
+
 
 void end_of_program();
 
@@ -48,3 +50,4 @@ inline double seconds_since(u64 earlier)
 {
     return seconds_since(query_abstime(), earlier);
 }
+
