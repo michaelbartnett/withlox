@@ -10,7 +10,7 @@
 #include "linenoise.h"
 #include "dearimgui/imgui.h"
 #include "dearimgui/imgui_impl_sdl.h"
-#include <SDL2/SDL.h>
+#include <SDL.h>
 #include <OpenGL/OpenGL.h>
 #include <OpenGL/gl.h>
 
@@ -182,13 +182,6 @@ TypeDescriptorRef make_typeref(ProgramMemory *prgmem, u32 index)
 }
 
 
-void typedescriptor_init(TypeDescriptor *type_desc, TypeID::Tag type_id)
-{
-    type_desc->type_id = type_id;
-    dynarray_init(&type_desc->members, 0);
-}
-
-
 TypeDescriptorRef add_typedescriptor(ProgramMemory *prgmem, TypeDescriptor type_desc, TypeDescriptor **ptr)
 {
     TypeDescriptor *td = append(&prgmem->type_descriptors, type_desc);
@@ -279,6 +272,47 @@ TypeDescriptor *find_typedesc_by_name(ProgramMemory *prgmem, NameRef name)
 }
 
 
+TypeDescriptorRef type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv);
+
+
+TypeDescriptorRef type_desc_from_json_object(ProgramMemory *prgmem, json_value_s *jv)
+{
+    TypeDescriptorRef result;
+
+    json_object_s *jso = (json_object_s *)jv->payload;
+    assert(jso->length < UINT32_MAX);
+
+    DynArray<TypeMember> members;
+    dynarray_init(&members, (u32)jso->length);
+
+    for (json_object_element_s *elem = jso->start;
+         elem;
+         elem = elem->next)
+    {
+        TypeMember *member = append(&members);
+        member->name = nametable_find_or_add(&prgmem->names,
+                                             elem->name->string, elem->name->string_size);
+        member->typedesc_ref = type_desc_from_json(prgmem, elem->value);
+    }
+
+    TypeDescriptor constructed_typedesc;
+    constructed_typedesc.type_id = TypeID::Compound;
+    constructed_typedesc.members = members;
+
+    TypeDescriptorRef preexisting = find_equiv_typedescriptor(prgmem, &constructed_typedesc);
+    if (preexisting.index)
+    {
+        result = preexisting;
+    }
+    else
+    {
+        result = add_typedescriptor(prgmem, constructed_typedesc, 0);
+    }
+
+    return result;
+}
+
+
 TypeDescriptorRef type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv)
 {
     TypeDescriptorRef result;
@@ -291,42 +325,16 @@ TypeDescriptorRef type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv)
             break;
 
         case json_type_number:
-            result = prgmem->prim_float;
-            break;
-
-        case json_type_object:
         {
-            json_object_s *jso = (json_object_s *)jv->payload;
-            assert(jso->length < UINT32_MAX);
-
-            DynArray<TypeMember> members;
-            dynarray_init(&members, (u32)jso->length);
-
-            for (json_object_element_s *elem = jso->start;
-                 elem;
-                 elem = elem->next)
-            {
-                TypeMember *member = append(&members);
-                member->name = nametable_find_or_add(&prgmem->names,
-                                                     elem->name->string, elem->name->string_size);
-                member->typedesc_ref = type_desc_from_json(prgmem, elem->value);
-            }
-
-            TypeDescriptor constructed_typedesc;
-            typedescriptor_init(&constructed_typedesc, TypeID::Compound);
-            constructed_typedesc.members = members;
-
-            TypeDescriptorRef preexisting = find_equiv_typedescriptor(prgmem, &constructed_typedesc);
-            if (preexisting.index)
-            {
-                result = preexisting;
-            }
-            else
-            {
-                result = add_typedescriptor(prgmem, constructed_typedesc, 0);
-            }
+            json_number_s *jnum = (json_number_s *)jv->payload;
+            tokenizer::Token number_token = tokenizer::read_number(jnum->number, jnum->number_size);
+            result = number_token.type == tokenizer::TokenType::Int ? prgmem->prim_int : prgmem->prim_float;
             break;
         }
+
+        case json_type_object:
+            result = type_desc_from_json_object(prgmem, jv);
+            break;
 
         case json_type_array:
             assert(0);
@@ -459,6 +467,7 @@ TypeDescriptorRef merge_compound_types(ProgramMemory *prgmem,
 
 Value create_value_from_token(ProgramMemory *prgmem, tokenizer::Token token)
 {
+    // good test: {"tulsi": "gabbard", "julienne": { "fries": 42.2, "asponge": {}, "hillarymoney": 9001}}
     Str token_copy = str(token.text);
     Value result = {};
 
@@ -501,6 +510,108 @@ Value create_value_from_token(ProgramMemory *prgmem, tokenizer::Token token)
     {
         str_free(&token_copy);
     }
+    return result;
+}
+
+
+Value create_value_from_json(ProgramMemory *prgmem, json_value_s *jv);
+
+
+Value create_object_with_type_from_json(ProgramMemory *prgmem, json_object_s *jobj, TypeDescriptorRef typeref)
+{
+    Value result;
+
+    result.typedesc_ref = typeref;
+    TypeDescriptor *type_desc = get_typedesc(typeref);
+    dynarray_init(&result.members, type_desc->members.count);
+
+    u32 member_idx = 0;
+    for (json_object_element_s *elem = jobj->start;
+         elem;
+         elem = elem->next)
+    {
+        TypeMember *type_member = get(&type_desc->members, member_idx);
+        ValueMember *value_member = append(&result.members);
+        value_member->name = type_member->name;
+
+        TypeDescriptor *type_member_desc = get_typedesc(type_member->typedesc_ref);
+
+        switch ((TypeID::Tag)type_member_desc->type_id)
+        {
+            case TypeID::None:
+            case TypeID::String:
+            case TypeID::Int:
+            case TypeID::Float:
+            case TypeID::Bool:
+                value_member->value = create_value_from_json(prgmem, elem->value);
+                break;
+
+            case TypeID::Compound:
+                assert(elem->value->type == json_type_object);
+                value_member->value = create_object_with_type_from_json(prgmem, (json_object_s *)elem->value->payload, type_member->typedesc_ref);
+                break;
+        }
+
+        ++member_idx;
+    }
+
+    return result;
+}
+
+
+Value create_value_from_json(ProgramMemory *prgmem, json_value_s *jv)
+{
+    Value result;
+
+    switch ((json_type_e)jv->type)
+    {
+        case json_type_string:
+        {
+            json_string_s *jstr = (json_string_s *)jv->payload;
+            result.typedesc_ref = prgmem->prim_string;
+            assert(jstr->string_size < STR_LENGTH_MAX);
+            StrLen length = (StrLen)jstr->string_size;
+            result.str_val = str(jstr->string, length);
+            break;
+        }
+
+        case json_type_number:
+        {
+            json_number_s *jnum = (json_number_s *)jv->payload;
+            tokenizer::Token number_token = tokenizer::read_number(jnum->number, jnum->number_size);
+
+            result = create_value_from_token(prgmem, number_token);
+            break;
+        }
+
+        case json_type_object:
+        {
+            // result.typedesc_ref = prgmem->
+            TypeDescriptorRef typeref = type_desc_from_json_object(prgmem, jv);
+            json_object_s *jobj = (json_object_s *)jv->payload;
+            result = create_object_with_type_from_json(prgmem, jobj, typeref);
+            break;
+        }
+
+        case json_type_array:
+            result.typedesc_ref = prgmem->prim_none;
+            break;
+
+        case json_type_true:
+            result.typedesc_ref = prgmem->prim_bool;
+            result.bool_val = true;
+            break;
+
+        case json_type_false:
+            result.typedesc_ref = prgmem->prim_bool;
+            result.bool_val = false;
+            break;
+
+        case json_type_null:
+            
+            break;
+    }
+
     return result;
 }
 
@@ -801,7 +912,89 @@ void run_terminal_cli(ProgramMemory *prgmem)
 }
 
 
+void run_json_terminal_cli(ProgramMemory *prgmem)
+{
+    REGISTER_COMMAND(prgmem, say_hello, NULL);
+    REGISTER_COMMAND(prgmem, list_args, NULL);
+    REGISTER_COMMAND(prgmem, find_type, NULL);
+    REGISTER_COMMAND(prgmem, set_value, NULL);
+    REGISTER_COMMAND(prgmem, get_value, NULL);
+    REGISTER_COMMAND(prgmem, get_value_type, NULL);
 
+    for (;;)
+    {
+        char *input = linenoise(">> ");
+
+        if (!input)
+        {
+            break;
+        }
+
+        
+
+        tokenizer::State tokstate;
+        tokenizer::init(&tokstate, input);
+
+        tokenizer::Token first_token = tokenizer::read_string(&tokstate);
+
+        if (first_token.type == tokenizer::TokenType::Eof)
+        {
+            std::free(input);
+            continue;
+        }
+
+        DynArray<Value> cmd_args;
+        dynarray_init(&cmd_args, 10);
+
+        // for (;;)
+        // {
+        //     tokenizer::Token token = tokenizer::read_token(&tokstate);
+        //     if (token.type == tokenizer::TokenType::Eof)
+        //     {
+        //         break;
+        //     }
+
+        //     Value value = create_value_from_token(prgmem, token);
+        //     // pretty_print(value.typedesc_ref);
+
+        //     append(&cmd_args, value);
+        // }
+
+        size_t jsonflags = json_parse_flags_default
+            | json_parse_flags_allow_trailing_comma
+            | json_parse_flags_allow_c_style_comments
+            ;
+
+        json_parse_result_s jp_result = {};
+        json_value_s *jv = json_parse_ex(tokstate.current, (size_t)(tokstate.end - tokstate.current),
+                                         jsonflags, &jp_result);
+
+        if (!jv)
+        {
+            printf_ln("Json parse error: %s\nAt %lu:%lu",
+                   json_error_code_string(jp_result.error),
+                   jp_result.error_line_no,
+                   jp_result.error_row_no);
+            continue;
+        }
+
+        Str first_text = str(first_token.text);
+        printf_ln("First token: %s", first_text.data);
+        str_free(&first_text);
+
+        Value parsed_value = create_value_from_json(prgmem, jv);
+
+        print("Parsed value: ");
+        pretty_print(&parsed_value);
+        print("Parsed value's type: ");
+        pretty_print(parsed_value.typedesc_ref);
+
+        // exec_command(prgmem, first_token.text, cmd_args);
+
+        dynarray_deinit(&cmd_args);
+        std::free(input);
+    }
+}
 
 
 int main(int argc, char **argv)
@@ -815,6 +1008,8 @@ int main(int argc, char **argv)
 
     test_json_import(&prgmem, argc - 1, argv + 1);
     // run_terminal_cli(&prgmem);
+    run_json_terminal_cli(&prgmem);
+    return 0;
 
     if (0 != SDL_Init(SDL_INIT_VIDEO))
     {
@@ -832,7 +1027,7 @@ int main(int argc, char **argv)
     SDL_GetCurrentDisplayMode(0, &display_mode);
     SDL_Window *window = SDL_CreateWindow("jsoneditor",
                                           SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                          display_mode.w * 0.75, display_mode.h * 0.75,
+                                          (int)(display_mode.w * 0.75), (int)(display_mode.h * 0.75),
                                           SDL_WINDOW_OPENGL|SDL_WINDOW_RESIZABLE);
     
     u32 window_id = SDL_GetWindowID(window);

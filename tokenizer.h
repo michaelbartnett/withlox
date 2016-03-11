@@ -1,3 +1,5 @@
+// -*- c++ -*-
+
 #ifndef TOKENIZER_H
 
 #include "str.h"
@@ -14,6 +16,7 @@ struct State
 
 
 void init(State *state, const char *input);
+void init(State *state, const char *input, size_t length);
 
 
 inline StrLen chars_remaining(State *tokstate)
@@ -78,8 +81,24 @@ inline bool is_numeric(char c)
 }
 
 
+Token read_number(State *tokstate);
 Token read_string(State *tokstate);
 Token read_token(State *tokstate);
+
+
+inline Token read_number(StrSlice token_str)
+{
+    State state;
+    init(&state, token_str.data, token_str.length);
+    return read_number(&state);
+}
+
+
+inline Token read_number(const char *str, size_t len)
+{
+    StrSlice token = str_slice(str, len);
+    return read_number(token);
+}
 
 } // namespace tokenizer
 

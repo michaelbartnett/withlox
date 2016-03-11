@@ -16,35 +16,43 @@ void pretty_print(TypeDescriptor *type_desc, int indent)
             break;
 
         case TypeID::Compound:
-            println("{");
-            indent += 2;
-
-            for (u32 i = 0; i < type_desc->members.count; ++i)
+            if (type_desc->members.count == 0)
             {
-                TypeMember *member = get(type_desc->members, i);
-                printf_indent(indent, "%s: ", str_slice(member->name).data);
-                pretty_print(member->typedesc_ref, indent);
+                println("{}");
             }
+            else
+            {
+                println("{");
 
-            indent -= 2;
-            println_indent(indent, "}");
+                indent += 2;
+
+                for (u32 i = 0; i < type_desc->members.count; ++i)
+                {
+                    TypeMember *member = get(type_desc->members, i);
+                    printf_indent(indent, "%s: ", str_slice(member->name).data);
+                    pretty_print(member->typedesc_ref, indent);
+                }
+
+                indent -= 2;
+                println_indent(indent, "}");
+            }
             break;
     }
 }
 
 
-void pretty_print(Value *value)
+void pretty_print(Value *value, int indent)
 {
     TypeDescriptor *type_desc = get_typedesc(value->typedesc_ref);
 
     switch ((TypeID::Tag)type_desc->type_id)
     {
         case TypeID::None:
-            println("NONE");
+            printf_ln("%s", "null");
             break;
 
         case TypeID::String:
-            printf_ln("%s", value->str_val.data);
+            printf_ln("'%s'", value->str_val.data);
             break;
 
         case TypeID::Int:
@@ -60,10 +68,30 @@ void pretty_print(Value *value)
             break;
 
         case TypeID::Compound:
-            println("Printing compounds not supported yet");
+            if (type_desc->members.count == 0)
+            {
+                println("{}");
+            }
+            else
+            {
+                println("{");
+
+                indent += 2;
+
+                for (u32 i = 0; i < value->members.count; ++i)
+                {
+                    ValueMember *member = get(value->members, i);
+                    printf_indent(indent, "'%s': ", str_slice(member->name).data);
+                    pretty_print(&member->value, indent);
+                }
+
+                indent -= 2;
+                println_indent(indent, "}");
+            }
+            break;
+            // println("Printing compounds not supported yet");
     }
 }
-
 
 void pretty_print(tokenizer::Token token)
 {

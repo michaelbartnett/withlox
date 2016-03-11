@@ -17,12 +17,19 @@ static Token eof_token()
     return result;
 }
 
-void init(State *state, const char *input)
+
+void init(State *state, const char *input, size_t length)
 {
     ZERO_PTR(state);
+    state->current = input;
+    state->end = input + length;
+}
+
+
+void init(State *state, const char *input)
+{
     StrSlice input_slice = str_slice(input);
-    state->current = input_slice.data;
-    state->end = input_slice.data + input_slice.length;
+    init(state, input_slice.data, input_slice.length);
 }
 
 

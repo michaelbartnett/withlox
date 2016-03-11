@@ -1,5 +1,25 @@
 [//]: # -*- fill-column: 80  -*-
 
+## DearImgui works, now what?
+
+I may have been a little overzealous in making my tokenizer routines. It will
+probably be useful when I need to go and make special syntax for defining types,
+but for parsing values at the CLI prompt, I probably should have just parsed
+json.
+
+Reason I say this, is because although I can do numbers and strings well enough
+in the CLI, now I want to be able to test with objects, and that's not a thing
+that I can just immediately do super easily.
+
+Now that I've got the dearimgui demo running, I want to run the CLI as a console
+window in the GUI.
+
+- [X] Use json.h instead of home-brewed parser for CLI argument parsing
+
+- [X] Make sure defining objects on the CLI works.
+
+- [ ] Have a single console window in the GUI window and run the CLI in it.
+
 ## Freeing Memory of Hashtable Keys
 
 Something kinda clicked in my brain today. I always found the iterator-heavy C++
@@ -85,7 +105,7 @@ So next steps:
   Commands will be things like setvalue, and will probably rely on creating
   named values, and operating on the value named by the first string parameter
 
-- [ ] Represent and store values, and be able to change them via CLI.
+- [X] Represent and store values, and be able to change them via CLI.
 
 The parser could become a really integral part of this. It would be cool if the
 syntax for type definition files and the syntax for editing values in cells and
@@ -316,7 +336,8 @@ Or maybe it should match that Open Game Data spec that Eric Lengyel amde.
 
 - [ ] Validate values against type descriptors.
 
-- [ ] UI. Was looking at Qt. Maybe that won't suck. it probably will. dear imgui?
+- [X] UI. Was looking at Qt. Maybe that won't suck. it probably will. dear imgui?
+  *NOTE: decided to start with dearimgui
 
   Let me list the actual possibilities:
 

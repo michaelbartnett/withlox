@@ -111,6 +111,12 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
 {
     assert(a);
     assert(b);
+
+    if (a->type_id != b->type_id)
+    {
+        return false;
+    }
+
     switch ((TypeID::Tag)a->type_id)
     {
         case TypeID::None:
@@ -118,7 +124,7 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
         case TypeID::Int:
         case TypeID::Float:
         case TypeID::Bool:
-            return a->type_id == b->type_id;
+            return true;
 
         case TypeID::Compound:
             size_t a_mem_count = a->members.count;

@@ -14,7 +14,7 @@ inline void pretty_print(TypeDescriptorRef typedesc_ref, int indent = 0)
 
 
 void pretty_print(TypeDescriptor *type_desc, int indent);
-void pretty_print(Value *value);
+void pretty_print(Value *value, int indent = 0);
 void pretty_print(tokenizer::Token token);
 
 #define PRETTY_H
