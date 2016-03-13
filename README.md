@@ -1,5 +1,40 @@
 [//]: # -*- fill-column: 80  -*-
 
+## Milestone: Solid GUI Terminal
+
+The dearimgui console is functioning. Now I want the command execution stuff to work
+with Value arguments again (now with objects yay!), and I want all the interactions
+to feel good and do useful things.
+
+- [ ] Get `exec_command` working again
+
+- [ ] Decompose all the `run_terminal` functions into parsing / exec'ing
+      subroutines. They're all pretty redundant right now
+
+- [ ] Up-arrow history
+
+- [ ] Auto-focus the input field the first time
+
+- [ ] Copy-paste from OS paste buffer. Maybe this works on Windows but just
+      isn't implemented on OSX?
+
+- [ ] Selectable output for copy-paste
+
+- [ ] Test/develop on Windows
+
+## Memory
+
+I've been a little sloppy. The fact that I pass around value objects means that
+it's not cut-and-dried when parts of a Value or TypeDescriptor are done being
+used. This gave me problems when trying to implement GC in my Mal implementation,
+so I should maybe have my own object heap.
+
+In the meantime, after the dearimgui console is done:
+
+- [ ] Free the memory used by the CLI value args
+
+- [ ] Wrap malloc and free in order to count allocations
+
 ## DearImgui works, now what?
 
 I may have been a little overzealous in making my tokenizer routines. It will
@@ -8,8 +43,8 @@ but for parsing values at the CLI prompt, I probably should have just parsed
 json.
 
 Reason I say this, is because although I can do numbers and strings well enough
-in the CLI, now I want to be able to test with objects, and that's not a thing
-that I can just immediately do super easily.
+in the tokenizer, now I want to be able to test with objects, and that's not a
+thing that I can just immediately do super easily.
 
 Now that I've got the dearimgui demo running, I want to run the CLI as a console
 window in the GUI.
@@ -18,7 +53,7 @@ window in the GUI.
 
 - [X] Make sure defining objects on the CLI works.
 
-- [ ] Have a single console window in the GUI window and run the CLI in it.
+- [X] Have a single console window in the GUI window and run the CLI in it.
 
 ## Freeing Memory of Hashtable Keys
 

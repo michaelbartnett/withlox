@@ -56,6 +56,9 @@ set(CXX_SOURCES
   common.h
   json.h
   platform.h
+  imgui_helpers.h
+  logging.h
+  logging.cpp
   ${IMGUI_SOURCES}  
   ${CXX_PLATFORM_SOURCES}
   )
@@ -113,6 +116,6 @@ elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
   set_property(SOURCE MurmurHash3.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-sign-conversion -Wno-cast-align")
   set_property(SOURCE linenoise.c APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-unreachable-code-return -Wno-conversion -Wno-sign-conversion -Wno-shorten-64-to-32 -Wno-gnu-zero-variadic-macro-arguments")
 
-  set_property(SOURCE ${IMGUI_SOURCES} APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-float-equal -Wno-conversion -Wno-exit-time-destructors -Wno-shadow")
+  set_property(SOURCE ${IMGUI_SOURCES} APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-float-equal -Wno-conversion -Wno-exit-time-destructors -Wno-shadow -Wno-unused-parameter")
 endif()
 

@@ -1,3 +1,5 @@
+#include "logging.h"
+
 #include "pretty.h"
 #include "types.h"
 #include "hashtable.h"
@@ -8,6 +10,7 @@
 #include "platform.h"
 #include "json.h"
 #include "linenoise.h"
+#include "imgui_helpers.h"
 #include "dearimgui/imgui.h"
 #include "dearimgui/imgui_impl_sdl.h"
 #include <SDL.h>
@@ -623,7 +626,7 @@ void register_command(ProgramMemory *prgmem, StrSlice name, CliCommandFn *fnptr,
     Str allocated_name = str(name);
     if (ht_set(&prgmem->command_map, str_slice(allocated_name), cmd))
     {
-        printf_ln("Warning, overriding command: %s", allocated_name.data);
+        logf_ln("Warning, overriding command: %s", allocated_name.data);
         str_free(&allocated_name);
     }
 }
@@ -643,7 +646,7 @@ void exec_command(ProgramMemory *prgmem, StrSlice name, DynArray<Value> args)
 
     if (!cmd)
     {
-        printf_ln("Command '%s' not found", name.data);
+        logf_ln("Command '%s' not found", name.data);
         return;
     }
 
@@ -657,7 +660,7 @@ CLI_COMMAND_FN_SIG(say_hello)
     UNUSED(userdata);
     UNUSED(args);
 
-    println("You are calling the say_hello command");
+    logln("You are calling the say_hello command");
 }
 
 
@@ -666,7 +669,7 @@ CLI_COMMAND_FN_SIG(list_args)
     UNUSED(prgmem);
     UNUSED(userdata);
 
-    println("list_args:");
+    logln("list_args:");
     for (u32 i = 0; i < args.count; ++i)
     {
         Value *val = get(&args, i);
@@ -685,7 +688,7 @@ CLI_COMMAND_FN_SIG(find_type)
     if (! typedesc_ref_identical(arg->typedesc_ref, prgmem->prim_string))
     {
         TypeDescriptor *argtype = get_typedesc(arg->typedesc_ref);
-        printf_ln("Argument must be a string, got a %s intead",
+        logf_ln("Argument must be a string, got a %s intead",
                   TypeID::to_string(argtype->type_id));
         return;
     }
@@ -697,7 +700,7 @@ CLI_COMMAND_FN_SIG(find_type)
     }
     else
     {
-        printf_ln("Type not found: %s", arg->str_val.data);
+        logf_ln("Type not found: %s", arg->str_val.data);
     }
 }
 
@@ -708,7 +711,7 @@ CLI_COMMAND_FN_SIG(set_value)
 
     if (args.count < 2)
     {
-        printf_ln("Error: expected 2 arguments, got %i instead", args.count);
+        logf_ln("Error: expected 2 arguments, got %i instead", args.count);
         return;
     }
 
@@ -717,7 +720,7 @@ CLI_COMMAND_FN_SIG(set_value)
     TypeDescriptor *type_desc = get_typedesc(name_arg->typedesc_ref);
     if (type_desc->type_id != TypeID::String)
     {
-        printf_ln("Error: first argument must be a string, got a %s instead",
+        logf_ln("Error: first argument must be a string, got a %s instead",
                   TypeID::to_string(type_desc->type_id));
         return;
     }
@@ -742,7 +745,7 @@ CLI_COMMAND_FN_SIG(get_value)
 
     if (args.count < 1)
     {
-        println("Error: expected 1 argument");
+        logln("Error: expected 1 argument");
         return;
     }
 
@@ -750,7 +753,7 @@ CLI_COMMAND_FN_SIG(get_value)
     TypeDescriptor *type_desc = get_typedesc(name_arg->typedesc_ref);
     if (type_desc->type_id != TypeID::String)
     {
-        printf_ln("Error: first argument must be a string, got a %s instead",
+        logf_ln("Error: first argument must be a string, got a %s instead",
                   TypeID::to_string(type_desc->type_id));
         return;
     }
@@ -762,7 +765,7 @@ CLI_COMMAND_FN_SIG(get_value)
     }
     else
     {
-        printf_ln("No value bound to name: '%s'", name_arg->str_val.data);
+        logf_ln("No value bound to name: '%s'", name_arg->str_val.data);
     }
 }
 
@@ -773,7 +776,7 @@ CLI_COMMAND_FN_SIG(get_value_type)
 
     if (args.count < 1)
     {
-        println("Error: expected 1 argument");
+        logln("Error: expected 1 argument");
         return;
     }
 
@@ -781,7 +784,7 @@ CLI_COMMAND_FN_SIG(get_value_type)
     TypeDescriptor *type_desc = get_typedesc(name_arg->typedesc_ref);
     if (type_desc->type_id != TypeID::String)
     {
-        printf_ln("Error: first argument must be a string, got a %s instead",
+        logf_ln("Error: first argument must be a string, got a %s instead",
                   TypeID::to_string(type_desc->type_id));
         return;
     }
@@ -793,7 +796,7 @@ CLI_COMMAND_FN_SIG(get_value_type)
     }
     else
     {
-        printf_ln("No value bound to name: '%s'", name_arg->str_val.data);
+        logf_ln("No value bound to name: '%s'", name_arg->str_val.data);
     }
 
     
@@ -804,7 +807,7 @@ void test_json_import(ProgramMemory *prgmem, int filename_count, char **filename
 {
     if (filename_count < 1)
     {
-        printf("No files specified\n");
+        logf("No files specified\n");
         return;
     }
 
@@ -827,7 +830,7 @@ void test_json_import(ProgramMemory *prgmem, int filename_count, char **filename
 
         if (!jv)
         {
-            printf("Json parse error: %s\nAt %lu:%lu",
+            logf("Json parse error: %s\nAt %lu:%lu",
                    json_error_code_string(jp_result.error),
                    jp_result.error_line_no,
                    jp_result.error_row_no);
@@ -838,7 +841,7 @@ void test_json_import(ProgramMemory *prgmem, int filename_count, char **filename
         NameRef bound_name = nametable_find_or_add(&prgmem->names, filename);
         bind_typeref(prgmem, bound_name, typedesc_ref);
 
-        println("New type desciptor:");
+        logln("New type desciptor:");
         pretty_print(typedesc_ref);
 
         if (!result_ref.index)
@@ -853,7 +856,7 @@ void test_json_import(ProgramMemory *prgmem, int filename_count, char **filename
         }
     }
 
-    println("completed without errors");
+    logln("completed without errors");
 
     pretty_print(result_ref);    
 }
@@ -946,20 +949,6 @@ void run_json_terminal_cli(ProgramMemory *prgmem)
         DynArray<Value> cmd_args;
         dynarray_init(&cmd_args, 10);
 
-        // for (;;)
-        // {
-        //     tokenizer::Token token = tokenizer::read_token(&tokstate);
-        //     if (token.type == tokenizer::TokenType::Eof)
-        //     {
-        //         break;
-        //     }
-
-        //     Value value = create_value_from_token(prgmem, token);
-        //     // pretty_print(value.typedesc_ref);
-
-        //     append(&cmd_args, value);
-        // }
-
         size_t jsonflags = json_parse_flags_default
             | json_parse_flags_allow_trailing_comma
             | json_parse_flags_allow_c_style_comments
@@ -971,7 +960,7 @@ void run_json_terminal_cli(ProgramMemory *prgmem)
 
         if (!jv)
         {
-            printf_ln("Json parse error: %s\nAt %lu:%lu",
+            logf_ln("Json parse error: %s\nAt %lu:%lu",
                    json_error_code_string(jp_result.error),
                    jp_result.error_line_no,
                    jp_result.error_row_no);
@@ -979,14 +968,15 @@ void run_json_terminal_cli(ProgramMemory *prgmem)
         }
 
         Str first_text = str(first_token.text);
-        printf_ln("First token: %s", first_text.data);
+        logf_ln("First token: %s", first_text.data);
         str_free(&first_text);
 
         Value parsed_value = create_value_from_json(prgmem, jv);
 
-        print("Parsed value: ");
+        log("Parsed value: ");
         pretty_print(&parsed_value);
-        print("Parsed value's type: ");
+        logf("Parsed value's type: %i ", parsed_value.typedesc_ref.index);
+        
         pretty_print(parsed_value.typedesc_ref);
 
         // exec_command(prgmem, first_token.text, cmd_args);
@@ -994,6 +984,124 @@ void run_json_terminal_cli(ProgramMemory *prgmem)
         dynarray_deinit(&cmd_args);
         std::free(input);
     }
+}
+
+
+void init_imgui_json_terminal(ProgramMemory *prgmem)
+{
+    REGISTER_COMMAND(prgmem, say_hello, NULL);
+    REGISTER_COMMAND(prgmem, list_args, NULL);
+    REGISTER_COMMAND(prgmem, find_type, NULL);
+    REGISTER_COMMAND(prgmem, set_value, NULL);
+    REGISTER_COMMAND(prgmem, get_value, NULL);
+    REGISTER_COMMAND(prgmem, get_value_type, NULL);
+
+}
+
+
+void draw_imgui_json_terminal(ProgramMemory *prgmem, SDL_Window *window)
+{       
+    static DynArray<Str> console_entries = {};
+    if (!console_entries.data)
+    {
+        dynarray_init(&console_entries, 1024);
+    }
+
+    ImGuiWindowFlags console_wndflags = 0
+        | ImGuiWindowFlags_NoSavedSettings
+
+        | ImGuiWindowFlags_NoTitleBar
+        | ImGuiWindowFlags_NoMove
+        | ImGuiWindowFlags_NoResize
+        ;
+
+    ImGui::SetNextWindowSize(ImGui_SDLWindowSize(window), ImGuiSetCond_Always);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
+    ImGui::Begin("ConsoleWindow###jsoneditor-console", NULL, console_wndflags);
+
+    ImGui::TextUnformatted("This is the console.");
+    ImGui::Separator();
+
+    ImGui::BeginChild("Output",
+                      ImVec2(0,-ImGui::GetItemsLineHeightWithSpacing()),
+                      false,
+                      ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_ForceHorizontalScrollbar);
+
+    // for (u32 i = 0; i < console_entries.count; ++i)
+    // {
+    //     Str *entry = get(console_entries, i);
+    //     ImGui::TextUnformatted(entry->data, entry->data + entry->length);
+    // }
+    for (u32 i = 0, e = log_count(); i < e; ++i)
+    {
+        Str *str = get_log(i);
+
+        ImGui::TextUnformatted(str->data);
+    }
+
+    ImGui::EndChild();
+
+    static char input_buf[1024];
+    ImGuiInputTextFlags input_flags = ImGuiInputTextFlags_EnterReturnsTrue;
+    if (ImGui::InputText("", input_buf, sizeof(input_buf), input_flags))
+    {
+        { // CLI logic
+            tokenizer::State tokstate;
+            tokenizer::init(&tokstate, input_buf);
+
+            tokenizer::Token first_token = tokenizer::read_string(&tokstate);
+
+            DynArray<Value> cmd_args;
+            dynarray_init(&cmd_args, 10);
+
+            size_t jsonflags = json_parse_flags_default
+                | json_parse_flags_allow_trailing_comma
+                | json_parse_flags_allow_c_style_comments
+                ;
+
+            json_parse_result_s jp_result = {};
+            json_value_s *jv = json_parse_ex(tokstate.current, (size_t)(tokstate.end - tokstate.current),
+                                             jsonflags, &jp_result);
+
+            if (!jv)
+            {
+                logf_ln("Json parse error: %s\nAt %lu:%lu",
+                          json_error_code_string(jp_result.error),
+                          jp_result.error_line_no,
+                          jp_result.error_row_no);
+            }
+            else
+            {
+                FormatBuffer fmt_buf;
+
+                Str first_text = str(first_token.text);
+                fmt_buf.writef_ln("First token: %s", first_text.data);
+                str_free(&first_text);
+
+                Value parsed_value = create_value_from_json(prgmem, jv);
+
+
+                fmt_buf.write("Parsed value: ");
+                pretty_print(&parsed_value, &fmt_buf);
+                fmt_buf.writef("Parsed value's type: %i ", parsed_value.typedesc_ref.index);
+        
+                pretty_print(parsed_value.typedesc_ref, &fmt_buf);
+
+                // exec_command(prgmem, first_token.text, cmd_args);
+
+                dynarray_deinit(&cmd_args);
+            }
+        }
+
+        append(&console_entries, str(input_buf));
+
+        input_buf[0] = '\0';
+        ImGui::SetKeyboardFocusHere(-1);
+    }
+
+    ImGui::End();
+    ImGui::PopStyleVar();
+
 }
 
 
@@ -1008,12 +1116,11 @@ int main(int argc, char **argv)
 
     test_json_import(&prgmem, argc - 1, argv + 1);
     // run_terminal_cli(&prgmem);
-    run_json_terminal_cli(&prgmem);
-    return 0;
+    // run_json_terminal_cli(&prgmem);
 
     if (0 != SDL_Init(SDL_INIT_VIDEO))
     {
-        printf_ln("Failed to initialize SDL: %s", SDL_GetError());
+        logf_ln("Failed to initialize SDL: %s", SDL_GetError());
         end_of_program();
         return 1;
     }
@@ -1036,13 +1143,19 @@ int main(int argc, char **argv)
     ImVec4 clear_color = ImColor(114, 144, 154);
     ImGui_ImplSdl_Init(window);
 
+    init_imgui_json_terminal(&prgmem);
+
     bool running = true;
     while (running)
     {
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
-            if (!ImGui_ImplSdl_ProcessEvent(&event))
+            if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE)
+            {
+                running = false;
+            }
+            else if (!ImGui_ImplSdl_ProcessEvent(&event))
             {
                 // event not handled by imgui
                 switch (event.type)
@@ -1055,7 +1168,7 @@ int main(int argc, char **argv)
                         if (event.window.windowID == window_id &&
                             event.window.event == SDL_WINDOWEVENT_CLOSE)
                         {
-                            SDL_Quit();
+                            running = false;
                         }
                         break;
                 }
@@ -1064,7 +1177,10 @@ int main(int argc, char **argv)
 
         ImGui_ImplSdl_NewFrame(window);
 
-        ImGui::ShowTestWindow();
+        draw_imgui_json_terminal(&prgmem, window);
+
+        // ImGui::ShowTestWindow();
+
 
         glViewport(0, 0,
                    (int)ImGui::GetIO().DisplaySize.x, (int)ImGui::GetIO().DisplaySize.y);
@@ -1072,6 +1188,7 @@ int main(int argc, char **argv)
         glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui::Render();
+        SDL_Delay(1);
         SDL_GL_SwapWindow(window);
     }
 

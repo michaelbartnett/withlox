@@ -1,8 +1,11 @@
 #include "pretty.h"
+#include "logging.h"
 #include "common.h"
 
 
-void pretty_print(TypeDescriptor *type_desc, int indent)
+
+// void pretty_print(TypeDescriptor *type_desc, int indent)
+void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
 {
     TypeID::Tag type_id = (TypeID::Tag)type_desc->type_id;
     switch (type_id)
@@ -12,88 +15,112 @@ void pretty_print(TypeDescriptor *type_desc, int indent)
         case TypeID::Int:
         case TypeID::Float:
         case TypeID::Bool:
-            printf_ln("%s", to_string(type_id));
+            fmt_buf->writef_ln("%s", to_string(type_id));
             break;
 
         case TypeID::Compound:
             if (type_desc->members.count == 0)
             {
-                println("{}");
+                fmt_buf->writeln("{}");
             }
             else
             {
-                println("{");
+                fmt_buf->writeln("{");
 
                 indent += 2;
 
                 for (u32 i = 0; i < type_desc->members.count; ++i)
                 {
                     TypeMember *member = get(type_desc->members, i);
-                    printf_indent(indent, "%s: ", str_slice(member->name).data);
-                    pretty_print(member->typedesc_ref, indent);
+                    fmt_buf->writef_indent(indent, "%s: ", str_slice(member->name).data);
+                    pretty_print(member->typedesc_ref, fmt_buf, indent);
                 }
 
                 indent -= 2;
-                println_indent(indent, "}");
+                fmt_buf->writeln_indent(indent, "}");
             }
             break;
     }
 }
 
 
-void pretty_print(Value *value, int indent)
+void pretty_print(TypeDescriptor *type_desc, int indent)
+{
+    FormatBuffer fmt_buf;
+    pretty_print(type_desc, &fmt_buf, indent);
+    fmt_buf.flush_to_log();
+}
+
+
+void pretty_print(Value *value, FormatBuffer *fmt_buf, int indent)
 {
     TypeDescriptor *type_desc = get_typedesc(value->typedesc_ref);
 
     switch ((TypeID::Tag)type_desc->type_id)
     {
         case TypeID::None:
-            printf_ln("%s", "null");
+            fmt_buf->writef_ln("%s", "null");
             break;
 
         case TypeID::String:
-            printf_ln("'%s'", value->str_val.data);
+            fmt_buf->writef_ln("'%s'", value->str_val.data);
             break;
 
         case TypeID::Int:
-            printf_ln("%i", value->s32_val);
+            fmt_buf->writef_ln("%i", value->s32_val);
             break;
 
         case TypeID::Float:
-            printf_ln("%f", value->f32_val);
+            fmt_buf->writef_ln("%f", value->f32_val);
             break;
 
         case TypeID::Bool:
-            printf_ln("%s", (value->bool_val ? "True" : "False"));
+            fmt_buf->writef_ln("%s", (value->bool_val ? "True" : "False"));
             break;
 
         case TypeID::Compound:
             if (type_desc->members.count == 0)
             {
-                println("{}");
+                fmt_buf->writeln("{}");
             }
             else
             {
-                println("{");
+                fmt_buf->writeln("{");
 
                 indent += 2;
 
                 for (u32 i = 0; i < value->members.count; ++i)
                 {
                     ValueMember *member = get(value->members, i);
-                    printf_indent(indent, "'%s': ", str_slice(member->name).data);
-                    pretty_print(&member->value, indent);
+                    fmt_buf->writef_indent(indent, "'%s': ", str_slice(member->name).data);
+                    pretty_print(&member->value, fmt_buf, indent);
                 }
 
                 indent -= 2;
-                println_indent(indent, "}");
+                fmt_buf->writeln_indent(indent, "}");
             }
             break;
-            // println("Printing compounds not supported yet");
+            // fmt_buf->writeln("Printing compounds not supported yet");
     }
 }
 
+
+void pretty_print(Value *value, int indent)
+{
+    FormatBuffer fmt_buf;
+    pretty_print(value, &fmt_buf, indent);
+    fmt_buf.flush_to_log();
+}
+
+
 void pretty_print(tokenizer::Token token)
+{
+    FormatBuffer fmt_buf;
+    pretty_print(token, &fmt_buf);
+    fmt_buf.flush_to_log();
+}
+
+void pretty_print(tokenizer::Token token, FormatBuffer *fmt_buf)
 {
     char token_output[256];
     size_t len = std::min((size_t)token.text.length, sizeof(token_output) - 1);
@@ -107,6 +134,5 @@ void pretty_print(tokenizer::Token token)
         token_output[len] = 0;
     }
 
-    printf_ln("Token(%s, \"%s\")", tokenizer::to_string(token.type), token_output);
+    fmt_buf->writef("Token(%s, \"%s\")", tokenizer::to_string(token.type), token_output);
 }
-
