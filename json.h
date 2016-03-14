@@ -235,6 +235,9 @@ struct json_parse_result_s {
 
   // the row number for the error, in bytes
   size_t error_row_no;
+
+  // point in the buffer where the parser left off
+  size_t parse_offset;
 };
 
 #ifdef __cplusplus

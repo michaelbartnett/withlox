@@ -803,6 +803,31 @@ CLI_COMMAND_FN_SIG(get_value_type)
 }
 
 
+CLI_COMMAND_FN_SIG(print_values)
+{
+    UNUSED(prgmem);
+    UNUSED(userdata);
+
+    if (args.count < 1)
+    {
+        logln("No arguments");
+        return;
+    }
+
+    FormatBuffer fmt_buf;
+
+    for (u32 i = 0; i < args.count; ++i)
+    {
+        fmt_buf.writeln("");
+        Value *value = get(args, i);
+        fmt_buf.write("Value: ");
+        pretty_print(value, &fmt_buf);
+        fmt_buf.writef("Parsed value's type: %i ", value->typedesc_ref.index);        
+        pretty_print(value->typedesc_ref, &fmt_buf);
+    }
+}
+
+
 void test_json_import(ProgramMemory *prgmem, int filename_count, char **filenames)
 {
     if (filename_count < 1)
@@ -861,7 +886,8 @@ void test_json_import(ProgramMemory *prgmem, int filename_count, char **filename
     pretty_print(result_ref);    
 }
 
-void run_terminal_cli(ProgramMemory *prgmem)
+
+void init_terminal_commands(ProgramMemory *prgmem)
 {
     REGISTER_COMMAND(prgmem, say_hello, NULL);
     REGISTER_COMMAND(prgmem, list_args, NULL);
@@ -869,7 +895,67 @@ void run_terminal_cli(ProgramMemory *prgmem)
     REGISTER_COMMAND(prgmem, set_value, NULL);
     REGISTER_COMMAND(prgmem, get_value, NULL);
     REGISTER_COMMAND(prgmem, get_value_type, NULL);
+    REGISTER_COMMAND(prgmem, print_values, NULL);
+}
 
+
+void process_console_input(ProgramMemory *prgmem, char *input_buf)
+{
+    tokenizer::State tokstate;
+    tokenizer::init(&tokstate, input_buf);
+
+    tokenizer::Token first_token = tokenizer::read_string(&tokstate);
+
+    DynArray<Value> cmd_args;
+    dynarray_init(&cmd_args, 10);
+
+    size_t jsonflags = json_parse_flags_default
+        | json_parse_flags_allow_trailing_comma
+        | json_parse_flags_allow_c_style_comments
+        ;
+
+    bool error = false;
+
+    for (;;) {
+        json_parse_result_s jp_result = {};
+        json_value_s *jv = json_parse_ex(tokstate.current, (size_t)(tokstate.end - tokstate.current),
+                                         jsonflags, &jp_result);
+        
+
+        if (jp_result.error != json_parse_error_none)
+        {
+            logf_ln("Json parse error: %s\nAt %lu:%lu",
+                    json_error_code_string(jp_result.error),
+                    jp_result.error_line_no,
+                    jp_result.error_row_no);
+            error =  true;
+            break;
+        }
+        else if (jv)
+        {
+            Value parsed_value = create_value_from_json(prgmem, jv);
+            append(&cmd_args, parsed_value);
+        }
+        else
+        {
+            // if jv was null, that means end of input
+            break;
+        }
+
+        tokstate.current += jp_result.parse_offset;
+    }
+
+    if (!error)
+    {
+        exec_command(prgmem, first_token.text, cmd_args);
+    }
+
+    dynarray_deinit(&cmd_args);
+}
+
+
+void run_terminal_cli(ProgramMemory *prgmem)
+{
     for (;;)
     {
         char *input = linenoise(">> ");
@@ -917,13 +1003,6 @@ void run_terminal_cli(ProgramMemory *prgmem)
 
 void run_json_terminal_cli(ProgramMemory *prgmem)
 {
-    REGISTER_COMMAND(prgmem, say_hello, NULL);
-    REGISTER_COMMAND(prgmem, list_args, NULL);
-    REGISTER_COMMAND(prgmem, find_type, NULL);
-    REGISTER_COMMAND(prgmem, set_value, NULL);
-    REGISTER_COMMAND(prgmem, get_value, NULL);
-    REGISTER_COMMAND(prgmem, get_value_type, NULL);
-
     for (;;)
     {
         char *input = linenoise(">> ");
@@ -946,56 +1025,10 @@ void run_json_terminal_cli(ProgramMemory *prgmem)
             continue;
         }
 
-        DynArray<Value> cmd_args;
-        dynarray_init(&cmd_args, 10);
+        process_console_input(prgmem, input);
 
-        size_t jsonflags = json_parse_flags_default
-            | json_parse_flags_allow_trailing_comma
-            | json_parse_flags_allow_c_style_comments
-            ;
-
-        json_parse_result_s jp_result = {};
-        json_value_s *jv = json_parse_ex(tokstate.current, (size_t)(tokstate.end - tokstate.current),
-                                         jsonflags, &jp_result);
-
-        if (!jv)
-        {
-            logf_ln("Json parse error: %s\nAt %lu:%lu",
-                   json_error_code_string(jp_result.error),
-                   jp_result.error_line_no,
-                   jp_result.error_row_no);
-            continue;
-        }
-
-        Str first_text = str(first_token.text);
-        logf_ln("First token: %s", first_text.data);
-        str_free(&first_text);
-
-        Value parsed_value = create_value_from_json(prgmem, jv);
-
-        log("Parsed value: ");
-        pretty_print(&parsed_value);
-        logf("Parsed value's type: %i ", parsed_value.typedesc_ref.index);
-        
-        pretty_print(parsed_value.typedesc_ref);
-
-        // exec_command(prgmem, first_token.text, cmd_args);
-
-        dynarray_deinit(&cmd_args);
         std::free(input);
     }
-}
-
-
-void init_imgui_json_terminal(ProgramMemory *prgmem)
-{
-    REGISTER_COMMAND(prgmem, say_hello, NULL);
-    REGISTER_COMMAND(prgmem, list_args, NULL);
-    REGISTER_COMMAND(prgmem, find_type, NULL);
-    REGISTER_COMMAND(prgmem, set_value, NULL);
-    REGISTER_COMMAND(prgmem, get_value, NULL);
-    REGISTER_COMMAND(prgmem, get_value_type, NULL);
-
 }
 
 
@@ -1045,55 +1078,9 @@ void draw_imgui_json_terminal(ProgramMemory *prgmem, SDL_Window *window)
     ImGuiInputTextFlags input_flags = ImGuiInputTextFlags_EnterReturnsTrue;
     if (ImGui::InputText("", input_buf, sizeof(input_buf), input_flags))
     {
-        { // CLI logic
-            tokenizer::State tokstate;
-            tokenizer::init(&tokstate, input_buf);
+        append_logln(input_buf);
 
-            tokenizer::Token first_token = tokenizer::read_string(&tokstate);
-
-            DynArray<Value> cmd_args;
-            dynarray_init(&cmd_args, 10);
-
-            size_t jsonflags = json_parse_flags_default
-                | json_parse_flags_allow_trailing_comma
-                | json_parse_flags_allow_c_style_comments
-                ;
-
-            json_parse_result_s jp_result = {};
-            json_value_s *jv = json_parse_ex(tokstate.current, (size_t)(tokstate.end - tokstate.current),
-                                             jsonflags, &jp_result);
-
-            if (!jv)
-            {
-                logf_ln("Json parse error: %s\nAt %lu:%lu",
-                          json_error_code_string(jp_result.error),
-                          jp_result.error_line_no,
-                          jp_result.error_row_no);
-            }
-            else
-            {
-                FormatBuffer fmt_buf;
-
-                Str first_text = str(first_token.text);
-                fmt_buf.writef_ln("First token: %s", first_text.data);
-                str_free(&first_text);
-
-                Value parsed_value = create_value_from_json(prgmem, jv);
-
-
-                fmt_buf.write("Parsed value: ");
-                pretty_print(&parsed_value, &fmt_buf);
-                fmt_buf.writef("Parsed value's type: %i ", parsed_value.typedesc_ref.index);
-        
-                pretty_print(parsed_value.typedesc_ref, &fmt_buf);
-
-                // exec_command(prgmem, first_token.text, cmd_args);
-
-                dynarray_deinit(&cmd_args);
-            }
-        }
-
-        append(&console_entries, str(input_buf));
+        process_console_input(prgmem, input_buf);
 
         input_buf[0] = '\0';
         ImGui::SetKeyboardFocusHere(-1);
@@ -1113,6 +1100,7 @@ int main(int argc, char **argv)
 
     ProgramMemory prgmem;
     prgmem_init(&prgmem);
+    init_terminal_commands(&prgmem);
 
     test_json_import(&prgmem, argc - 1, argv + 1);
     // run_terminal_cli(&prgmem);
@@ -1142,8 +1130,6 @@ int main(int argc, char **argv)
 
     ImVec4 clear_color = ImColor(114, 144, 154);
     ImGui_ImplSdl_Init(window);
-
-    init_imgui_json_terminal(&prgmem);
 
     bool running = true;
     while (running)

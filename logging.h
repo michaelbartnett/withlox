@@ -19,7 +19,11 @@ u32 log_count();
 // returns log entry at index
 Str *get_log(u32 i);
 
-// printf-like function that prints to stdout and adds to global log_entries
+// append to the log entries directly without writing to stdout
+void append_log(const char *string);
+void append_logln(const char *string);
+
+// printf-like functions that prints to stdout and adds to global log_entries
 void logf(const char *format, ...) FORMAT_ARG_FLAGS(1);
 void logln(const char *string);
 void logf_ln(const char *format, ...);

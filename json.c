@@ -1094,6 +1094,7 @@ struct json_value_s *json_parse_ex(const void *src, size_t src_size,
                                         state.flags_bitset),
       (struct json_value_s *)allocation);
 
+  result->parse_offset = state.offset;
   return allocation;
 }
 

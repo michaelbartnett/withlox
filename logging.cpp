@@ -17,6 +17,20 @@ static size_t output_buffer_size = 0;
 #endif
 
 
+void append_log(const char *string)
+{
+    append(&log_entries, str(string));
+}
+
+
+void append_logln(const char *string)
+{
+    FormatBuffer fmt_buf;
+    fmt_buf.writeln(string);
+    append(&log_entries, str(fmt_buf.buffer));
+    fmt_buf.clear();
+}
+
 
 static void vlogf(const char *format, va_list vargs)
 {

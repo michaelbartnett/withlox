@@ -6,9 +6,9 @@ The dearimgui console is functioning. Now I want the command execution stuff to 
 with Value arguments again (now with objects yay!), and I want all the interactions
 to feel good and do useful things.
 
-- [ ] Get `exec_command` working again
+- [X] Get `exec_command` working again
 
-- [ ] Decompose all the `run_terminal` functions into parsing / exec'ing
+- [X] Decompose all the `run_terminal` functions into parsing / exec'ing
       subroutines. They're all pretty redundant right now
 
 - [ ] Up-arrow history
