@@ -7,6 +7,7 @@
 #include <cassert>
 
 typedef u32 DynArrayCount;
+#define DYNARRAY_COUNT_MAX UINT32_MAX
 
 template<typename T>
 struct DynArray

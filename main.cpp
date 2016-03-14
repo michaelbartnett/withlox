@@ -1025,7 +1025,6 @@ void run_terminal_json_cli(ProgramMemory *prgmem)
             break;
         }
 
-        
 
         tokenizer::State tokstate;
         tokenizer::init(&tokstate, input);
@@ -1045,19 +1044,143 @@ void run_terminal_json_cli(ProgramMemory *prgmem)
 }
 
 
-void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
-{       
-    static DynArray<Str> console_entries = {};
-    if (!console_entries.data)
+
+
+struct CliHistory
+{
+    DynArray<Str> input_entries;
+    s64 pos;
+    Str saved_input_buf;
+    s32 saved_cursor_pos;
+    s32 saved_selection_start;
+    s32 saved_selection_end;
+};
+
+
+void clihistory_init(CliHistory *hist)
+{
+    dynarray_init(&hist->input_entries, 64);
+    hist->pos = -1;
+    ZERO_PTR(&hist->saved_input_buf);
+}
+
+
+void clihistory_to_front(CliHistory *hist)
+{
+    if (hist->pos != -1)
     {
-        dynarray_init(&console_entries, 1024);
+        str_free(&hist->saved_input_buf);
+    }
+    hist->pos = -1;
+}
+
+
+void clihistory_add(CliHistory *hist, const char *input)
+{
+    append(&hist->input_entries, str(input));
+    clihistory_to_front(hist);
+}
+
+
+void clihistory_restore(CliHistory *hist, s64 position, ImGuiTextEditCallbackData* data)
+{
+    assert(position < DYNARRAY_COUNT_MAX);
+    Str *new_input = get(&hist->input_entries, (u32)position);
+    memcpy(data->Buf, new_input->data, new_input->length);
+    data->Buf[new_input->length] = '\0';
+    data->BufTextLen = data->SelectionStart = data->SelectionEnd = data->CursorPos = new_input->length;
+    data->BufDirty = true;
+}
+
+
+void clihistory_backward(CliHistory *hist, ImGuiTextEditCallbackData* data)
+{
+    s64 prev_pos = hist->pos;
+
+    if (hist->pos == -1)
+    {
+        hist->pos = hist->input_entries.count - 1;
+        hist->saved_input_buf = str(data->Buf);
+        hist->saved_cursor_pos = data->CursorPos;
+        hist->saved_selection_start = data->SelectionStart;
+        hist->saved_selection_end = data->SelectionEnd;
+    }
+    else if (hist->pos > 0)
+    {
+        --hist->pos;
+    }
+
+    if (prev_pos != hist->pos)
+    {
+        clihistory_restore(hist, hist->pos, data);
+    }
+}
+
+
+void clihistory_forward(CliHistory *hist, ImGuiTextEditCallbackData* data)
+{
+    s64 prev_pos = hist->pos;
+
+    if (hist->pos >= 0)
+    {
+        ++hist->pos;
+    }
+
+    if (prev_pos == hist->input_entries.count - 1)
+    {
+        memcpy(data->Buf, hist->saved_input_buf.data, hist->saved_input_buf.length);
+        data->Buf[hist->saved_input_buf.length] = '\0';
+        data->BufTextLen = hist->saved_input_buf.length;
+        data->CursorPos = hist->saved_cursor_pos;
+        data->SelectionStart = hist->saved_selection_start;
+        data->SelectionEnd = hist->saved_selection_end;
+        data->BufDirty = true;
+
+        clihistory_to_front(hist);
+    }
+    else if (prev_pos != hist->pos)
+    {
+        clihistory_restore(hist, hist->pos, data);
+    }
+}
+
+
+int imgui_cli_history_callback(ImGuiTextEditCallbackData *data)
+{
+    CliHistory *hist = (CliHistory *)data->UserData;
+
+    if (data->EventFlag != ImGuiInputTextFlags_CallbackHistory)
+    {
+        return 0;
+    }
+
+    if (data->EventKey == ImGuiKey_UpArrow)
+    {
+        clihistory_backward(hist, data);
+    }
+    else if (data->EventKey == ImGuiKey_DownArrow)
+    {
+        clihistory_forward(hist, data);
+    }
+
+    return 0;
+}
+
+
+
+void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
+{
+    static bool first_draw = true;
+    static CliHistory history = {};
+    if (first_draw)
+    {
+        clihistory_init(&history);
     }
 
     ImGuiWindowFlags console_wndflags = 0
         | ImGuiWindowFlags_NoSavedSettings
-
         | ImGuiWindowFlags_NoTitleBar
-        | ImGuiWindowFlags_NoMove
+        // | ImGuiWindowFlags_NoMove
         | ImGuiWindowFlags_NoResize
         ;
 
@@ -1082,9 +1205,14 @@ void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
     ImGui::EndChild();
 
     static char input_buf[1024];
-    ImGuiInputTextFlags input_flags = ImGuiInputTextFlags_EnterReturnsTrue;
-    if (ImGui::InputText("", input_buf, sizeof(input_buf), input_flags))
+    ImGuiInputTextFlags input_flags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackHistory;
+    if (first_draw)
     {
+        ImGui::SetKeyboardFocusHere();
+    }
+    if (ImGui::InputText("", input_buf, sizeof(input_buf), input_flags, imgui_cli_history_callback, &history))
+    {
+        clihistory_add(&history, input_buf);
         append_logln(input_buf);
 
         process_console_input(prgmem, input_buf);
@@ -1096,6 +1224,7 @@ void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
     ImGui::End();
     ImGui::PopStyleVar();
 
+    first_draw = false;
 }
 
 
@@ -1111,7 +1240,7 @@ int main(int argc, char **argv)
 
     test_json_import(&prgmem, argc - 1, argv + 1);
     // run_terminal_cli(&prgmem);
-    run_terminal_json_cli(&prgmem);
+    // run_terminal_json_cli(&prgmem);
 
     if (0 != SDL_Init(SDL_INIT_VIDEO))
     {
@@ -1172,7 +1301,7 @@ int main(int argc, char **argv)
 
         draw_imgui_json_cli(&prgmem, window);
 
-        // ImGui::ShowTestWindow();
+        ImGui::ShowTestWindow();
 
 
         glViewport(0, 0,

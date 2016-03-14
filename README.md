@@ -11,12 +11,11 @@ to feel good and do useful things.
 - [X] Decompose all the `run_terminal` functions into parsing / exec'ing
       subroutines. They're all pretty redundant right now
 
-- [ ] Up-arrow history
+- [X] Up-arrow history
 
-- [ ] Auto-focus the input field the first time
+- [ ] Auto-scroll to bottom on output
 
-- [ ] Copy-paste from OS paste buffer. Maybe this works on Windows but just
-      isn't implemented on OSX?
+- [X] Auto-focus the input field the first time
 
 - [ ] Selectable output for copy-paste
 
