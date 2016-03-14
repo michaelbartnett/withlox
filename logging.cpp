@@ -164,7 +164,7 @@ Str concatenated_log()
 void init_formatbuffer(FormatBuffer *fb, size_t initial_capacity)
 {
     fb->capacity = initial_capacity;
-    fb->buffer = MALLOC_ARRAY(char, fb->capacity);
+    fb->buffer = 0;
     fb->cursor = 0;
 }
 
@@ -201,7 +201,17 @@ void FormatBuffer::flush_to_log()
 void FormatBuffer::write(const char *string, size_t length)
 {
     size_t bytes_remaining = this->capacity - this->cursor;
-    if (bytes_remaining <= length)
+
+    if (!this->buffer)
+    {
+        if (this->capacity < length)
+        {
+            this->capacity = length;
+        }
+        this->buffer = MALLOC_ARRAY(char, this->capacity);
+        
+    }
+    else if (bytes_remaining <= length)
     {
         this->capacity = (this->capacity * 2 < this->capacity + length + 1
                           ? this->capacity + length + 1
@@ -217,6 +227,11 @@ void FormatBuffer::write(const char *string, size_t length)
 
 void formatbuffer_v_writef(FormatBuffer *fmt_buf, const char *format, va_list vargs)
 {
+    if (!fmt_buf->buffer)
+    {
+        fmt_buf->buffer = MALLOC_ARRAY(char, fmt_buf->capacity);
+    }
+
     size_t bytes_remaining = fmt_buf->capacity - fmt_buf->cursor;
     // ptrdiff_t bytes_remaining = (fmt_buf->buffer + fmt_buf->capacity) - fmt_buf->cursor;
     assert(bytes_remaining >= 0);

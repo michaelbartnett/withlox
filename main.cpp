@@ -1213,7 +1213,6 @@ void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
 
     if (highlight_output_mode)
     {
-        bool tab_released = ImGui::IsKeyReleased(ImGuiKey_Tab);
         ImGui::InputTextMultiline("##log-output", biglog.data, biglog.length, ImVec2(-1, -1), output_flags);
         
         if ((! (ImGui::IsWindowHovered() || ImGui::IsItemHovered()) && ImGui::IsMouseReleased(0))
