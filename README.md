@@ -13,11 +13,11 @@ to feel good and do useful things.
 
 - [X] Up-arrow history
 
-- [ ] Auto-scroll to bottom on output
+- [X] Auto-scroll to bottom on output
 
 - [X] Auto-focus the input field the first time
 
-- [ ] Selectable output for copy-paste
+- [X] Selectable output for copy-paste
 
 - [ ] Test/develop on Windows
 

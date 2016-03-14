@@ -230,13 +230,12 @@ HEADERFN Value clone(const Value *src)
 
         case TypeID::Compound:
             dynarray_init(&result.members, src->members.count);
-            for (u32 i = 0; i < result.members.count; ++i)
+            for (u32 i = 0; i < src->members.count; ++i)
             {
                 ValueMember *src_member = get(src->members, i);
-                ValueMember dest_member;
-                dest_member.name = src_member->name;
-                dest_member.value = clone(&src_member->value);
-                set(&result.members, i, dest_member);
+                ValueMember *dest_member = append(&result.members);
+                dest_member->name = src_member->name;
+                dest_member->value = clone(&src_member->value);
             }
     }
 

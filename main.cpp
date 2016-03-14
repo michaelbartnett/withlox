@@ -11,6 +11,7 @@
 #include "json.h"
 #include "linenoise.h"
 #include "imgui_helpers.h"
+// #include "dearimgui/imgui_internal.h"
 #include "dearimgui/imgui.h"
 #include "dearimgui/imgui_impl_sdl.h"
 #include <SDL.h>
@@ -736,6 +737,11 @@ CLI_COMMAND_FN_SIG(set_value)
     }
 
     entry->value = clone(get(args, 1));
+
+    FormatBuffer fbuf;
+    fbuf.flush_on_destruct();
+    fbuf.writeln("Storing value:");
+    pretty_print(&entry->value, &fbuf);
 }
 
 
@@ -900,10 +906,10 @@ void init_cli_commands(ProgramMemory *prgmem)
 }
 
 
-void process_console_input(ProgramMemory *prgmem, char *input_buf)
+void process_console_input(ProgramMemory *prgmem, StrSlice input_buf)
 {
     tokenizer::State tokstate;
-    tokenizer::init(&tokstate, input_buf);
+    tokenizer::init(&tokstate, input_buf.data);
 
     tokenizer::Token first_token = tokenizer::read_string(&tokstate);
 
@@ -918,7 +924,7 @@ void process_console_input(ProgramMemory *prgmem, char *input_buf)
     bool error = false;
 
     for (;;) {
-        size_t offset_from_input = (size_t)(tokstate.current - input_buf);
+        size_t offset_from_input = (size_t)(tokstate.current - input_buf.data);
         json_parse_result_s jp_result = {};
         json_value_s *jv = json_parse_ex(tokstate.current, (size_t)(tokstate.end - tokstate.current),
                                          jsonflags, &jp_result);
@@ -937,7 +943,7 @@ void process_console_input(ProgramMemory *prgmem, char *input_buf)
                            json_error_code_string(jp_result.error),
                            jp_result.error_line_no,
                            jp_result.error_row_no + (jp_result.error_line_no > 1 ? 0 : offset_from_input) - (invalid_number ? 1 : 0),
-                           input_buf);
+                           input_buf.data);
 
             size_t buffer_offset = jp_result.error_offset + offset_from_input + (invalid_value ? 1 : 0);
             for (size_t i = 0; i < buffer_offset - 1; ++i) fmt_buf.write("~");
@@ -978,6 +984,8 @@ void run_terminal_cli(ProgramMemory *prgmem)
         {
             break;
         }
+
+        append_log(input);
 
         tokenizer::State tokstate;
         tokenizer::init(&tokstate, input);
@@ -1025,6 +1033,7 @@ void run_terminal_json_cli(ProgramMemory *prgmem)
             break;
         }
 
+        append_log(input);
 
         tokenizer::State tokstate;
         tokenizer::init(&tokstate, input);
@@ -1037,7 +1046,7 @@ void run_terminal_json_cli(ProgramMemory *prgmem)
             continue;
         }
 
-        process_console_input(prgmem, input);
+        process_console_input(prgmem, str_slice(input));
 
         std::free(input);
     }
@@ -1075,7 +1084,7 @@ void clihistory_to_front(CliHistory *hist)
 }
 
 
-void clihistory_add(CliHistory *hist, const char *input)
+void clihistory_add(CliHistory *hist, StrSlice input)
 {
     append(&hist->input_entries, str(input));
     clihistory_to_front(hist);
@@ -1170,6 +1179,8 @@ int imgui_cli_history_callback(ImGuiTextEditCallbackData *data)
 
 void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
 {
+    static float scroll_y = 0;
+    static bool highlight_output_mode = false;
     static bool first_draw = true;
     static CliHistory history = {};
     if (first_draw)
@@ -1195,12 +1206,34 @@ void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
                       ImVec2(0,-ImGui::GetItemsLineHeightWithSpacing()),
                       false,
                       ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_ForceHorizontalScrollbar);
+    
 
-    for (u32 i = 0, e = log_count(); i < e; ++i)
+    ImGuiInputTextFlags output_flags = ImGuiInputTextFlags_ReadOnly;
+    Str biglog = concatenated_log();
+
+    if (highlight_output_mode)
     {
-        Str *str = get_log(i);
-        ImGui::TextUnformatted(str->data);
+        bool tab_released = ImGui::IsKeyReleased(ImGuiKey_Tab);
+        ImGui::InputTextMultiline("##log-output", biglog.data, biglog.length, ImVec2(-1, -1), output_flags);
+        
+        if ((! (ImGui::IsWindowHovered() || ImGui::IsItemHovered()) && ImGui::IsMouseReleased(0))
+            || ImGui::IsKeyReleased(SDLK_TAB))
+        {
+            highlight_output_mode = false;
+        }
     }
+    else
+    {
+        ImGui::TextUnformatted(biglog.data, biglog.data + biglog.length);
+        scroll_y = ImGui::GetItemRectSize().y;
+        if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(0))
+        {
+            highlight_output_mode = true;
+        }
+        ImGui::SetScrollY(scroll_y);
+    }
+
+    
 
     ImGui::EndChild();
 
@@ -1210,14 +1243,18 @@ void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
     {
         ImGui::SetKeyboardFocusHere();
     }
-    if (ImGui::InputText("", input_buf, sizeof(input_buf), input_flags, imgui_cli_history_callback, &history))
+    if (ImGui::InputText("##input", input_buf, sizeof(input_buf), input_flags, imgui_cli_history_callback, &history))
     {
-        clihistory_add(&history, input_buf);
-        append_logln(input_buf);
+        StrSlice input_slice = str_slice(input_buf);
+        if (input_slice.length > 0)
+        {    
+            clihistory_add(&history, input_slice);
+            log(input_buf);
 
-        process_console_input(prgmem, input_buf);
+            process_console_input(prgmem, input_slice);
 
-        input_buf[0] = '\0';
+            input_buf[0] = '\0';
+        }
         ImGui::SetKeyboardFocusHere(-1);
     }
 

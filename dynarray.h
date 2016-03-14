@@ -56,7 +56,7 @@ T *append(DynArray<T> *dynarray)
     if (dynarray->count == dynarray->capacity)
     {
         DynArrayCount new_capacity = (dynarray->capacity + 1) * 2;
-        dynarray->data = REALLOC_ARRAY(dynarray->data, T, new_capacity);
+        REALLOC_ARRAY(dynarray->data, T, new_capacity);
         dynarray->capacity = new_capacity;
     }
 

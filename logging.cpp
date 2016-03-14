@@ -12,6 +12,9 @@ static const size_t default_format_buffer_capacity = 1024;
 static DynArray<Str> log_entries = {};
 static char *output_buffer = 0;
 static size_t output_buffer_size = 0;
+static FormatBuffer *concatenated = 0;
+static u32 next_log_entry_to_concat = 0;
+static bool concatenated_dirty = false;
 
 #ifdef __clang__
 #pragma clang diagnostic push
@@ -19,17 +22,41 @@ static size_t output_buffer_size = 0;
 #endif
 
 
-void append_log(const char *string)
+void append_log(Str log_entry)
 {
-    append(&log_entries, str(string));
+    // for (int i = log_entry.length - 1; i >= 0; --i)
+    // {
+    //     if (log_entry.data[i] == '\n')
+    //     {
+    //         log_entry.data[i] = '\0';
+    //         --log_entry.length;
+    //     }
+    //     else
+    //     {
+    //         break;
+    //     }
+    // }
+    append(&log_entries, log_entry);
+    concatenated_dirty = true;
 }
 
 
-void append_logln(const char *string)
+void append_log(const char *string)
 {
-    FormatBuffer fmt_buf;
-    fmt_buf.writeln(string);
-    append(&log_entries, str(fmt_buf.buffer));
+    append_log(str(string));
+}
+
+
+void append_log(const char *string, size_t length)
+{
+    assert(length < STR_LENGTH_MAX);
+    // u16 log_length = (u16)length - 1;
+    // if (log_length < 0)
+    // {
+    //     log_length = 0;
+    // }
+    // append_log(str(string, log_length));
+    append_log(str(string, (u16)length));
 }
 
 
@@ -63,7 +90,7 @@ static void vlogf(const char *format, va_list vargs)
 
     assert(output_buffer_size < STR_LENGTH_MAX);
     
-    append(&log_entries, str(output_buffer, (StrLen)output_buffer_size));
+    append_log(output_buffer, (size_t)format_size);
 
     println(output_buffer);
 }
@@ -105,12 +132,40 @@ Str *get_log(u32 i)
 }
 
 
+Str concatenated_log()
+{
+    if (!concatenated)
+    {
+        concatenated_dirty = true;
+        concatenated = new FormatBuffer(128); // ugh, new
+    }
+
+    if (concatenated_dirty)
+    {
+        for (u32 i = next_log_entry_to_concat; i < log_entries.count; ++i)
+        {
+            Str *str = get(log_entries, i);
+            concatenated->write(str->data, str->length);
+            concatenated->write("\n", 1);
+        }
+        concatenated_dirty = false;
+        next_log_entry_to_concat = log_entries.count;
+    }
+
+    Str result;
+    assert(concatenated->cursor < STR_LENGTH_MAX);
+    result.data = concatenated->buffer;
+    result.length = (u16)concatenated->cursor;
+    result.capacity = result.capacity;
+    return result;
+}
+
 
 void init_formatbuffer(FormatBuffer *fb, size_t initial_capacity)
 {
     fb->capacity = initial_capacity;
     fb->buffer = MALLOC_ARRAY(char, fb->capacity);
-    fb->cursor = fb->buffer;
+    fb->cursor = 0;
 }
 
 FormatBuffer::FormatBuffer(size_t initial_capacity)
@@ -135,7 +190,7 @@ FormatBuffer::~FormatBuffer()
 
 void FormatBuffer::flush_to_log()
 {
-    if (this->buffer != this->cursor)
+    if (this->cursor > 0)
     {
         logf("%s", this->buffer);
         this->clear();
@@ -143,30 +198,51 @@ void FormatBuffer::flush_to_log()
 }
 
 
+void FormatBuffer::write(const char *string, size_t length)
+{
+    size_t bytes_remaining = this->capacity - this->cursor;
+    if (bytes_remaining <= length)
+    {
+        this->capacity = (this->capacity * 2 < this->capacity + length + 1
+                          ? this->capacity + length + 1
+                          : this->capacity * 2);
+        REALLOC_ARRAY(this->buffer, char, this->capacity);
+    }
+
+    memcpy(this->buffer + this->cursor, string, length);
+    this->cursor += length;
+    this->buffer[this->cursor] = '\0';
+}
+
+
 void formatbuffer_v_writef(FormatBuffer *fmt_buf, const char *format, va_list vargs)
 {
-    ptrdiff_t bytes_remaining = (fmt_buf->buffer + fmt_buf->capacity) - fmt_buf->cursor;
+    size_t bytes_remaining = fmt_buf->capacity - fmt_buf->cursor;
+    // ptrdiff_t bytes_remaining = (fmt_buf->buffer + fmt_buf->capacity) - fmt_buf->cursor;
     assert(bytes_remaining >= 0);
 
-    int format_size = vsnprintf(fmt_buf->cursor, (size_t)bytes_remaining, format, vargs);
-    assert(format_size >= 0);
-    int byte_write_count = format_size;
+    int printf_result = vsnprintf(fmt_buf->buffer + fmt_buf->cursor,
+                                (size_t)bytes_remaining, format, vargs);
+    assert(printf_result >= 0);
+    size_t byte_write_count = (size_t)printf_result;
 
     // format size should always be less than output size, otherwise we risk losing the null terminator
-    if (format_size >= bytes_remaining)
+    if (byte_write_count >= bytes_remaining)
     {
-        ptrdiff_t new_bytes_remaining = format_size - bytes_remaining + 1;
+        size_t new_bytes_remaining = byte_write_count - bytes_remaining + 1;
         assert(new_bytes_remaining > bytes_remaining);
 
         fmt_buf->capacity += (size_t)new_bytes_remaining;
-        assert(fmt_buf->cursor + new_bytes_remaining == fmt_buf->buffer + fmt_buf->capacity);
+        assert(fmt_buf->cursor + new_bytes_remaining == fmt_buf->capacity);
 
         REALLOC_ARRAY(fmt_buf->buffer, char, fmt_buf->capacity);
 
-        int confirm_format_size = vsnprintf(fmt_buf->cursor, (size_t)new_bytes_remaining, format, vargs);
+        int confirm_result = vsnprintf(fmt_buf->buffer + fmt_buf->cursor,
+                                            (size_t)new_bytes_remaining, format, vargs);
 
         // sanity check
-        assert(confirm_format_size == format_size);
+        assert(confirm_result >= 0);
+        assert(confirm_result == printf_result);
     }
 
     fmt_buf->cursor += byte_write_count;
