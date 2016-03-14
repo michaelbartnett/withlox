@@ -47,6 +47,7 @@ void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
 void pretty_print(TypeDescriptor *type_desc, int indent)
 {
     FormatBuffer fmt_buf;
+    fmt_buf.flush_on_destruct();
     pretty_print(type_desc, &fmt_buf, indent);
     fmt_buf.flush_to_log();
 }
@@ -108,6 +109,7 @@ void pretty_print(Value *value, FormatBuffer *fmt_buf, int indent)
 void pretty_print(Value *value, int indent)
 {
     FormatBuffer fmt_buf;
+    fmt_buf.flush_on_destruct();
     pretty_print(value, &fmt_buf, indent);
     fmt_buf.flush_to_log();
 }
@@ -116,6 +118,7 @@ void pretty_print(Value *value, int indent)
 void pretty_print(tokenizer::Token token)
 {
     FormatBuffer fmt_buf;
+    fmt_buf.flush_on_destruct();
     pretty_print(token, &fmt_buf);
     fmt_buf.flush_to_log();
 }

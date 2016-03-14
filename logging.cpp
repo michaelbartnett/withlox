@@ -7,6 +7,8 @@
 #include <cstdio>
 #include <cstddef>
 
+static const size_t default_format_buffer_capacity = 1024;
+
 static DynArray<Str> log_entries = {};
 static char *output_buffer = 0;
 static size_t output_buffer_size = 0;
@@ -28,7 +30,6 @@ void append_logln(const char *string)
     FormatBuffer fmt_buf;
     fmt_buf.writeln(string);
     append(&log_entries, str(fmt_buf.buffer));
-    fmt_buf.clear();
 }
 
 
@@ -37,7 +38,7 @@ static void vlogf(const char *format, va_list vargs)
     // lazily allocate the output buffer
     if (!output_buffer)
     {
-        output_buffer_size = 1024;
+        output_buffer_size = default_format_buffer_capacity;
         output_buffer = MALLOC_ARRAY(char, output_buffer_size);
     }
 
@@ -119,8 +120,28 @@ FormatBuffer::FormatBuffer(size_t initial_capacity)
 
 FormatBuffer::FormatBuffer()
 {
-    init_formatbuffer(this, 1024);
+    init_formatbuffer(this, default_format_buffer_capacity);
 }
+
+FormatBuffer::~FormatBuffer()
+{
+    if (do_flush_on_destruct)
+    {
+        this->flush_to_log();
+    }
+    std::free(this->buffer);
+}
+
+
+void FormatBuffer::flush_to_log()
+{
+    if (this->buffer != this->cursor)
+    {
+        logf("%s", this->buffer);
+        this->clear();
+    }
+}
+
 
 void formatbuffer_v_writef(FormatBuffer *fmt_buf, const char *format, va_list vargs)
 {

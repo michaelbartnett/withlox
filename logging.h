@@ -38,11 +38,7 @@ class FormatBuffer
 public:
     FormatBuffer();
     FormatBuffer(size_t initial_capacity);
-    ~FormatBuffer()
-    {
-        this->flush_to_log();
-        std::free(this->buffer);
-    }
+    ~FormatBuffer();
 
     void write(const char *string) { this->writef("%s", string); }
     void writeln(const char *string);
@@ -53,19 +49,17 @@ public:
     void writeln_indent(int indent, const char *string);
     void clear() { this->cursor = this->buffer; }
 
-
-    void flush_to_log()
+    void flush_on_destruct(bool enable_flush_on_destruct = true)
     {
-        if (this->buffer != this->cursor)
-        {
-            logf("%s", this->buffer);
-            this->clear();
-        }
+        do_flush_on_destruct = enable_flush_on_destruct;
     }
+
+    void flush_to_log();
 
     size_t capacity;
     char *buffer;
     char *cursor;
+    bool do_flush_on_destruct;
 };
 
 

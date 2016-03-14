@@ -611,7 +611,7 @@ Value create_value_from_json(ProgramMemory *prgmem, json_value_s *jv)
             break;
 
         case json_type_null:
-            
+            result.typedesc_ref = prgmem->prim_none;
             break;
     }
 
@@ -815,6 +815,7 @@ CLI_COMMAND_FN_SIG(print_values)
     }
 
     FormatBuffer fmt_buf;
+    fmt_buf.flush_on_destruct();
 
     for (u32 i = 0; i < args.count; ++i)
     {
@@ -887,7 +888,7 @@ void test_json_import(ProgramMemory *prgmem, int filename_count, char **filename
 }
 
 
-void init_terminal_commands(ProgramMemory *prgmem)
+void init_cli_commands(ProgramMemory *prgmem)
 {
     REGISTER_COMMAND(prgmem, say_hello, NULL);
     REGISTER_COMMAND(prgmem, list_args, NULL);
@@ -917,6 +918,7 @@ void process_console_input(ProgramMemory *prgmem, char *input_buf)
     bool error = false;
 
     for (;;) {
+        size_t offset_from_input = (size_t)(tokstate.current - input_buf);
         json_parse_result_s jp_result = {};
         json_value_s *jv = json_parse_ex(tokstate.current, (size_t)(tokstate.end - tokstate.current),
                                          jsonflags, &jp_result);
@@ -924,10 +926,22 @@ void process_console_input(ProgramMemory *prgmem, char *input_buf)
 
         if (jp_result.error != json_parse_error_none)
         {
-            logf_ln("Json parse error: %s\nAt %lu:%lu",
-                    json_error_code_string(jp_result.error),
-                    jp_result.error_line_no,
-                    jp_result.error_row_no);
+            FormatBuffer fmt_buf;
+            fmt_buf.flush_on_destruct();
+
+            // json.h doesn't seem to be consistent in whether it point to errors before or after the relevant character
+            bool invalid_value = jp_result.error == json_parse_error_invalid_value;
+            bool invalid_number = jp_result.error == json_parse_error_invalid_number_format;
+
+            fmt_buf.writef("Json parse error: %s\nAt %lu:%lu\n%s\n",
+                           json_error_code_string(jp_result.error),
+                           jp_result.error_line_no,
+                           jp_result.error_row_no + (jp_result.error_line_no > 1 ? 0 : offset_from_input) - (invalid_number ? 1 : 0),
+                           input_buf);
+
+            size_t buffer_offset = jp_result.error_offset + offset_from_input + (invalid_value ? 1 : 0);
+            for (size_t i = 0; i < buffer_offset - 1; ++i) fmt_buf.write("~");
+            fmt_buf.write("^");
             error =  true;
             break;
         }
@@ -988,7 +1002,6 @@ void run_terminal_cli(ProgramMemory *prgmem)
             }
 
             Value value = create_value_from_token(prgmem, token);
-            // pretty_print(value.typedesc_ref);
 
             append(&cmd_args, value);
         }
@@ -1001,7 +1014,7 @@ void run_terminal_cli(ProgramMemory *prgmem)
 }
 
 
-void run_json_terminal_cli(ProgramMemory *prgmem)
+void run_terminal_json_cli(ProgramMemory *prgmem)
 {
     for (;;)
     {
@@ -1032,7 +1045,7 @@ void run_json_terminal_cli(ProgramMemory *prgmem)
 }
 
 
-void draw_imgui_json_terminal(ProgramMemory *prgmem, SDL_Window *window)
+void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
 {       
     static DynArray<Str> console_entries = {};
     if (!console_entries.data)
@@ -1060,15 +1073,9 @@ void draw_imgui_json_terminal(ProgramMemory *prgmem, SDL_Window *window)
                       false,
                       ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_ForceHorizontalScrollbar);
 
-    // for (u32 i = 0; i < console_entries.count; ++i)
-    // {
-    //     Str *entry = get(console_entries, i);
-    //     ImGui::TextUnformatted(entry->data, entry->data + entry->length);
-    // }
     for (u32 i = 0, e = log_count(); i < e; ++i)
     {
         Str *str = get_log(i);
-
         ImGui::TextUnformatted(str->data);
     }
 
@@ -1100,11 +1107,11 @@ int main(int argc, char **argv)
 
     ProgramMemory prgmem;
     prgmem_init(&prgmem);
-    init_terminal_commands(&prgmem);
+    init_cli_commands(&prgmem);
 
     test_json_import(&prgmem, argc - 1, argv + 1);
     // run_terminal_cli(&prgmem);
-    // run_json_terminal_cli(&prgmem);
+    run_terminal_json_cli(&prgmem);
 
     if (0 != SDL_Init(SDL_INIT_VIDEO))
     {
@@ -1163,7 +1170,7 @@ int main(int argc, char **argv)
 
         ImGui_ImplSdl_NewFrame(window);
 
-        draw_imgui_json_terminal(&prgmem, window);
+        draw_imgui_json_cli(&prgmem, window);
 
         // ImGui::ShowTestWindow();
 
