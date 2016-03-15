@@ -1088,7 +1088,7 @@ public:
 
 void CliHistory::to_front()
 {
-    if (this->saved_input_buf.data)
+    if (this->saved_input_buf.capacity)
     {
         str_free(&this->saved_input_buf);
     }

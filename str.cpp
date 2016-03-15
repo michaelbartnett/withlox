@@ -1,5 +1,17 @@
 #include "str.h"
 
+static char empty_string_storage[] = { '\0' };
+static char *empty_string = empty_string_storage;
+
+
+StrSlice empty_str_slice()
+{
+    StrSlice result;
+    result.data = empty_string;
+    result.length = 0;
+    return result;
+}
+
 
 Str str_alloc(StrLen str_size)
 {
@@ -36,8 +48,9 @@ Str str(const char *cstr)
 
 void str_free(Str *str)
 {
-    assert(str->data);
+    assert(str->capacity);
     std::free(str->data);
+    str->data = empty_string;
     str->capacity = 0;
     str->length = 0;
 }

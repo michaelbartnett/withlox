@@ -39,13 +39,7 @@ Str str(const char *cstr);
 void str_free(Str *str);
 Str str_concated_v_impl(StrSlice first_slice...);
 
-inline StrSlice empty_str_slice()
-{
-    StrSlice result;
-    result.data = "";
-    result.length = 0;
-    return result;
-}
+StrSlice empty_str_slice();
 
 inline Str str(StrSlice strslice)
 {
