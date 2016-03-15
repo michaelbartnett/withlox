@@ -1,5 +1,82 @@
 [//]: # -*- fill-column: 80  -*-
 
+## Current TODO
+
+This will be maintained. Latest log entry will go below.
+
+- [ ] Milestone: Solid GUI Terminal: Test/develop on Windows
+
+- [ ] Memory: Free the memory used by the CLI value args
+
+- [ ] Memory: Wrap malloc and free in order to count allocations
+
+- [ ] Initial TODO: Validate values against type descriptors.
+
+## 2016-03-14 Expand the Type System
+
+Now I have a graphical CLI working relatively well. I can easily add commands to
+process values I enter at the command line with json syntax.
+
+Now I need to start building out the rest of the type system.
+
+Notably missing are:
+
+- Arrays
+- Enumerations
+- *Maybe* Unions
+- *Maybe* an Any type
+
+Arrays and Enums are essential because I use them all the time in C#, and all
+languages can pretty much represent them in a reasonable way.
+
+Unions are tricky since they don't really exist in C# and other languages (at
+least not without doing tricky things with GCHandles and structs and special
+layout attributes), but they sure are nice.
+
+Unions are also useful because ultimately you'll need to be able to specify the
+type of an Array, and if you really want an Array to have maybe one thing and
+maybe another thing, then that's a Union!
+
+If an Any type is supported (fairly likely, I mean the main focus here initially
+is editing JSON files in a directory) then you can have an Array of Any.
+
+I don't want to start with Any though.
+
+I don't want to start with Enums either, because I need to ruminate on them a
+bit more. The ruminating involves questions about representation, width, value
+names, and Tuples. Yes, Tuples! I thought about them while thinking about
+how to represent the type of an Array.
+
+But Arrays I think I have a handle on. Arrays should have a single type
+parameter. I noted above that heterogeneous Arrays could be accomodated via an
+Any type, so that frees me up to say that Arrays are just of a single type.
+It's also how statically typed programming languages usually work so I'm just
+gonna do the obvious thing.
+
+### Unrelated Note about value storage
+
+Right now a ValueMember's Value object is stored inline, and based on my
+experiences with my Mal interpreter, those should probably be pointers or
+handles.
+
+This type system definitely has Javascript/Java/Python-like pseudo-reference
+semantics. This means I can have a big Value memory pool, opens up the
+possibility of having a reference type, and probably makes value initialization
+and copying (e.g. from one Array to another) much cleaner.
+
+Could also maybe open up clever optimizations for many duplicate values, e.g.  a
+CoW kinda thing. That sounds tricky though, gonna look at that further down the
+road.
+
+## Refactor this README's TODOs
+
+I'm going to maintain a list of todos at the top, and only list todos in the
+individual dev log entries with a "- []" prefix to indicate their todo-y-ness,
+but will then copy them up to the top with a log entry prefix.
+
+I'm also going to start adding the day to each log entry for disambiguation and
+yay record keeping.
+
 ## Milestone: Solid GUI Terminal
 
 The dearimgui console is functioning. Now I want the command execution stuff to work
@@ -19,7 +96,7 @@ to feel good and do useful things.
 
 - [X] Selectable output for copy-paste
 
-- [ ] Test/develop on Windows
+- [] Test/develop on Windows
 
 ## Memory
 
@@ -30,9 +107,9 @@ so I should maybe have my own object heap.
 
 In the meantime, after the dearimgui console is done:
 
-- [ ] Free the memory used by the CLI value args
+- [] Free the memory used by the CLI value args
 
-- [ ] Wrap malloc and free in order to count allocations
+- [] Wrap malloc and free in order to count allocations
 
 ## DearImgui works, now what?
 
@@ -323,7 +400,7 @@ how the pretty_print output looks now).
 
 Or maybe it should match that Open Game Data spec that Eric Lengyel amde.
 
-## TODO
+## Initial TODO
 
 - [X] Merge type descriptors
 
@@ -368,7 +445,7 @@ Or maybe it should match that Open Game Data spec that Eric Lengyel amde.
 
 - [X] Load values in
 
-- [ ] Validate values against type descriptors.
+- [] Validate values against type descriptors.
 
 - [X] UI. Was looking at Qt. Maybe that won't suck. it probably will. dear imgui?
   *NOTE: decided to start with dearimgui
