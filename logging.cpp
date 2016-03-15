@@ -7,8 +7,6 @@
 #include <cstdio>
 #include <cstddef>
 
-static const size_t default_format_buffer_capacity = 1024;
-
 static DynArray<Str> log_entries = {};
 static char *output_buffer = 0;
 static size_t output_buffer_size = 0;
@@ -50,12 +48,6 @@ void append_log(const char *string)
 void append_log(const char *string, size_t length)
 {
     assert(length < STR_LENGTH_MAX);
-    // u16 log_length = (u16)length - 1;
-    // if (log_length < 0)
-    // {
-    //     log_length = 0;
-    // }
-    // append_log(str(string, log_length));
     append_log(str(string, (u16)length));
 }
 
@@ -65,7 +57,7 @@ static void vlogf(const char *format, va_list vargs)
     // lazily allocate the output buffer
     if (!output_buffer)
     {
-        output_buffer_size = default_format_buffer_capacity;
+        output_buffer_size = FormatBuffer::default_format_buffer_capacity;
         output_buffer = MALLOC_ARRAY(char, output_buffer_size);
     }
 
@@ -168,15 +160,15 @@ void init_formatbuffer(FormatBuffer *fb, size_t initial_capacity)
     fb->cursor = 0;
 }
 
-FormatBuffer::FormatBuffer(size_t initial_capacity)
-{
-    init_formatbuffer(this, initial_capacity);
-}
+// FormatBuffer::FormatBuffer(size_t initial_capacity)
+// {
+//     init_formatbuffer(this, initial_capacity);
+// }
 
-FormatBuffer::FormatBuffer()
-{
-    init_formatbuffer(this, default_format_buffer_capacity);
-}
+// FormatBuffer::FormatBuffer()
+// {
+//     init_formatbuffer(this, default_format_buffer_capacity);
+// }
 
 FormatBuffer::~FormatBuffer()
 {

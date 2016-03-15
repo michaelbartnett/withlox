@@ -1055,46 +1055,67 @@ void run_terminal_json_cli(ProgramMemory *prgmem)
 
 
 
-struct CliHistory
+class CliHistory
 {
+public:
+
+    CliHistory()
+        : input_entries()
+        , saved_input_buf()
+        , pos(0)
+        , saved_cursor_pos(0)
+        , saved_selection_start(0)
+        , saved_selection_end(0)
+        {            
+        }
+
+    void to_front();
+    void add(StrSlice input);
+    void restore(s64 position, ImGuiTextEditCallbackData *data);
+    void backward(ImGuiTextEditCallbackData *data);
+    void forward(ImGuiTextEditCallbackData *data);
+    
+    
+
     DynArray<Str> input_entries;
-    s64 pos;
     Str saved_input_buf;
+    s64 pos;
     s32 saved_cursor_pos;
     s32 saved_selection_start;
     s32 saved_selection_end;
 };
 
 
-void clihistory_init(CliHistory *hist)
+void CliHistory::to_front()
 {
-    dynarray_init(&hist->input_entries, 64);
-    hist->pos = -1;
-    ZERO_PTR(&hist->saved_input_buf);
-}
-
-
-void clihistory_to_front(CliHistory *hist)
-{
-    if (hist->pos != -1)
+    if (this->saved_input_buf.data)
     {
-        str_free(&hist->saved_input_buf);
+        str_free(&this->saved_input_buf);
     }
-    hist->pos = -1;
+    this->pos = -1;
 }
 
 
-void clihistory_add(CliHistory *hist, StrSlice input)
+void CliHistory::add(StrSlice input)
 {
-    append(&hist->input_entries, str(input));
-    clihistory_to_front(hist);
+    if (!this->input_entries.data)
+    {
+        dynarray_init(&this->input_entries, 64);
+    }
+    append(&this->input_entries, str(input));
+    this->to_front();
 }
 
 
-void clihistory_restore(CliHistory *hist, s64 position, ImGuiTextEditCallbackData* data)
+void CliHistory::restore(s64 position, ImGuiTextEditCallbackData* data)
 {
+    if (this->input_entries.count == 0)
+    {
+        return;
+    }
+
     assert(position < DYNARRAY_COUNT_MAX);
-    Str *new_input = get(&hist->input_entries, (u32)position);
+    Str *new_input = get(&this->input_entries, (u32)position);
     memcpy(data->Buf, new_input->data, new_input->length);
     data->Buf[new_input->length] = '\0';
     data->BufTextLen = data->SelectionStart = data->SelectionEnd = data->CursorPos = new_input->length;
@@ -1102,54 +1123,54 @@ void clihistory_restore(CliHistory *hist, s64 position, ImGuiTextEditCallbackDat
 }
 
 
-void clihistory_backward(CliHistory *hist, ImGuiTextEditCallbackData* data)
+void CliHistory::backward(ImGuiTextEditCallbackData* data)
 {
-    s64 prev_pos = hist->pos;
+    s64 prev_pos = this->pos;
 
-    if (hist->pos == -1)
+    if (this->pos == -1)
     {
-        hist->pos = hist->input_entries.count - 1;
-        hist->saved_input_buf = str(data->Buf);
-        hist->saved_cursor_pos = data->CursorPos;
-        hist->saved_selection_start = data->SelectionStart;
-        hist->saved_selection_end = data->SelectionEnd;
+        this->pos = this->input_entries.count - 1;
+        this->saved_input_buf = str(data->Buf);
+        this->saved_cursor_pos = data->CursorPos;
+        this->saved_selection_start = data->SelectionStart;
+        this->saved_selection_end = data->SelectionEnd;
     }
-    else if (hist->pos > 0)
+    else if (this->pos > 0)
     {
-        --hist->pos;
+        --this->pos;
     }
 
-    if (prev_pos != hist->pos)
+    if (prev_pos != this->pos)
     {
-        clihistory_restore(hist, hist->pos, data);
+        this->restore(this->pos, data);
     }
 }
 
 
-void clihistory_forward(CliHistory *hist, ImGuiTextEditCallbackData* data)
+void CliHistory::forward(ImGuiTextEditCallbackData* data)
 {
-    s64 prev_pos = hist->pos;
+    s64 prev_pos = this->pos;
 
-    if (hist->pos >= 0)
+    if (this->pos >= 0)
     {
-        ++hist->pos;
+        ++this->pos;
     }
 
-    if (prev_pos == hist->input_entries.count - 1)
+    if (prev_pos == this->input_entries.count - 1)
     {
-        memcpy(data->Buf, hist->saved_input_buf.data, hist->saved_input_buf.length);
-        data->Buf[hist->saved_input_buf.length] = '\0';
-        data->BufTextLen = hist->saved_input_buf.length;
-        data->CursorPos = hist->saved_cursor_pos;
-        data->SelectionStart = hist->saved_selection_start;
-        data->SelectionEnd = hist->saved_selection_end;
+        memcpy(data->Buf, this->saved_input_buf.data, this->saved_input_buf.length);
+        data->Buf[this->saved_input_buf.length] = '\0';
+        data->BufTextLen = this->saved_input_buf.length;
+        data->CursorPos = this->saved_cursor_pos;
+        data->SelectionStart = this->saved_selection_start;
+        data->SelectionEnd = this->saved_selection_end;
         data->BufDirty = true;
 
-        clihistory_to_front(hist);
+        this->to_front();
     }
-    else if (prev_pos != hist->pos)
+    else if (prev_pos != this->pos)
     {
-        clihistory_restore(hist, hist->pos, data);
+        this->restore(this->pos, data);
     }
 }
 
@@ -1165,11 +1186,11 @@ int imgui_cli_history_callback(ImGuiTextEditCallbackData *data)
 
     if (data->EventKey == ImGuiKey_UpArrow)
     {
-        clihistory_backward(hist, data);
+        hist->backward(data);
     }
     else if (data->EventKey == ImGuiKey_DownArrow)
     {
-        clihistory_forward(hist, data);
+        hist->forward(data);
     }
 
     return 0;
@@ -1182,11 +1203,11 @@ void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
     static float scroll_y = 0;
     static bool highlight_output_mode = false;
     static bool first_draw = true;
-    static CliHistory history = {};
-    if (first_draw)
-    {
-        clihistory_init(&history);
-    }
+    static CliHistory history;
+    // if (first_draw)
+    // {
+        // clihistory_init(&history);
+    // }
 
     ImGuiWindowFlags console_wndflags = 0
         | ImGuiWindowFlags_NoSavedSettings
@@ -1247,7 +1268,7 @@ void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
         StrSlice input_slice = str_slice(input_buf);
         if (input_slice.length > 0)
         {    
-            clihistory_add(&history, input_slice);
+            history.add(input_slice);
             log(input_buf);
 
             process_console_input(prgmem, input_slice);

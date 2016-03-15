@@ -36,8 +36,22 @@ inline void log(const char *string)
 class FormatBuffer
 {
 public:
-    FormatBuffer();
-    FormatBuffer(size_t initial_capacity);
+    FormatBuffer()
+        : capacity(default_format_buffer_capacity)
+        , buffer(0)
+        , cursor(0)
+        , do_flush_on_destruct(false)
+        {   
+        }
+
+    FormatBuffer(size_t initial_capacity)
+        : capacity(initial_capacity)
+        , buffer(0)
+        , cursor(0)
+        , do_flush_on_destruct(false)
+        {
+        }
+
     ~FormatBuffer();
 
     void write(const char *string, size_t length);
@@ -61,6 +75,8 @@ public:
     char *buffer;
     size_t cursor;
     bool do_flush_on_destruct;
+
+    static const size_t default_format_buffer_capacity = 1024;
 };
 
 
