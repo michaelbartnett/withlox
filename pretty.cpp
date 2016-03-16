@@ -3,8 +3,15 @@
 #include "common.h"
 
 
+/*
+good print tests
 
-// void pretty_print(TypeDescriptor *type_desc, int indent)
+{"foo":"bar", "fee":[{"fi":[[1, 2, 3], [4, 5, 6]]}, {"fi":[[7, 8, 9], [10, 11, 12]]}]}
+{"boo": {"baaa": {"foo": [1, 2, 3]}, "burr": [{"heyo":{"noway":[]}}]}}
+
+ */
+
+
 void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
 {
     TypeID::Tag type_id = (TypeID::Tag)type_desc->type_id;
@@ -15,8 +22,42 @@ void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
         case TypeID::Int:
         case TypeID::Float:
         case TypeID::Bool:
-            fmt_buf->writef_ln("%s", to_string(type_id));
+            fmt_buf->writeln(to_string(type_id));
             break;
+
+        case TypeID::Array:
+        {
+            TypeDescriptor *elem_typedesc = get_typedesc(type_desc->array_type.elem_typedesc_ref);
+            TypeID::Tag elem_type_id = (TypeID::Tag)elem_typedesc->type_id;
+            switch ((TypeID::Tag)elem_typedesc->type_id)
+            {
+                case TypeID::None:
+                case TypeID::String:
+                case TypeID::Int:
+                case TypeID::Float:
+                case TypeID::Bool:
+                    fmt_buf->writef_ln("[%s]", to_string(elem_type_id));
+                    break;
+
+                case TypeID::Array:
+                case TypeID::Compound:
+                {
+                    fmt_buf->writeln("[");
+
+                    indent += 2;
+
+                    fmt_buf->write_indent(indent, "");
+
+                    pretty_print(type_desc->array_type.elem_typedesc_ref, fmt_buf, indent);
+
+                    indent -= 2;
+
+                    fmt_buf->writeln_indent(indent, "]");
+                    break;
+                }
+            }
+            break;
+        }
 
         case TypeID::Compound:
             if (type_desc->members.count == 0)
@@ -79,6 +120,31 @@ void pretty_print(Value *value, FormatBuffer *fmt_buf, int indent)
             fmt_buf->writef_ln("%s", (value->bool_val ? "True" : "False"));
             break;
 
+        case TypeID::Array:
+            if (value->array_value.elements.count == 0)
+            {
+                fmt_buf->writeln("[]");
+            }
+            else
+            {
+                fmt_buf->writeln("[");
+
+                indent += 2;
+
+
+                for (DynArrayCount i = 0; i < value->array_value.elements.count; ++i)
+                {
+                    fmt_buf->write_indent(indent, "");
+                    Value *value_element = get(value->array_value.elements, i);
+                    pretty_print(value_element, fmt_buf, indent);
+                }
+
+                indent -= 2;
+
+                fmt_buf->writeln_indent(indent, "]");
+            }
+            break;
+
         case TypeID::Compound:
             if (type_desc->members.count == 0)
             {
@@ -101,7 +167,6 @@ void pretty_print(Value *value, FormatBuffer *fmt_buf, int indent)
                 fmt_buf->writeln_indent(indent, "}");
             }
             break;
-            // fmt_buf->writeln("Printing compounds not supported yet");
     }
 }
 

@@ -1,5 +1,10 @@
 [//]: # -*- fill-column: 80  -*-
 
+UUUUUUGGGGGGGGHHHHHHH
+
+What is the type of an empty json array.
+
+
 ## Current TODO
 
 This will be maintained. Latest log entry will go below.

@@ -56,6 +56,7 @@ public:
 
     void write(const char *string, size_t length);
     void write(const char *string) { this->writef("%s", string); }
+    void write_indent(int indent, const char *string);
     void writeln(const char *string);
     void writef(const char *format, ...) FORMAT_ARG_FLAGS(2);
     void writef_ln(const char *string, ...) FORMAT_ARG_FLAGS(2);

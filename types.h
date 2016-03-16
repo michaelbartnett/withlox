@@ -2,6 +2,7 @@
 
 
 /*
+possible grammar for type definitions
 
 parse_type <type descriptor syntax>
 
@@ -38,7 +39,7 @@ enum Tag
     Float,
     Bool,
     // Enum,
-    // Array,
+    Array,
     Compound
 };
 
@@ -52,6 +53,7 @@ inline const char *to_string(TypeID::Tag type_id)
         case TypeID::Int:      return "Int";
         case TypeID::Float:    return "Float";
         case TypeID::Bool:     return "Bool";
+        case TypeID::Array:    return "Array";
         case TypeID::Compound: return "Compound";
     }
 }
@@ -89,11 +91,27 @@ struct TypeMember
     // TypeDescriptor *type_desc;
 };
 
+// TODO(mike): Wrap the compound members array in a struct
+// struct CompountType
+// {
+//     DynArray<TypeMember> members;
+// };
+
+
+struct ArrayType
+{
+    TypeDescriptorRef elem_typedesc_ref;
+};
+
 
 struct TypeDescriptor
 {
     u32 type_id;
-    DynArray<TypeMember> members;
+    union
+    {
+        DynArray<TypeMember> members;
+        ArrayType array_type;
+    };
 };
 
 
@@ -126,6 +144,11 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
         case TypeID::Bool:
             return true;
 
+        case TypeID::Array:
+            return typedesc_ref_identical(a->array_type.elem_typedesc_ref,
+                                         b->array_type.elem_typedesc_ref);
+            break;
+
         case TypeID::Compound:
             size_t a_mem_count = a->members.count;
             if (a_mem_count != b->members.count)
@@ -153,6 +176,15 @@ inline TypeDescriptor *get_typedesc(TypeDescriptorRef ref)
 
 
 struct ValueMember;
+struct Value;
+
+
+struct ArrayValue
+{
+    // TypeDescriptorRef elem_typedesc_ref;
+    DynArray<Value> elements;
+};
+
 
 struct Value
 {
@@ -164,6 +196,7 @@ struct Value
         s32 s32_val;
         bool bool_val;
         DynArray<ValueMember> members;
+        ArrayValue array_value;
     };
 };
 
@@ -228,9 +261,19 @@ HEADERFN Value clone(const Value *src)
             result.bool_val = src->bool_val;
             break;
 
+        case TypeID::Array:
+            dynarray_init(&result.array_value.elements, src->array_value.elements.count);
+            for (DynArrayCount i = 0; i < src->array_value.elements.count; ++i)
+            {
+                Value *src_element = get(src->array_value.elements, i);
+                Value *dest_element = append(&result.array_value.elements);
+                *dest_element = clone(src_element);
+            }
+            break;
+
         case TypeID::Compound:
             dynarray_init(&result.members, src->members.count);
-            for (u32 i = 0; i < src->members.count; ++i)
+            for (DynArrayCount i = 0; i < src->members.count; ++i)
             {
                 ValueMember *src_member = get(src->members, i);
                 ValueMember *dest_member = append(&result.members);
@@ -259,6 +302,26 @@ HEADERFN bool value_equal(const Value &lhs, const Value &rhs)
         case TypeID::Int:      return lhs.s32_val == rhs.s32_val;
         case TypeID::Float:    return 0.0f == (lhs.f32_val - rhs.f32_val);
         case TypeID::Bool:     return lhs.bool_val == rhs.bool_val;
+
+        case TypeID::Array:
+        {
+            DynArrayCount num_elems = lhs.array_value.elements.count; 
+            if (num_elems != lhs.array_value.elements.count)
+            {
+                return false;
+            }
+            for (DynArrayCount i = 0; i < num_elems; ++i)
+            {
+                Value *l_elem = get(lhs.array_value.elements, i);
+                Value *r_elem = get(rhs.array_value.elements, i);
+                if (!value_equal(*l_elem, *r_elem))
+                {
+                    return false;
+                }
+            }
+            break;
+        }
+
         case TypeID::Compound:
             for (u32 i = 0; i < type_desc->members.count; ++i)
             {
@@ -291,6 +354,14 @@ HEADERFN void value_free(Value *value)
 
         case TypeID::String:
             str_free(&value->str_val);
+            break;
+
+        case TypeID::Array:
+            for (DynArrayCount i = 0; i < value->array_value.elements.count; ++i)
+            {
+                Value *element = get(value->array_value.elements, i);
+                value_free(element);
+            }
             break;
 
         case TypeID::Compound:            

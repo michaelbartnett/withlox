@@ -216,6 +216,10 @@ void FormatBuffer::write(const char *string, size_t length)
     this->buffer[this->cursor] = '\0';
 }
 
+void FormatBuffer::write_indent(int indent, const char *string)
+{
+    writef("%*s", indent, string);
+}
 
 void formatbuffer_v_writef(FormatBuffer *fmt_buf, const char *format, va_list vargs)
 {

@@ -94,6 +94,7 @@ elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     -pedantic
     -Weverything
     -Werror
+    -Wimplicit-fallthrough
     -Wno-error=unused-parameter
     -Wno-error=unused-variable
     -Wno-switch-enum
