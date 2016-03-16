@@ -17,6 +17,68 @@ This will be maintained. Latest log entry will go below.
 
 - [ ] Initial TODO: Validate values against type descriptors.
 
+## 2016-03-15 Array Success, Thinking abotu Unions
+
+I started the array implementation last night, and now I've finished it.
+
+There's a couple of gross things in there. First is what the json importer
+should do if it detects a heterogeneous array. For now, it logs a warning and
+produces an array of type None. This means there will be values floating around
+with mismatched types. That sucks! Clearly I need to either reject this concept
+entirely, or add a union concept.
+
+Empty arrays suffer the same fate, just a different log message. Heterogeneous
+arrays pretty clearly need some sort of Any type or Union support, but I don't
+know what to do about empty arrays.
+
+Compounds have a natural empty type. If you feed it a Compound with zero members,
+then you get the empty Compound (or the typedescriptor is created if it hasn't
+been seen before). An empty array doesn't make sense, unless we have some way to mark
+it as having an invalid element type. But that sounds messy.
+
+Maybe empty array signifies array of Any?
+
+Maybe. I'm not sure. I'll just not deal with that for now.
+
+I want to talk about Unions. This would kind of solve the Array problem, since
+if it's a heterogeneous array, then that array's element type is the union of
+the set of the types of its values.
+
+So :
+
+- Compounds have a list of members, where each member has a name and a type.
+
+- Arrays have an element type.
+
+- Unions have a set of types
+
+There's a tricky thing here, which is that when assigning or validating
+values, I'll have a value of a non-Union type, and will want it to be assigned to
+or pass validation for a Union type location.
+
+I could think about this as just dealing with concept of a value type versus a validation type.
+Or, it could be that non-Union Values get converted to Union values with a selected type tag.
+
+That second version feels more like a C union, so maybe that's the right thing. I should probably
+look at the implementation of Unions in some statically and gradually typed languages.
+
+- Typescript
+- MagPie / Finch
+- Dart (does Dart even have Unions?)
+- Haxe
+- *maybe* Rust
+- Ceylon? Kotlin? ...Scala? *shudder*
+- Typed Clojure
+- Typed Racket
+- Do SkookumScript or AngelScript or Squirrel or GameMonkey have types?
+- Perl 6 / Rakudo
+
+### Side Note: dynarray why
+
+Apparently there's a `std::experimental::dynarray` for fixed-size heap allocated
+arrays. This kinda conflicts with my `DynArray<T>` and `dynarray_init`
+names. Don't know if I care enough to do anything about it.
+
 ## 2016-03-14 Expand the Type System
 
 Now I have a graphical CLI working relatively well. I can easily add commands to
