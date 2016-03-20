@@ -114,13 +114,13 @@ s32 run_nametable_tests()
         dynarray_init(&tests, test_count);
         for (DynArrayCount i = 0; i < test_count; ++i)
         {
-            NameTableTest *test = append(&tests);
+            NameTableTest *test = dynarray_append(&tests);
             test->name = str_slice(test_find_names[i]);
         }    
 
         for (DynArrayCount i = 0; i < test_count; ++i)
         {
-            NameTableTest *test = get(tests, i);
+            NameTableTest *test = dynarray_get(tests, i);
             test->ref = nametable_find_or_add(&nt, test->name);
 
             if (!test->ref.offset)
@@ -149,13 +149,13 @@ s32 run_nametable_tests()
         dynarray_init(&tests, test_count);
         for (DynArrayCount i = 0; i < test_count; ++i)
         {
-            NameTableTest *test = append(&tests);
+            NameTableTest *test = dynarray_append(&tests);
             test->name = str_slice(test_find_names[i]);
         }
 
         for (DynArrayCount i = 0; i < test_count; ++i)
         {
-            NameTableTest *test = get(tests, i);
+            NameTableTest *test = dynarray_get(tests, i);
 
             test->ref = nametable_find(&nt, test->name);
 

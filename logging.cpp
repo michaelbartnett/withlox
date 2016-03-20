@@ -34,7 +34,7 @@ void append_log(Str log_entry)
     //         break;
     //     }
     // }
-    append(&log_entries, log_entry);
+    dynarray_append(&log_entries, log_entry);
     concatenated_dirty = true;
 }
 
@@ -120,7 +120,7 @@ u32 log_count()
 
 Str *get_log(u32 i)
 {
-    return get(log_entries, i);
+    return dynarray_get(log_entries, i);
 }
 
 
@@ -136,7 +136,7 @@ Str concatenated_log()
     {
         for (u32 i = next_log_entry_to_concat; i < log_entries.count; ++i)
         {
-            Str *str = get(log_entries, i);
+            Str *str = dynarray_get(log_entries, i);
             concatenated->write(str->data, str->length);
             concatenated->write("\n", 1);
         }

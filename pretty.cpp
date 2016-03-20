@@ -41,6 +41,7 @@ void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
 
                 case TypeID::Array:
                 case TypeID::Compound:
+                case TypeID::Union:
                 {
                     fmt_buf->writeln("[");
 
@@ -56,6 +57,7 @@ void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
                     break;
                 }
             }
+
             break;
         }
 
@@ -72,7 +74,7 @@ void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
 
                 for (u32 i = 0; i < type_desc->members.count; ++i)
                 {
-                    TypeMember *member = get(type_desc->members, i);
+                    TypeMember *member = dynarray_get(type_desc->members, i);
                     fmt_buf->writef_indent(indent, "%s: ", str_slice(member->name).data);
                     pretty_print(member->typedesc_ref, fmt_buf, indent);
                 }
@@ -81,6 +83,26 @@ void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
                 fmt_buf->writeln_indent(indent, "}");
             }
             break;
+
+        case TypeID::Union:
+        {
+            fmt_buf->writeln("Union (");
+
+            indent += 2;
+
+            for (DynArrayCount i = 0,
+                     count = type_desc->union_type.type_cases.count;
+                 i < count;
+                 ++i)
+            {
+                fmt_buf->write_indent(indent, "| ");
+                pretty_print(*dynarray_get(type_desc->union_type.type_cases, i), fmt_buf, indent);
+            }
+
+            indent -= 2;
+
+            fmt_buf->writeln_indent(indent, ")");
+        }
     }
 }
 
@@ -135,7 +157,7 @@ void pretty_print(Value *value, FormatBuffer *fmt_buf, int indent)
                 for (DynArrayCount i = 0; i < value->array_value.elements.count; ++i)
                 {
                     fmt_buf->write_indent(indent, "");
-                    Value *value_element = get(value->array_value.elements, i);
+                    Value *value_element = dynarray_get(value->array_value.elements, i);
                     pretty_print(value_element, fmt_buf, indent);
                 }
 
@@ -158,7 +180,7 @@ void pretty_print(Value *value, FormatBuffer *fmt_buf, int indent)
 
                 for (u32 i = 0; i < value->members.count; ++i)
                 {
-                    ValueMember *member = get(value->members, i);
+                    ValueMember *member = dynarray_get(value->members, i);
                     fmt_buf->writef_indent(indent, "'%s': ", str_slice(member->name).data);
                     pretty_print(&member->value, fmt_buf, indent);
                 }
@@ -166,6 +188,10 @@ void pretty_print(Value *value, FormatBuffer *fmt_buf, int indent)
                 indent -= 2;
                 fmt_buf->writeln_indent(indent, "}");
             }
+            break;
+
+        case TypeID::Union:
+            assert(!(bool)"There should never be a Value with type_id Union");
             break;
     }
 }

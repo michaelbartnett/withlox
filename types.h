@@ -11,6 +11,8 @@ parse_type <type descriptor syntax>
 <type member descriptor>
 
 
+[1, "two", 3.0]
+
  */
 
 
@@ -21,12 +23,6 @@ parse_type <type descriptor syntax>
 #include "dynarray.h"
 #include "nametable.h"
 
-// enum class TypeFlgas : u32
-// {
-//     None = 0,
-//     Nullable = (1 << 0),
-//     Optional = (1 << 1),
-// };
 
 namespace TypeID
 {
@@ -40,7 +36,8 @@ enum Tag
     Bool,
     // Enum,
     Array,
-    Compound
+    Compound,
+    Union
 };
 
 
@@ -55,6 +52,7 @@ inline const char *to_string(TypeID::Tag type_id)
         case TypeID::Bool:     return "Bool";
         case TypeID::Array:    return "Array";
         case TypeID::Compound: return "Compound";
+        case TypeID::Union:    return "Union";
     }
 }
 
@@ -76,6 +74,14 @@ struct TypeDescriptorRef
     DynArray<TypeDescriptor> *owner;
 };
 
+struct SortTypeRef
+{
+    bool operator() (const TypeDescriptorRef &a, const TypeDescriptorRef &b)
+    {
+        return (a.owner == b.owner && a.index < b.index)
+            || (intptr_t)a.owner < (intptr_t)b.owner;
+    }
+};
 
 inline bool typedesc_ref_identical(const TypeDescriptorRef &lhs, const TypeDescriptorRef &rhs)
 {
@@ -101,6 +107,13 @@ struct TypeMember
 struct ArrayType
 {
     TypeDescriptorRef elem_typedesc_ref;
+    // TypeDescriptorRef element_type;
+};
+
+
+struct UnionType
+{
+    DynArray<TypeDescriptorRef> type_cases;
 };
 
 
@@ -110,7 +123,10 @@ struct TypeDescriptor
     union
     {
         DynArray<TypeMember> members;
+
+        // these could each just be a TypeSet the way it works now, but good to keep them separate
         ArrayType array_type;
+        UnionType union_type; 
     };
 };
 
@@ -146,10 +162,11 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
 
         case TypeID::Array:
             return typedesc_ref_identical(a->array_type.elem_typedesc_ref,
-                                         b->array_type.elem_typedesc_ref);
+                                          b->array_type.elem_typedesc_ref);
             break;
 
         case TypeID::Compound:
+        {
             size_t a_mem_count = a->members.count;
             if (a_mem_count != b->members.count)
             {
@@ -158,8 +175,30 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
 
             for (u32 i = 0; i < a_mem_count; ++i)
             {
-                if (! equal(get(a->members, i),
-                            get(b->members, i)))
+                if (! equal(dynarray_get(a->members, i),
+                            dynarray_get(b->members, i)))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        case TypeID::Union:
+            if (a->union_type.type_cases.count != b->union_type.type_cases.count)
+            {
+                return false;
+            }
+
+            for (DynArrayCount i = 0,
+                     count = a->union_type.type_cases.count;
+                 i < count;
+                 ++i)
+            {
+                TypeDescriptorRef *a_case = dynarray_get(a->union_type.type_cases, i);
+                TypeDescriptorRef *b_case = dynarray_get(b->union_type.type_cases, i);
+
+                if (!typedesc_ref_identical(*a_case, *b_case))
                 {
                     return false;
                 }
@@ -171,7 +210,7 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
 
 inline TypeDescriptor *get_typedesc(TypeDescriptorRef ref)
 {
-    return ref.index && ref.owner ? get(ref.owner, ref.index) : 0;
+    return ref.index && ref.owner ? dynarray_get(ref.owner, ref.index) : 0;
 }
 
 
@@ -200,6 +239,15 @@ struct Value
     };
 };
 
+HEADERFN void value_assertions(const Value &value)
+{
+    assert(get_typedesc(value.typedesc_ref)->type_id != TypeID::Union);
+}
+HEADERFN void value_assertions(const Value *value)
+{
+    value_assertions(*value);
+}
+
 // struct ValueHash
 // {
 //     u32 operator()(const Value &value)
@@ -222,7 +270,7 @@ HEADERFN ValueMember *find_member(const Value *value, NameRef name)
 {
     for (u32 i = 0; i < value->members.count; ++i)
     {
-        ValueMember *member = get(value->members, i);
+        ValueMember *member = dynarray_get(value->members, i);
         if (nameref_identical(member->name, name))
         {
             return member;
@@ -235,6 +283,8 @@ HEADERFN ValueMember *find_member(const Value *value, NameRef name)
 
 HEADERFN Value clone(const Value *src)
 {
+    value_assertions(src);
+
     Value result;
     result.typedesc_ref = src->typedesc_ref;
 
@@ -265,8 +315,8 @@ HEADERFN Value clone(const Value *src)
             dynarray_init(&result.array_value.elements, src->array_value.elements.count);
             for (DynArrayCount i = 0; i < src->array_value.elements.count; ++i)
             {
-                Value *src_element = get(src->array_value.elements, i);
-                Value *dest_element = append(&result.array_value.elements);
+                Value *src_element = dynarray_get(src->array_value.elements, i);
+                Value *dest_element = dynarray_append(&result.array_value.elements);
                 *dest_element = clone(src_element);
             }
             break;
@@ -275,11 +325,16 @@ HEADERFN Value clone(const Value *src)
             dynarray_init(&result.members, src->members.count);
             for (DynArrayCount i = 0; i < src->members.count; ++i)
             {
-                ValueMember *src_member = get(src->members, i);
-                ValueMember *dest_member = append(&result.members);
+                ValueMember *src_member = dynarray_get(src->members, i);
+                ValueMember *dest_member = dynarray_append(&result.members);
                 dest_member->name = src_member->name;
                 dest_member->value = clone(&src_member->value);
             }
+            break;
+
+        case TypeID::Union:
+            assert(!(bool)"There should never be a value with type_id Union");
+            break;
     }
 
     return result;
@@ -288,6 +343,9 @@ HEADERFN Value clone(const Value *src)
 
 HEADERFN bool value_equal(const Value &lhs, const Value &rhs)
 {
+    value_assertions(lhs);
+    value_assertions(rhs);
+
     if (!typedesc_ref_identical(lhs.typedesc_ref, rhs.typedesc_ref))
     {
         return false;
@@ -312,8 +370,8 @@ HEADERFN bool value_equal(const Value &lhs, const Value &rhs)
             }
             for (DynArrayCount i = 0; i < num_elems; ++i)
             {
-                Value *l_elem = get(lhs.array_value.elements, i);
-                Value *r_elem = get(rhs.array_value.elements, i);
+                Value *l_elem = dynarray_get(lhs.array_value.elements, i);
+                Value *r_elem = dynarray_get(rhs.array_value.elements, i);
                 if (!value_equal(*l_elem, *r_elem))
                 {
                     return false;
@@ -325,7 +383,7 @@ HEADERFN bool value_equal(const Value &lhs, const Value &rhs)
         case TypeID::Compound:
             for (u32 i = 0; i < type_desc->members.count; ++i)
             {
-                TypeMember *type_member = get(type_desc->members, i);
+                TypeMember *type_member = dynarray_get(type_desc->members, i);
                 ValueMember *lh_member = find_member(&lhs, type_member->name);
                 ValueMember *rh_member = find_member(&rhs, type_member->name);
 
@@ -334,6 +392,10 @@ HEADERFN bool value_equal(const Value &lhs, const Value &rhs)
                     return false;
                 }
             }
+
+        case TypeID::Union:
+            assert(!(bool)"There must never be a value of type Union");
+            break;
     }
 
     return true;
@@ -342,6 +404,7 @@ HEADERFN bool value_equal(const Value &lhs, const Value &rhs)
 
 HEADERFN void value_free(Value *value)
 {
+    value_assertions(value);
     TypeDescriptor *type_desc = get_typedesc(value->typedesc_ref);
     
     switch ((TypeID::Tag)type_desc->type_id)
@@ -359,7 +422,7 @@ HEADERFN void value_free(Value *value)
         case TypeID::Array:
             for (DynArrayCount i = 0; i < value->array_value.elements.count; ++i)
             {
-                Value *element = get(value->array_value.elements, i);
+                Value *element = dynarray_get(value->array_value.elements, i);
                 value_free(element);
             }
             break;
@@ -367,11 +430,14 @@ HEADERFN void value_free(Value *value)
         case TypeID::Compound:            
             for (u32 i = 0; i < value->members.count; ++i)
             {
-                ValueMember *member = get(value->members, i);
+                ValueMember *member = dynarray_get(value->members, i);
                 value_free(&member->value);
             }
             dynarray_deinit(&value->members);
             break;
+
+        case TypeID::Union:
+            assert(!(bool)"There must never be a value of type Union");
     }
 
     ZERO_PTR(value);

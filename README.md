@@ -1,13 +1,16 @@
 [//]: # -*- fill-column: 80  -*-
 
-UUUUUUGGGGGGGGHHHHHHH
-
-What is the type of an empty json array.
-
-
 ## Current TODO
 
 This will be maintained. Latest log entry will go below.
+
+- [X] 2016-03-19: Concrete Union Plans: Create Union type representation and infer from JSON Arrays
+
+- [X] 2016-03-19: Concrete Union Plans: Pretty Print Unions with `Union()` syntax
+
+- [ ] 2016-03-19: Concrete Union Plans: Write the `bindinfer` command to associate a type with a name.
+
+- [ ] 2016-03-19: Concrete Union Plans: Write a type validator
 
 - [ ] Milestone: Solid GUI Terminal: Test/develop on Windows
 
@@ -16,6 +19,181 @@ This will be maintained. Latest log entry will go below.
 - [ ] Memory: Wrap malloc and free in order to count allocations
 
 - [ ] Initial TODO: Validate values against type descriptors.
+
+## 2016-03-19: Concrete Union Plans
+
+These are some concrete todos for Unions and type validation.
+
+- [X] Create Union type representation and infer from JSON Arrays
+
+- [X] Pretty Print Unions with `Union()` syntax
+
+- [] Write the `bindinfer` command to associate a type with a name.
+
+- [] Write a type validator and `checktype` command.
+
+Something to note: Values should never have a type_id of `Union`. Unions only
+exist in type descriptors. Values can pass type validation against a `Union`,
+but there is no concept of a union value, the value's type is just one of the
+union's type cases.
+
+## 2016-03-17 Let's try Unions. Also, clean up value creation.
+
+Unions are pretty rad. Let's try to make them work.
+
+Right now I'm not explicitly making any types, just inferring them from JSON
+strings, so the way I'm going to test this is using Arrays.
+
+The goal is to have an Array be able to have multiple types (that you specify!)
+in it.
+
+There's another interesting thing that TypeScript and FlowType have called
+    Intersection types, which sort of sounds like a multiple inheritance kind of
+thing. That might be useful, but I'm going to pass on it for now.
+
+After unions work, I want to be able to start validating values against
+types. If I can't do that, there's no real point in making a type system thingy
+at all.
+
+To do that, I also need to bind types to names. I have a hashtable for that
+sitting in `ProgramMemory` already, just need to add some CLI commands to infer a type
+from JSON, and then associate a name with that type.
+
+Let's say the command will be called `bindinfer` and you'd use it like this:
+
+```
+$ bindinfer "MaybeMysteryPerson" [{"firstname": "jim", "lastname": "joe"}, {"firstname": "jane", "lastname": null}]
+
+MaybeMysteryPerson {
+    firstname: String
+    lastname: String | None
+}
+```
+
+And now that you have this `MaybeMysteryPerson` type, you could pass other
+values to it to see if they pass type checking:
+
+```
+$ checktype "MaybeMysteryPerson" [{"firstname": "jane": "lastname": "doe"}]
+Passed
+
+$ checktype "MaybeMysteryPerson" [{"firstname": "oh", "lastname": "henry"}, {"firstname": "noname"}]
+Failed: Missing "lastname" field in $input[0]
+```
+
+The good error message won't be there initially, need to think about how best
+track progress of walking a value.
+
+Union types are cool because they enable you to do the whole No-Null thing,
+which is probably a good thing. Nulls in JSON are annoying when they show up
+unexpectedly, and annoying when you expect them to show up and they don't.
+
+Anyway, here are my todos:
+
+- [] 
+
+- []
+
+### Union Syntax
+
+In the type description syntax for Unions, I'm thinking it might be useful to have
+shorthand for union with None.
+
+For example, take a person compound type where entering the last name is
+optional, and so can be null, but first name must not be null:
+
+```
+Person: {
+    firstname: String
+    lastname: String | None
+}
+```
+
+Typing out `| None` for a lot of things might get annooying, so maybe some
+syntax sugar could add C#-style nullable type syntax, where this would be
+transformed internally into the above when parsing:
+
+```
+Person {
+    firstname: String
+    lastname: String?
+}
+```
+
+Only saved 6 characters, but hey, maybe you have a lot of nullable things.
+
+That might be no good if I decide to make it lispy, such that type names can
+have all sorts of weird symbols in their name, and tokens are separated by
+spaces. That would mean you'd have to type it like this:
+
+```
+Person {
+    firstname : String
+    lastname : String ?
+}
+```
+
+Not that bad really, I'm totally down. But people just love to crunch things
+together for whatever reason.
+
+I guess if you wanted the field to be named `"firstname:"` you could escape syntax symbols like
+`firstname\:: String`. I dunno.
+
+### Pretty Printing Sidetrack
+
+Printing out Unions with compound objects will be tricky. Maybe something like this?
+
+```
+UnclearRotater {
+    position: {
+        x Float
+        y Float
+        z Float
+    }
+    rotation: |
+        {
+            x Float
+            y Float
+            z Float
+        } |
+        {
+            x Float
+            y Float
+            z Float
+            w Float
+        } |
+        Null
+    scale: {
+        x Float
+        y Float
+        z Float
+    }
+}
+```
+
+Or maybe just a function-like thing:
+
+```
+Union (
+    {
+        "a": String
+    }
+    [ Union (
+        {
+            b: Int
+        }
+        {
+            c: Float
+        }
+        None
+    ) ]
+    type
+)
+```
+
+That feels a little more readable.
+
+
 
 ## 2016-03-15 Array Success, Thinking abotu Unions
 
@@ -44,7 +222,7 @@ I want to talk about Unions. This would kind of solve the Array problem, since
 if it's a heterogeneous array, then that array's element type is the union of
 the set of the types of its values.
 
-So :
+So:
 
 - Compounds have a list of members, where each member has a name and a type.
 

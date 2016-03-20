@@ -5,6 +5,7 @@
 #include "common.h"
 #include "numeric_types.h"
 #include <cassert>
+#include <algorithm>
 
 typedef u32 DynArrayCount;
 #define DYNARRAY_COUNT_MAX UINT32_MAX
@@ -48,7 +49,7 @@ void dynarray_deinit(DynArray<T> *dynarray)
  
 
 template<typename T>
-T *append(DynArray<T> *dynarray)
+T *dynarray_append(DynArray<T> *dynarray)
 {
     // assert(dynarray->data);
     assert(dynarray->count <= dynarray->capacity);
@@ -62,45 +63,48 @@ T *append(DynArray<T> *dynarray)
 
     ++dynarray->count;
 
-    return last(dynarray);
+    return dynarray_last(dynarray);
 }
 
 
 template<typename T>
-T *append(DynArray<T> *dynarray, T item)
+T *dynarray_append(DynArray<T> *dynarray, T item)
 {
-    T *result = append(dynarray);
+    T *result = dynarray_append(dynarray);
     *result = item;
     return result;
 }
 
 template<typename T>
-T *last(DynArray<T> *dynarray)
+T *dynarray_last(DynArray<T> *dynarray)
 {
     return dynarray->data + (dynarray->count - 1);
 }
 
 template<typename T>
-T *get(const DynArray<T> &dynarray, DynArrayCount index)
+T *dynarray_get(const DynArray<T> &dynarray, DynArrayCount index)
 {
     return &dynarray.data[index];
 }
 
+
 template<typename T>
-T *get(const DynArray<T> *dynarray, DynArrayCount index)
+T *dynarray_get(const DynArray<T> *dynarray, DynArrayCount index)
 {
     return &dynarray->data[index];
 }
 
+
 template<typename T>
-void set(DynArray<T> *dynarray, u32 index, T value)
+void dynarray_set(DynArray<T> *dynarray, u32 index, T value)
 {
     assert(dynarray->count > index);
     dynarray->data[index] = value;
 }
 
+
 template<typename T>
-u32 pop(const DynArray<T> dynarray)
+u32 dynarray_pop(const DynArray<T> *dynarray)
 {
     if (dynarray->count > 0)
     {
@@ -109,10 +113,70 @@ u32 pop(const DynArray<T> dynarray)
     return dynarray->count;
 }
 
+
 template<typename T>
-void clear(const DynArray<T> dynarray)
+void dynarray_clear(const DynArray<T> *dynarray)
 {
     dynarray->count = 0;
 }
+
+
+template<typename T>
+void dynarray_copy(const DynArray<T> *src, DynArray<T> *dest, DynArrayCount start_index, DynArrayCount count)
+{
+    assert(count <= src->count - start_index);
+    assert(count <= dest->capacity - start_index);
+    DynArrayCount idx = start_index;
+    for (DynArrayCount i = 0; i < count; ++i)
+    {
+        dest->data[idx] = src->data[idx];
+        ++idx;
+    }
+    dest->count += count - (dest->count - start_index);
+}
+
+
+template<typename T>
+void dynarray_copy_at(const DynArray<T> *src, DynArray<T> *dest, DynArrayCount start_index)
+{
+    DynArrayCount count = (src->count < dest->capacity ? src->count : dest->capacity) - start_index;
+    dynarray_copy(src, dest, start_index, count);
+}
+
+
+template<typename T>
+void dynarray_copy(const DynArray<T> *src, DynArray<T> *dest)
+{
+    assert(src->count <= dest->capacity);
+    dynarray_copy_at(src, dest, 0);
+}
+
+
+template<typename T>
+void dynarray_copy_count(const DynArray<T> *src, DynArray<T> *dest, DynArrayCount count)
+{
+    assert(count <= src->count);
+    assert(count <= dest->capacity);
+    dynarray_copy(src, dest, 0, count);
+}
+
+template<typename T>
+DynArray<T> dynarray_clone(const DynArray<T> *src)
+{
+    DynArray<T> result;
+    dynarray_init(&result, src->count);
+    dynarray_copy(src, &result);
+    return result;
+}
+
+template<typename Compare, typename T>
+void dynarray_sort(const DynArray<T> *dynarray)
+{
+    Compare comp;
+    std::sort(dynarray->data,
+              dynarray->data + dynarray->count,
+              comp);
+}
+
 #define DYNARRAY_H
 #endif

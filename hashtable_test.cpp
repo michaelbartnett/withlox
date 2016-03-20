@@ -197,15 +197,15 @@ s32 run_hashtable_tests()
         DynArray<HashtableTest> tests = dynarray_init<HashtableTest>(limit);
         for (u32 i = 0; i < limit; ++i)
         {
-            HashtableTest *test = append(&tests);
+            HashtableTest *test = dynarray_append(&tests);
             test->name = testname;
             test->bucket_count = i * 1000;
-			test->fail_count = 0;
+            test->fail_count = 0;
         }
 
         for (u32 i = 0; i < tests.count; ++i)
         {
-            HashtableTest *test = get(tests, i);
+            HashtableTest *test = dynarray_get(tests, i);
             printf_ln("Running test '%s'   [%i]", test->name, i);
             test_fill_hashtable(test);
         }
@@ -214,7 +214,7 @@ s32 run_hashtable_tests()
         printf_ln("Test '%s' Results:", testname);
         for (u32 i = 0; i < tests.count; ++i)
         {
-            HashtableTest *test = get(tests, i);
+            HashtableTest *test = dynarray_get(tests, i);
             printf_ln("%i\t%f\tmilliseconds", test->bucket_count, milliseconds_since(test->end_abstime, test->begin_abstime));
             if (test->fail_count > 0) {
                 printf_ln("FAILED: %i", test->fail_count);
@@ -232,7 +232,7 @@ s32 run_hashtable_tests()
         DynArray<HashtableTest> tests = dynarray_init<HashtableTest>(limit);
         for (u32 i = 0; i < limit; ++i)
         {
-            HashtableTest *test = append(&tests);
+            HashtableTest *test = dynarray_append(&tests);
             test->name = testname;
             test->bucket_count = i * 1000;
 			test->fail_count = 0;
@@ -240,7 +240,7 @@ s32 run_hashtable_tests()
 
         for (u32 i = 0; i < tests.count; ++i)
         {
-            HashtableTest *test = get(tests, i);
+            HashtableTest *test = dynarray_get(tests, i);
             printf_ln("Running test '%s'   [%i]", test->name, i);
             test_hashtable_lookup(test);
         }
@@ -250,7 +250,7 @@ s32 run_hashtable_tests()
         printf_ln("Test '%s' Results:", testname);
         for (u32 i = 0; i < tests.count; ++i)
         {
-            HashtableTest *test = get(tests, i);
+            HashtableTest *test = dynarray_get(tests, i);
             printf_ln("%i\t%f\tmilliseconds", test->bucket_count, milliseconds_since(test->end_abstime, test->begin_abstime));
             if (test->fail_count > 0) {
                 printf_ln("FAILED: %i", test->fail_count);
@@ -268,7 +268,7 @@ s32 run_hashtable_tests()
         DynArray<HashtableTest> tests = dynarray_init<HashtableTest>(limit);
         for (u32 i = 0; i < limit; ++i)
         {
-            HashtableTest *test = append(&tests);
+            HashtableTest *test = dynarray_append(&tests);
             test->name = testname;
             test->bucket_count = i * 1000;
 			test->fail_count = 0;
@@ -276,7 +276,7 @@ s32 run_hashtable_tests()
 
         for (u32 i = 0; i < tests.count; ++i)
         {
-            HashtableTest *test = get(tests, i);
+            HashtableTest *test = dynarray_get(tests, i);
             printf_ln("Running test '%s'   [%i]", test->name, i);
             test_hashtable_set_if_unset(test);
         }
@@ -286,7 +286,7 @@ s32 run_hashtable_tests()
         printf_ln("Test '%s' Results:", testname);
         for (u32 i = 0; i < tests.count; ++i)
         {
-            HashtableTest *test = get(tests, i);
+            HashtableTest *test = dynarray_get(tests, i);
             printf_ln("%i\t%f\tmilliseconds", test->bucket_count, milliseconds_since(test->end_abstime, test->begin_abstime));
             if (test->fail_count > 0) {
                 printf_ln("FAILED: %i", test->fail_count);
