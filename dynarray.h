@@ -170,7 +170,7 @@ DynArray<T> dynarray_clone(const DynArray<T> *src)
 }
 
 template<typename Compare, typename T>
-void dynarray_sort(const DynArray<T> *dynarray)
+void dynarray_sort_unstable(const DynArray<T> *dynarray)
 {
     Compare comp;
     std::sort(dynarray->data,

@@ -50,5 +50,7 @@ using std::size_t;
 #define ZERO_ARRAY(ptr, type, count) std::memset((ptr), 0, sizeof (type) * (count))
 #define ZERO_PTR(ptr) std::memset((ptr), 0, sizeof(*(ptr)))
 
+#define nullptr NULL
+
 #define COMMON_H
 #endif

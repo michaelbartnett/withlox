@@ -88,6 +88,7 @@ struct CliCommand
 
 
 typedef OAHashtable<StrSlice, Value, StrSliceEqual, StrSliceHash> StrToValueMap;
+typedef OAHashtable<StrSlice, TypeDescriptorRef, StrSliceEqual, StrSliceHash> StrToTypeMap;
 
 struct ProgramMemory
 {
@@ -103,6 +104,7 @@ struct ProgramMemory
 
     OAHashtable<StrSlice, CliCommand, StrSliceEqual, StrSliceHash> command_map;
     StrToValueMap value_map;
+    StrToTypeMap type_map;
 
     u8 *perm_store;
     size_t perm_store_size;
@@ -176,6 +178,7 @@ void prgmem_init(ProgramMemory *prgmem)
 
     ht_init(&prgmem->command_map);
     ht_init(&prgmem->value_map);
+    ht_init(&prgmem->type_map);
 }
 
 
@@ -358,7 +361,7 @@ TypeDescriptorRef type_desc_from_json_array(ProgramMemory *prgmem, json_value_s 
         //       "It will be reported as an Array of None type since this is not yet supported");
 
         // Sort the typeref array so that equality checks for union types can be linear
-        dynarray_sort<SortTypeRef>(&element_types);
+        dynarray_sort_unstable<SortTypeRef>(&element_types);
 
 
         UnionType union_type;
@@ -390,7 +393,7 @@ TypeDescriptorRef type_desc_from_json_array(ProgramMemory *prgmem, json_value_s 
     }
 
     // If it's the empty array, bound to find a preexisting. Will that be common?
-    result = find_equiv_type_or_add(prgmem, &constructed_typedesc, NULL);
+    result = find_equiv_type_or_add(prgmem, &constructed_typedesc, nullptr);
 
     dynarray_deinit(&element_types);
 
@@ -1037,6 +1040,131 @@ CLI_COMMAND_FN_SIG(print_values)
 }
 
 
+CLI_COMMAND_FN_SIG(bindinfer)
+{
+    UNUSED(userdata);
+
+    if (args.count != 2)
+    {
+        logf_ln("Error: expected 2 arguments, got %i instead", args.count);
+        return;
+    }
+
+    Value *name_arg = dynarray_get(args, 0);
+
+    TypeDescriptor *type_desc = get_typedesc(name_arg->typedesc_ref);
+    if (type_desc->type_id != TypeID::String)
+    {
+        logf_ln("Error: first argument must be a string, got a %s instead",
+                  TypeID::to_string(type_desc->type_id));
+        return;
+    }
+
+    // This is maybe a bit too manual, but I want everything to be POD, no destructors
+    StrToTypeMap::Entry *entry;
+    bool was_occupied = ht_find_or_add_entry(&entry, &prgmem->type_map, str_slice(name_arg->str_val));
+    if (!was_occupied)
+    {
+        // allocate dedicated space
+        Str allocated = str(entry->key);
+        entry->key = str_slice(allocated);
+    }
+
+    entry->value = dynarray_get(args, 1)->typedesc_ref;
+
+    FormatBuffer fbuf;
+    fbuf.flush_on_destruct();
+    fbuf.writef("Bound '%s' to type: ", entry->key.data);
+    pretty_print(entry->value, &fbuf);
+}
+
+
+CLI_COMMAND_FN_SIG(print_type)
+{
+    UNUSED(userdata);
+
+    if (args.count != 1)
+    {
+        logf_ln("Error: expected 1 argument, got %i instead", args.count);
+        return;
+    }
+
+    Value *name_arg = dynarray_get(args, 0);
+    TypeDescriptor *type_desc = get_typedesc(name_arg->typedesc_ref);
+    if (type_desc->type_id != TypeID::String)
+    {
+        logf_ln("Error: first argument must be a string, got a %s instead",
+                  TypeID::to_string(type_desc->type_id));
+        return;
+    }
+
+    TypeDescriptorRef *typeref = ht_find(&prgmem->type_map, str_slice(name_arg->str_val));
+    if (typeref)
+    {
+        pretty_print(*typeref);
+    }
+    else
+    {
+        logf_ln("No value bound to name: '%s'", name_arg->str_val.data);
+    }
+}
+
+
+CLI_COMMAND_FN_SIG(checktype)
+{
+    UNUSED(userdata);
+
+    if (args.count != 2)
+    {
+        logf_ln("Error: expected 2 arguments, got %i instead", args.count);
+        return;
+    }
+
+    Value *name_arg = dynarray_get(args, 0);
+    TypeDescriptor *type_desc = get_typedesc(name_arg->typedesc_ref);
+    if (type_desc->type_id != TypeID::String)
+    {
+        logf_ln("Error: first argument must be a string, got a %s instead",
+                  TypeID::to_string(type_desc->type_id));
+        return;
+    }
+
+    TypeDescriptorRef *ptr_typeref = ht_find(&prgmem->type_map, str_slice(name_arg->str_val));
+    if (!ptr_typeref)
+    {
+        logf_ln("No value bound to name: '%s'", name_arg->str_val.data);
+        return;
+    }
+    TypeDescriptorRef typeref = *ptr_typeref;
+
+    // fmt_buf.writeln("");
+    Value *value = dynarray_get(args, 1);
+    // fmt_buf.write("Value: ");
+    // pretty_print(value, &fmt_buf);
+    // fmt_buf.writef("Parsed value's type: %i ", value->typedesc_ref.index);
+    // pretty_print(value->typedesc_ref, &fmt_buf);
+
+    TypeCheckInfo check = check_type_compatible(value->typedesc_ref, typeref);
+
+    if (check.passed)
+    {
+        logln("passed");
+    }
+    else
+    {
+        FormatBuffer fmtbuf;
+        fmtbuf.flush_on_destruct();
+
+        fmtbuf.writef_ln("failed: %s", to_string(check.result));
+
+        fmtbuf.write("Named type: ");
+        pretty_print(typeref, &fmtbuf, 0);
+        fmtbuf.write("\nInput value's type: ");
+        pretty_print(value->typedesc_ref, &fmtbuf, 0);
+    }
+}
+
+
 void test_json_import(ProgramMemory *prgmem, int filename_count, char **filenames)
 {
     if (filename_count < 1)
@@ -1098,13 +1226,16 @@ void test_json_import(ProgramMemory *prgmem, int filename_count, char **filename
 
 void init_cli_commands(ProgramMemory *prgmem)
 {
-    REGISTER_COMMAND(prgmem, say_hello, NULL);
-    REGISTER_COMMAND(prgmem, list_args, NULL);
-    REGISTER_COMMAND(prgmem, find_type, NULL);
-    REGISTER_COMMAND(prgmem, set_value, NULL);
-    REGISTER_COMMAND(prgmem, get_value, NULL);
-    REGISTER_COMMAND(prgmem, get_value_type, NULL);
-    REGISTER_COMMAND(prgmem, print_values, NULL);
+    REGISTER_COMMAND(prgmem, say_hello, nullptr);
+    REGISTER_COMMAND(prgmem, list_args, nullptr);
+    REGISTER_COMMAND(prgmem, find_type, nullptr);
+    REGISTER_COMMAND(prgmem, set_value, nullptr);
+    REGISTER_COMMAND(prgmem, get_value, nullptr);
+    REGISTER_COMMAND(prgmem, get_value_type, nullptr);
+    REGISTER_COMMAND(prgmem, print_values, nullptr);
+    REGISTER_COMMAND(prgmem, bindinfer, nullptr);
+    REGISTER_COMMAND(prgmem, print_type, nullptr);
+    REGISTER_COMMAND(prgmem, checktype, nullptr);
 }
 
 
@@ -1420,7 +1551,7 @@ void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
 
     ImGui::SetNextWindowSize(ImGui_SDLWindowSize(window), ImGuiSetCond_Always);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
-    ImGui::Begin("ConsoleWindow###jsoneditor-console", NULL, console_wndflags);
+    ImGui::Begin("ConsoleWindow###jsoneditor-console", nullptr, console_wndflags);
 
     ImGui::TextUnformatted("This is the console.");
     ImGui::Separator();

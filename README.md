@@ -8,9 +8,9 @@ This will be maintained. Latest log entry will go below.
 
 - [X] 2016-03-19: Concrete Union Plans: Pretty Print Unions with `Union()` syntax
 
-- [ ] 2016-03-19: Concrete Union Plans: Write the `bindinfer` command to associate a type with a name.
+- [X] 2016-03-19: Concrete Union Plans: Write the `bindinfer` command to associate a type with a name.
 
-- [ ] 2016-03-19: Concrete Union Plans: Write a type validator
+- [X] 2016-03-19: Concrete Union Plans: Write a type validator
 
 - [ ] Milestone: Solid GUI Terminal: Test/develop on Windows
 
@@ -20,6 +20,31 @@ This will be maintained. Latest log entry will go below.
 
 - [ ] Initial TODO: Validate values against type descriptors.
 
+### 2016-03-19-0352 Cleanup Todos
+
+The code is gross. I mentioned before that I should make proper constructor
+functions for various objects, but there's also basic renaming and such that I
+want to do:
+
+- [] Rename TypeMember to CompoundTypeMember
+
+- [] Rename ValueMember to CompoundValueMember
+
+- [] Make a CompoundType to put in the TypeDescriptor union instead just the
+     members array
+     
+- [] Similarly, make a CompoundValue
+
+- [] TypeDescriptorRef should be TypeRef
+
+- [] Rename Value::typedesc_ref to typeref
+
+- [] Rename `typedesc_ref_identical` to `typeref_identical`
+
+- [] Add a nullptr define and make everything use it
+
+- [] Add Handmade-Hero style numeric type conversion functions with asserts in them.
+
 ## 2016-03-19: Concrete Union Plans
 
 These are some concrete todos for Unions and type validation.
@@ -28,9 +53,9 @@ These are some concrete todos for Unions and type validation.
 
 - [X] Pretty Print Unions with `Union()` syntax
 
-- [] Write the `bindinfer` command to associate a type with a name.
+- [X] Write the `bindinfer` command to associate a type with a name.
 
-- [] Write a type validator and `checktype` command.
+- [X] Write a type validator and `checktype` command.
 
 Something to note: Values should never have a type_id of `Union`. Unions only
 exist in type descriptors. Values can pass type validation against a `Union`,
