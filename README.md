@@ -6,11 +6,7 @@ This will be maintained. Latest log entry will go below.
 
 - [ ] Milestone: Solid GUI Terminal: Test/develop on Windows
 
-- [ ] Memory: Free the memory used by the CLI value args
-
 - [ ] Memory: Wrap malloc and free in order to count allocations
-
-- [ ] Initial TODO: Validate values against type descriptors.
 
 ### 2016-03-19-0352 Cleanup Todos
 
@@ -369,7 +365,7 @@ so I should maybe have my own object heap.
 
 In the meantime, after the dearimgui console is done:
 
-- [] Free the memory used by the CLI value args
+- [X] Free the memory used by the CLI value args
 
 - [] Wrap malloc and free in order to count allocations
 
@@ -707,7 +703,7 @@ Or maybe it should match that Open Game Data spec that Eric Lengyel amde.
 
 - [X] Load values in
 
-- [] Validate values against type descriptors.
+- [X] Validate values against type descriptors.
 
 - [X] UI. Was looking at Qt. Maybe that won't suck. it probably will. dear imgui?
   *NOTE: decided to start with dearimgui

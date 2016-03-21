@@ -105,23 +105,8 @@ struct ProgramMemory
     OAHashtable<StrSlice, CliCommand, StrSliceEqual, StrSliceHash> command_map;
     StrToValueMap value_map;
     StrToTypeMap type_map;
-
-    u8 *perm_store;
-    size_t perm_store_size;
-    size_t perm_store_allocated;
 };
 
-
-void *alloc_perm(ProgramMemory *prgmem, size_t size)
-{
-    assert(size);
-    assert(prgmem->perm_store_allocated < prgmem->perm_store_allocated + size);
-    assert(prgmem->perm_store_size > prgmem->perm_store_allocated + size);
-
-    void *result = prgmem->perm_store + prgmem->perm_store_allocated;
-    prgmem->perm_store_allocated += size;
-    return result;
-}
 
 TypeRef add_typedescriptor(ProgramMemory *prgmem, TypeDescriptor **ptr);
 

@@ -78,6 +78,10 @@ public:
     bool do_flush_on_destruct;
 
     static const size_t default_format_buffer_capacity = 1024;
+
+private:
+    FormatBuffer(const FormatBuffer& other); // copy constructor
+    FormatBuffer& operator=(const FormatBuffer& other); // copy assignment
 };
 
 
