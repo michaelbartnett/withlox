@@ -47,8 +47,7 @@ void append_log(const char *string)
 
 void append_log(const char *string, size_t length)
 {
-    assert(length < STR_LENGTH_MAX);
-    append_log(str(string, (u16)length));
+    append_log(str(string, STRLEN(length)));
 }
 
 
@@ -81,7 +80,7 @@ static void vlogf(const char *format, va_list vargs)
     }
 
     assert(output_buffer_size < STR_LENGTH_MAX);
-    
+
     append_log(output_buffer, (size_t)format_size);
 
     println(output_buffer);
@@ -145,9 +144,8 @@ Str concatenated_log()
     }
 
     Str result;
-    assert(concatenated->cursor < STR_LENGTH_MAX);
+    result.length = STRLEN(concatenated->cursor);
     result.data = concatenated->buffer;
-    result.length = (u16)concatenated->cursor;
     result.capacity = result.capacity;
     return result;
 }

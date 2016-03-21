@@ -94,8 +94,7 @@ struct HashtableTest
 
 void test_fill_hashtable(HashtableTest *test)
 {
-    assert(test->bucket_count < INT32_MAX);
-    const s32 iterations = (s32)test->bucket_count;
+    const s32 iterations = S32(test->bucket_count);
 
     OAHashtable<s32, s32> numbas;
     ht_init(&numbas, test->bucket_count);
@@ -113,8 +112,7 @@ void test_fill_hashtable(HashtableTest *test)
 
 void test_hashtable_lookup(HashtableTest *test)
 {
-    assert(test->bucket_count < INT32_MAX);
-    const s32 iterations = (s32)test->bucket_count;
+    const s32 iterations = S32(test->bucket_count);
 
     OAHashtable<s32, s32> numbas;
     ht_init(&numbas, test->bucket_count);
@@ -145,8 +143,7 @@ void test_hashtable_lookup(HashtableTest *test)
 
 void test_hashtable_set_if_unset(HashtableTest *test)
 {
-    assert(test->bucket_count < INT32_MAX);
-    const s32 iterations = (s32)test->bucket_count;
+    const s32 iterations = S32(test->bucket_count);
 
     OAHashtable<s32, s32> numbas;
     ht_init(&numbas, test->bucket_count);

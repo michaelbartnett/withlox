@@ -14,6 +14,13 @@
 typedef u16 StrLen;
 #define STR_LENGTH_MAX UINT16_MAX
 
+template<typename TInteger>
+StrLen STRLEN(TInteger i)
+{
+    assert(i < STR_LENGTH_MAX);
+    return (StrLen)i;
+}
+
 // For referencing string memory
 // TODO(mike): 'length' should probably be 'size' because utf8
 struct StrSlice
@@ -55,8 +62,7 @@ inline Str str(const Str &src)
 inline StrSlice str_slice(const char *cstr, size_t length)
 {
     StrSlice result;
-    assert(length < STR_LENGTH_MAX);
-    result.length = (StrLen)length;
+    result.length = STRLEN(length);
     result.data = cstr;
     return result;    
 }

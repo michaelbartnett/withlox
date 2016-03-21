@@ -27,7 +27,7 @@ void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
 
         case TypeID::Array:
         {
-            TypeDescriptor *elem_typedesc = get_typedesc(type_desc->array_type.elem_typedesc_ref);
+            TypeDescriptor *elem_typedesc = get_typedesc(type_desc->array_type.elem_typeref);
             TypeID::Tag elem_type_id = (TypeID::Tag)elem_typedesc->type_id;
             switch ((TypeID::Tag)elem_typedesc->type_id)
             {
@@ -49,7 +49,7 @@ void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
 
                     fmt_buf->write_indent(indent, "");
 
-                    pretty_print(type_desc->array_type.elem_typedesc_ref, fmt_buf, indent);
+                    pretty_print(type_desc->array_type.elem_typeref, fmt_buf, indent);
 
                     indent -= 2;
 
@@ -62,7 +62,7 @@ void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
         }
 
         case TypeID::Compound:
-            if (type_desc->members.count == 0)
+            if (type_desc->compound_type.members.count == 0)
             {
                 fmt_buf->writeln("{}");
             }
@@ -72,11 +72,11 @@ void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
 
                 indent += 2;
 
-                for (u32 i = 0; i < type_desc->members.count; ++i)
+                for (u32 i = 0; i < type_desc->compound_type.members.count; ++i)
                 {
-                    TypeMember *member = dynarray_get(type_desc->members, i);
+                    CompoundTypeMember *member = dynarray_get(type_desc->compound_type.members, i);
                     fmt_buf->writef_indent(indent, "%s: ", str_slice(member->name).data);
-                    pretty_print(member->typedesc_ref, fmt_buf, indent);
+                    pretty_print(member->typeref, fmt_buf, indent);
                 }
 
                 indent -= 2;
@@ -118,7 +118,7 @@ void pretty_print(TypeDescriptor *type_desc, int indent)
 
 void pretty_print(Value *value, FormatBuffer *fmt_buf, int indent)
 {
-    TypeDescriptor *type_desc = get_typedesc(value->typedesc_ref);
+    TypeDescriptor *type_desc = get_typedesc(value->typeref);
 
     switch ((TypeID::Tag)type_desc->type_id)
     {
@@ -168,7 +168,7 @@ void pretty_print(Value *value, FormatBuffer *fmt_buf, int indent)
             break;
 
         case TypeID::Compound:
-            if (type_desc->members.count == 0)
+            if (type_desc->compound_type.members.count == 0)
             {
                 fmt_buf->writeln("{}");
             }
@@ -178,9 +178,9 @@ void pretty_print(Value *value, FormatBuffer *fmt_buf, int indent)
 
                 indent += 2;
 
-                for (u32 i = 0; i < value->members.count; ++i)
+                for (u32 i = 0; i < value->compound_value.members.count; ++i)
                 {
-                    ValueMember *member = dynarray_get(value->members, i);
+                    CompoundValueMember *member = dynarray_get(value->compound_value.members, i);
                     fmt_buf->writef_indent(indent, "'%s': ", str_slice(member->name).data);
                     pretty_print(&member->value, fmt_buf, indent);
                 }

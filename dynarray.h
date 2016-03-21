@@ -10,13 +10,22 @@
 typedef u32 DynArrayCount;
 #define DYNARRAY_COUNT_MAX UINT32_MAX
 
+
+template<typename TInteger>
+DynArrayCount DYNARRAY_COUNT(TInteger i)
+{
+    assert(i < DYNARRAY_COUNT_MAX);
+    return (DynArrayCount)i;
+}
+
+
 template<typename T>
 struct DynArray
 {
 
     T *data;
     DynArrayCount count;
-    DynArrayCount capacity;    
+    DynArrayCount capacity;
 };
 
 

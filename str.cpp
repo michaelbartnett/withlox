@@ -41,8 +41,7 @@ Str str(const char *cstr, StrLen len)
 Str str(const char *cstr)
 {
     size_t len = std::strlen(cstr);
-    assert(len < UINT16_MAX);
-    return str(cstr, (StrLen)len);
+    return str(cstr, STRLEN(len));
 }
 
 

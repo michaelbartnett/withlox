@@ -372,7 +372,7 @@ typename OAHASH_TYPE::Entry *ht_find_entry(OAHASH_TYPE *ht, TKey key)
         switch ((typename BucketState::Tag)ht->buckets[i].state)
         {
             case BucketState::Empty:
-                return 0;
+                return nullptr;
 
             case BucketState::Filled:
                 if (ht->buckets[i].hash == hash
@@ -392,7 +392,7 @@ typename OAHASH_TYPE::Entry *ht_find_entry(OAHASH_TYPE *ht, TKey key)
         switch ((typename BucketState::Tag)ht->buckets[i].state)
         {
             case BucketState::Empty:
-                return 0;
+                return nullptr;
 
             case BucketState::Filled:
                 if (ht->buckets[i].hash == hash
@@ -407,7 +407,7 @@ typename OAHASH_TYPE::Entry *ht_find_entry(OAHASH_TYPE *ht, TKey key)
         }
     }
 
-    return 0;
+    return nullptr;
 }
 
 
@@ -417,7 +417,7 @@ TValue *ht_find(OAHASH_TYPE *ht, TKey key)
     typedef typename OAHASH_TYPE::Entry Entry;
 
     Entry *entry = ht_find_entry(ht, key);
-    return entry ? &entry->value : 0;
+    return entry ? &entry->value : nullptr;
 }
 
 

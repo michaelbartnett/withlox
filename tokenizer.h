@@ -23,7 +23,7 @@ inline StrLen chars_remaining(State *tokstate)
 {
     std::ptrdiff_t diff = (tokstate->end - tokstate->current);
     assert(diff < STR_LENGTH_MAX);
-    return (StrLen)diff;
+    return STRLEN(diff);
 }
 
 

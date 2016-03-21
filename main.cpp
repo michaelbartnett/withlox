@@ -88,19 +88,19 @@ struct CliCommand
 
 
 typedef OAHashtable<StrSlice, Value, StrSliceEqual, StrSliceHash> StrToValueMap;
-typedef OAHashtable<StrSlice, TypeDescriptorRef, StrSliceEqual, StrSliceHash> StrToTypeMap;
+typedef OAHashtable<StrSlice, TypeRef, StrSliceEqual, StrSliceHash> StrToTypeMap;
 
 struct ProgramMemory
 {
     NameTable names;
     DynArray<TypeDescriptor> type_descriptors;
-    OAHashtable<NameRef, TypeDescriptorRef> typedesc_bindings;
+    OAHashtable<NameRef, TypeRef> typedesc_bindings;
 
-    TypeDescriptorRef prim_string;
-    TypeDescriptorRef prim_int;
-    TypeDescriptorRef prim_float;
-    TypeDescriptorRef prim_bool;
-    TypeDescriptorRef prim_none;
+    TypeRef prim_string;
+    TypeRef prim_int;
+    TypeRef prim_float;
+    TypeRef prim_bool;
+    TypeRef prim_none;
 
     OAHashtable<StrSlice, CliCommand, StrSliceEqual, StrSliceHash> command_map;
     StrToValueMap value_map;
@@ -123,16 +123,16 @@ void *alloc_perm(ProgramMemory *prgmem, size_t size)
     return result;
 }
 
-TypeDescriptorRef add_typedescriptor(ProgramMemory *prgmem, TypeDescriptor **ptr);
+TypeRef add_typedescriptor(ProgramMemory *prgmem, TypeDescriptor **ptr);
 
 
-void bind_typeref(ProgramMemory *prgmem, NameRef name, TypeDescriptorRef typeref)
+void bind_typeref(ProgramMemory *prgmem, NameRef name, TypeRef typeref)
 {
     ht_set(&prgmem->typedesc_bindings, name, typeref);
 }
 
 
-void bind_typeref(ProgramMemory *prgmem, const char *name, TypeDescriptorRef typeref)
+void bind_typeref(ProgramMemory *prgmem, const char *name, TypeRef typeref)
 {
     NameRef nameref = nametable_find_or_add(&prgmem->names, str_slice(name));
     bind_typeref(prgmem, nameref, typeref);
@@ -182,14 +182,14 @@ void prgmem_init(ProgramMemory *prgmem)
 }
 
 
-TypeDescriptorRef make_typeref(ProgramMemory *prgmem, u32 index)
+TypeRef make_typeref(ProgramMemory *prgmem, u32 index)
 {
-    TypeDescriptorRef result = {index, &prgmem->type_descriptors};
+    TypeRef result = {index, &prgmem->type_descriptors};
     return result;
 }
 
 
-TypeDescriptorRef add_typedescriptor(ProgramMemory *prgmem, TypeDescriptor type_desc, TypeDescriptor **ptr)
+TypeRef add_typedescriptor(ProgramMemory *prgmem, TypeDescriptor type_desc, TypeDescriptor **ptr)
 {
     TypeDescriptor *td = dynarray_append(&prgmem->type_descriptors, type_desc);
 
@@ -198,13 +198,13 @@ TypeDescriptorRef add_typedescriptor(ProgramMemory *prgmem, TypeDescriptor type_
         *ptr = td;
     }
 
-    TypeDescriptorRef result = make_typeref(prgmem,
+    TypeRef result = make_typeref(prgmem,
                                             prgmem->type_descriptors.count - 1);
     return result;
 }
 
 
-TypeDescriptorRef add_typedescriptor(ProgramMemory *prgmem, TypeDescriptor **ptr)
+TypeRef add_typedescriptor(ProgramMemory *prgmem, TypeDescriptor **ptr)
 {
     TypeDescriptor td = {};
     return add_typedescriptor(prgmem, td, ptr);
@@ -212,9 +212,9 @@ TypeDescriptorRef add_typedescriptor(ProgramMemory *prgmem, TypeDescriptor **ptr
 
 
 // TODO(mike): Guarantee no structural duplicates, and do it fast. Hashtable.
-TypeDescriptorRef find_equiv_typedescriptor(ProgramMemory *prgmem, TypeDescriptor *type_desc)
+TypeRef find_equiv_typedescriptor(ProgramMemory *prgmem, TypeDescriptor *type_desc)
 {
-    TypeDescriptorRef result = {};
+    TypeRef result = {};
 
     switch ((TypeID::Tag)type_desc->type_id)
     {
@@ -234,7 +234,7 @@ TypeDescriptorRef find_equiv_typedescriptor(ProgramMemory *prgmem, TypeDescripto
                  i < count;
                  ++i)
             {
-                TypeDescriptorRef ref = make_typeref(prgmem, i);
+                TypeRef ref = make_typeref(prgmem, i);
                 TypeDescriptor *predefined = get_typedesc(ref);
                 if (predefined && equal(type_desc, predefined))
                 {
@@ -249,7 +249,7 @@ TypeDescriptorRef find_equiv_typedescriptor(ProgramMemory *prgmem, TypeDescripto
                  i < count;
                  ++i)
             {
-                TypeDescriptorRef ref = make_typeref(prgmem, i);
+                TypeRef ref = make_typeref(prgmem, i);
                 TypeDescriptor *predefined = get_typedesc(ref);
                 if (predefined && equal(type_desc, predefined))
                 {
@@ -263,9 +263,9 @@ TypeDescriptorRef find_equiv_typedescriptor(ProgramMemory *prgmem, TypeDescripto
     return result;
 }
 
-TypeDescriptorRef find_equiv_type_or_add(ProgramMemory *prgmem, TypeDescriptor *type_desc, TypeDescriptor **ptr)
+TypeRef find_equiv_type_or_add(ProgramMemory *prgmem, TypeDescriptor *type_desc, TypeDescriptor **ptr)
 {
-    TypeDescriptorRef preexisting = find_equiv_typedescriptor(prgmem, type_desc);
+    TypeRef preexisting = find_equiv_typedescriptor(prgmem, type_desc);
     if (preexisting.index)
     {
         if (ptr)
@@ -278,10 +278,10 @@ TypeDescriptorRef find_equiv_type_or_add(ProgramMemory *prgmem, TypeDescriptor *
     return add_typedescriptor(prgmem, *type_desc, ptr);
 }
 
-TypeDescriptorRef find_typeref_by_name(ProgramMemory *prgmem, NameRef name)
+TypeRef find_typeref_by_name(ProgramMemory *prgmem, NameRef name)
 {
-    TypeDescriptorRef result = {};
-    TypeDescriptorRef *typeref = ht_find(&prgmem->typedesc_bindings, name);
+    TypeRef result = {};
+    TypeRef *typeref = ht_find(&prgmem->typedesc_bindings, name);
     if (typeref)
     {
         result = *typeref;
@@ -289,9 +289,9 @@ TypeDescriptorRef find_typeref_by_name(ProgramMemory *prgmem, NameRef name)
     return result;
 }
 
-TypeDescriptorRef find_typeref_by_name(ProgramMemory *prgmem, StrSlice name)
+TypeRef find_typeref_by_name(ProgramMemory *prgmem, StrSlice name)
 {
-    TypeDescriptorRef result = {};
+    TypeRef result = {};
     NameRef nameref = nametable_find(&prgmem->names, name);
     if (nameref.offset)
     {
@@ -300,7 +300,7 @@ TypeDescriptorRef find_typeref_by_name(ProgramMemory *prgmem, StrSlice name)
     return result;
 }
 
-TypeDescriptorRef find_typeref_by_name(ProgramMemory *prgmem, Str name)
+TypeRef find_typeref_by_name(ProgramMemory *prgmem, Str name)
 {
     return find_typeref_by_name(prgmem, str_slice(name));
 }
@@ -312,32 +312,31 @@ TypeDescriptor *find_typedesc_by_name(ProgramMemory *prgmem, NameRef name)
 }
 
 
-TypeDescriptorRef type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv);
+TypeRef type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv);
 
 
-TypeDescriptorRef type_desc_from_json_array(ProgramMemory *prgmem, json_value_s *jv)
+TypeRef type_desc_from_json_array(ProgramMemory *prgmem, json_value_s *jv)
 {
-    TypeDescriptorRef result;
+    TypeRef result;
 
     assert(jv->type == json_type_array);
     json_array_s *jarray = (json_array_s *)jv->payload;
 
-    DynArray<TypeDescriptorRef> element_types;
-    assert(jarray->length < DYNARRAY_COUNT_MAX);
-    dynarray_init(&element_types, (DynArrayCount)jarray->length);
+    DynArray<TypeRef> element_types;
+    dynarray_init(&element_types, DYNARRAY_COUNT(jarray->length));
 
     for (json_array_element_s *elem = jarray->start;
          elem;
          elem = elem->next)
     {
-        TypeDescriptorRef typeref = type_desc_from_json(prgmem, elem->value);
+        TypeRef typeref = type_desc_from_json(prgmem, elem->value);
 
         // This is a set insertion
         bool found = false;
         for (DynArrayCount i = 0; i < element_types.count; ++i)
         {
-            TypeDescriptorRef *existing = dynarray_get(element_types, i);
-            if (typedesc_ref_identical(typeref, *existing))
+            TypeRef *existing = dynarray_get(element_types, i);
+            if (typeref_identical(typeref, *existing))
             {
                 found = true;
                 break;
@@ -371,7 +370,7 @@ TypeDescriptorRef type_desc_from_json_array(ProgramMemory *prgmem, json_value_s 
         element_union_type.type_id = TypeID::Union;
         element_union_type.union_type = union_type;
 
-        constructed_typedesc.array_type.elem_typedesc_ref = find_equiv_type_or_add(prgmem, &element_union_type, NULL);
+        constructed_typedesc.array_type.elem_typeref = find_equiv_type_or_add(prgmem, &element_union_type, nullptr);
     }
     else
     {
@@ -383,12 +382,12 @@ TypeDescriptorRef type_desc_from_json_array(ProgramMemory *prgmem, json_value_s 
             // empty,  untyped array...?
             // maybe use an Any type here, if that ever becomes a thing.
             logln("Got an empty json array. This defaults to type [None], but I don't like it!");
-            array_type.elem_typedesc_ref = prgmem->prim_none;
+            array_type.elem_typeref = prgmem->prim_none;
             constructed_typedesc.array_type = array_type;
         }
         else
         {
-            constructed_typedesc.array_type.elem_typedesc_ref = *dynarray_get(element_types, 0);
+            constructed_typedesc.array_type.elem_typeref = *dynarray_get(element_types, 0);
         }
     }
 
@@ -401,32 +400,31 @@ TypeDescriptorRef type_desc_from_json_array(ProgramMemory *prgmem, json_value_s 
 }
 
 
-TypeDescriptorRef type_desc_from_json_object(ProgramMemory *prgmem, json_value_s *jv)
+TypeRef type_desc_from_json_object(ProgramMemory *prgmem, json_value_s *jv)
 {
-    TypeDescriptorRef result;
+    TypeRef result;
 
     assert(jv->type == json_type_object);
     json_object_s *jobj = (json_object_s *)jv->payload;
-    assert(jobj->length < UINT32_MAX);
 
-    DynArray<TypeMember> members;
-    dynarray_init(&members, (u32)jobj->length);
+    DynArray<CompoundTypeMember> members;
+    dynarray_init(&members, DYNARRAY_COUNT(jobj->length));
 
     for (json_object_element_s *elem = jobj->start;
          elem;
          elem = elem->next)
     {
-        TypeMember *member = dynarray_append(&members);
+        CompoundTypeMember *member = dynarray_append(&members);
         member->name = nametable_find_or_add(&prgmem->names,
                                              elem->name->string, elem->name->string_size);
-        member->typedesc_ref = type_desc_from_json(prgmem, elem->value);
+        member->typeref = type_desc_from_json(prgmem, elem->value);
     }
 
     TypeDescriptor constructed_typedesc;
     constructed_typedesc.type_id = TypeID::Compound;
-    constructed_typedesc.members = members;
+    constructed_typedesc.compound_type.members = members;
 
-    TypeDescriptorRef preexisting = find_equiv_typedescriptor(prgmem, &constructed_typedesc);
+    TypeRef preexisting = find_equiv_typedescriptor(prgmem, &constructed_typedesc);
     if (preexisting.index)
     {
         result = preexisting;
@@ -440,9 +438,9 @@ TypeDescriptorRef type_desc_from_json_object(ProgramMemory *prgmem, json_value_s
 }
 
 
-TypeDescriptorRef type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv)
+TypeRef type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv)
 {
-    TypeDescriptorRef result;
+    TypeRef result;
 
     json_type_e jvtype = (json_type_e)jv->type;
     switch (jvtype)
@@ -484,28 +482,28 @@ TypeDescriptorRef type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv)
 TypeDescriptor *clone(const TypeDescriptor *type_desc);
 
 
-DynArray<TypeMember> clone(const DynArray<TypeMember> &memberset)
+DynArray<CompoundTypeMember> clone(const DynArray<CompoundTypeMember> &memberset)
 {
-    DynArray<TypeMember> result = dynarray_init<TypeMember>(memberset.count);
+    DynArray<CompoundTypeMember> result = dynarray_init<CompoundTypeMember>(memberset.count);
 
     for (u32 i = 0; i < memberset.count; ++i)
     {
-        TypeMember *src_member = dynarray_get(memberset, i);
-        TypeMember *dest_member = dynarray_append(&result);
+        CompoundTypeMember *src_member = dynarray_get(memberset, i);
+        CompoundTypeMember *dest_member = dynarray_append(&result);
         ZERO_PTR(dest_member);
         NameRef newname = src_member->name;
         dest_member->name = newname;
-        dest_member->typedesc_ref = src_member->typedesc_ref;
+        dest_member->typeref = src_member->typeref;
     }
 
     return result;
 }
 
 
-TypeDescriptorRef clone(ProgramMemory *prgmem, const TypeDescriptor *src_typedesc, TypeDescriptor **ptr)
+TypeRef clone(ProgramMemory *prgmem, const TypeDescriptor *src_typedesc, TypeDescriptor **ptr)
 {
     TypeDescriptor *dest_typedesc;
-    TypeDescriptorRef result = add_typedescriptor(prgmem, &dest_typedesc);
+    TypeRef result = add_typedescriptor(prgmem, &dest_typedesc);
     if (ptr)
     {
         *ptr = dest_typedesc;
@@ -527,7 +525,7 @@ TypeDescriptorRef clone(ProgramMemory *prgmem, const TypeDescriptor *src_typedes
             break;
 
         case TypeID::Compound:
-            dest_typedesc->members = clone(src_typedesc->members);
+            dest_typedesc->compound_type.members = clone(src_typedesc->compound_type.members);
             break;
 
         case TypeID::Union:
@@ -539,12 +537,12 @@ TypeDescriptorRef clone(ProgramMemory *prgmem, const TypeDescriptor *src_typedes
 }
 
 
-TypeMember *find_member(const TypeDescriptor &type_desc, NameRef name)
+CompoundTypeMember *find_member(const TypeDescriptor &type_desc, NameRef name)
 {
-    size_t count = type_desc.members.count;
+    size_t count = type_desc.compound_type.members.count;
     for (u32 i = 0; i < count; ++i)
     {
-        TypeMember *mem = dynarray_get(type_desc.members, i);
+        CompoundTypeMember *mem = dynarray_get(type_desc.compound_type.members, i);
 
         if (nameref_identical(mem->name, name))
         {
@@ -552,15 +550,15 @@ TypeMember *find_member(const TypeDescriptor &type_desc, NameRef name)
         }
     }
 
-    return 0;
+    return nullptr;
 }
 
 
-void add_member(TypeDescriptor *type_desc, const TypeMember &member)
+void add_member(TypeDescriptor *type_desc, const CompoundTypeMember &member)
 {
-    TypeMember *new_member = dynarray_append(&type_desc->members);
+    CompoundTypeMember *new_member = dynarray_append(&type_desc->compound_type.members);
     new_member->name = member.name;
-    new_member->typedesc_ref = member.typedesc_ref;
+    new_member->typeref = member.typeref;
 }
 
 
@@ -568,7 +566,7 @@ void add_member(TypeDescriptor *type_desc, const TypeMember &member)
 // That would be cool, but might be a bit much. We'll see.
 // TypeDescriptor *merge_type_descriptors(TypeDescriptor *typedesc_a, TypeDescriptor *typedesc_b)
 
-TypeDescriptorRef merge_compound_types(ProgramMemory *prgmem,
+TypeRef merge_compound_types(ProgramMemory *prgmem,
                                        const TypeDescriptor *typedesc_a,
                                        const TypeDescriptor *typedesc_b,
                                        TypeDescriptor **ptr)
@@ -579,14 +577,14 @@ TypeDescriptorRef merge_compound_types(ProgramMemory *prgmem,
     assert(typedesc_b->type_id == TypeID::Compound);
 
     TypeDescriptor *result_ptr;
-    TypeDescriptorRef result_ref = clone(prgmem, typedesc_a, &result_ptr);
+    TypeRef result_ref = clone(prgmem, typedesc_a, &result_ptr);
 
-    for (DynArrayCount ib = 0; ib < typedesc_b->members.count; ++ib)
+    for (DynArrayCount ib = 0; ib < typedesc_b->compound_type.members.count; ++ib)
     {
-        TypeMember *b_member = dynarray_get(typedesc_b->members, ib);
-        TypeMember *a_member = find_member(*typedesc_a, b_member->name);
+        CompoundTypeMember *b_member = dynarray_get(typedesc_b->compound_type.members, ib);
+        CompoundTypeMember *a_member = find_member(*typedesc_a, b_member->name);
 
-        if (! (a_member && typedesc_ref_identical(a_member->typedesc_ref, b_member->typedesc_ref)))
+        if (! (a_member && typeref_identical(a_member->typeref, b_member->typeref)))
         {
             add_member(result_ptr, *b_member);
         }
@@ -610,33 +608,33 @@ Value create_value_from_token(ProgramMemory *prgmem, tokenizer::Token token)
     {
         case tokenizer::TokenType::Eof:
         case tokenizer::TokenType::Unknown:
-            result.typedesc_ref = prgmem->prim_none;
+            result.typeref = prgmem->prim_none;
             break;
 
         case tokenizer::TokenType::String:
             result.str_val = token_copy;
-            result.typedesc_ref = prgmem->prim_string;
+            result.typeref = prgmem->prim_string;
             // indicate no need to free
             token_copy.data = 0;
             break;
 
         case tokenizer::TokenType::Int:
             result.s32_val = atoi(token_copy.data);
-            result.typedesc_ref = prgmem->prim_int;
+            result.typeref = prgmem->prim_int;
             break;
 
         case tokenizer::TokenType::Float:
             result.f32_val = (float)atof(token_copy.data);
-            result.typedesc_ref = prgmem->prim_float;
+            result.typeref = prgmem->prim_float;
             break;
 
         case tokenizer::TokenType::True:
-            result.typedesc_ref = prgmem->prim_bool;
+            result.typeref = prgmem->prim_bool;
             result.bool_val = true;
             break;
 
         case tokenizer::TokenType::False:
-            result.typedesc_ref = prgmem->prim_bool;
+            result.typeref = prgmem->prim_bool;
             result.bool_val = false;
             break;
     }
@@ -651,18 +649,17 @@ Value create_value_from_token(ProgramMemory *prgmem, tokenizer::Token token)
 
 Value create_value_from_json(ProgramMemory *prgmem, json_value_s *jv);
 
-Value create_object_with_type_from_json(ProgramMemory *prgmem, json_object_s *jobj, TypeDescriptorRef typeref);
+Value create_object_with_type_from_json(ProgramMemory *prgmem, json_object_s *jobj, TypeRef typeref);
 
 
-Value create_array_with_type_from_json(ProgramMemory *prgmem, json_array_s *jarray, TypeDescriptorRef typeref)
+Value create_array_with_type_from_json(ProgramMemory *prgmem, json_array_s *jarray, TypeRef typeref)
 {
     Value result;
-    result.typedesc_ref = typeref;
+    result.typeref = typeref;
 
     TypeDescriptor *type_desc = get_typedesc(typeref);
-    assert(jarray->length < DYNARRAY_COUNT_MAX);
-    dynarray_init(&result.array_value.elements, (DynArrayCount)jarray->length);
-    TypeDescriptorRef elem_typeref = type_desc->array_type.elem_typedesc_ref;
+    dynarray_init(&result.array_value.elements, DYNARRAY_COUNT(jarray->length));
+    TypeRef elem_typeref = type_desc->array_type.elem_typeref;
     TypeDescriptor *elem_typedesc = get_typedesc(elem_typeref);
 
     DynArrayCount member_idx = 0;
@@ -707,24 +704,24 @@ Value create_array_with_type_from_json(ProgramMemory *prgmem, json_array_s *jarr
 }
 
 
-Value create_object_with_type_from_json(ProgramMemory *prgmem, json_object_s *jobj, TypeDescriptorRef typeref)
+Value create_object_with_type_from_json(ProgramMemory *prgmem, json_object_s *jobj, TypeRef typeref)
 {
     Value result;
 
-    result.typedesc_ref = typeref;
+    result.typeref = typeref;
     TypeDescriptor *type_desc = get_typedesc(typeref);
-    dynarray_init(&result.members, type_desc->members.count);
+    dynarray_init(&result.compound_value.members, type_desc->compound_type.members.count);
 
     DynArrayCount member_idx = 0;
     for (json_object_element_s *jelem = jobj->start;
          jelem;
          jelem = jelem->next)
     {
-        TypeMember *type_member = dynarray_get(&type_desc->members, member_idx);
-        ValueMember *value_member = dynarray_append(&result.members);
+        CompoundTypeMember *type_member = dynarray_get(&type_desc->compound_type.members, member_idx);
+        CompoundValueMember *value_member = dynarray_append(&result.compound_value.members);
         value_member->name = type_member->name;
 
-        TypeDescriptor *type_member_desc = get_typedesc(type_member->typedesc_ref);
+        TypeDescriptor *type_member_desc = get_typedesc(type_member->typeref);
 
         switch ((TypeID::Tag)type_member_desc->type_id)
         {
@@ -740,7 +737,7 @@ Value create_object_with_type_from_json(ProgramMemory *prgmem, json_object_s *jo
                 value_member->value =
                     create_array_with_type_from_json(prgmem,
                                                      (json_array_s *)jelem->value->payload,
-                                                     type_member->typedesc_ref);
+                                                     type_member->typeref);
                 break;
 
             case TypeID::Compound:
@@ -748,7 +745,7 @@ Value create_object_with_type_from_json(ProgramMemory *prgmem, json_object_s *jo
                 value_member->value =
                     create_object_with_type_from_json(prgmem,
                                                       (json_object_s *)jelem->value->payload,
-                                                      type_member->typedesc_ref);
+                                                      type_member->typeref);
                 break;
 
             case TypeID::Union:
@@ -772,9 +769,8 @@ Value create_value_from_json(ProgramMemory *prgmem, json_value_s *jv)
         case json_type_string:
         {
             json_string_s *jstr = (json_string_s *)jv->payload;
-            result.typedesc_ref = prgmem->prim_string;
-            assert(jstr->string_size < STR_LENGTH_MAX);
-            StrLen length = (StrLen)jstr->string_size;
+            result.typeref = prgmem->prim_string;
+            StrLen length = STRLEN(jstr->string_size);
             result.str_val = str(jstr->string, length);
             break;
         }
@@ -790,8 +786,8 @@ Value create_value_from_json(ProgramMemory *prgmem, json_value_s *jv)
 
         case json_type_object:
         {
-            // result.typedesc_ref = prgmem->
-            TypeDescriptorRef typeref = type_desc_from_json_object(prgmem, jv);
+            // result.typeref = prgmem->
+            TypeRef typeref = type_desc_from_json_object(prgmem, jv);
             json_object_s *jobj = (json_object_s *)jv->payload;
             result = create_object_with_type_from_json(prgmem, jobj, typeref);
             break;
@@ -799,7 +795,7 @@ Value create_value_from_json(ProgramMemory *prgmem, json_value_s *jv)
 
         case json_type_array:
         {
-            TypeDescriptorRef typeref = type_desc_from_json_array(prgmem, jv);
+            TypeRef typeref = type_desc_from_json_array(prgmem, jv);
             assert(get_typedesc(typeref)->type_id == TypeID::Array);
             json_array_s *jarray = (json_array_s *)jv->payload;
             result = create_array_with_type_from_json(prgmem, jarray, typeref);
@@ -807,17 +803,17 @@ Value create_value_from_json(ProgramMemory *prgmem, json_value_s *jv)
         }
 
         case json_type_true:
-            result.typedesc_ref = prgmem->prim_bool;
+            result.typeref = prgmem->prim_bool;
             result.bool_val = true;
             break;
 
         case json_type_false:
-            result.typedesc_ref = prgmem->prim_bool;
+            result.typeref = prgmem->prim_bool;
             result.bool_val = false;
             break;
 
         case json_type_null:
-            result.typedesc_ref = prgmem->prim_none;
+            result.typeref = prgmem->prim_none;
             break;
     }
 
@@ -879,7 +875,7 @@ CLI_COMMAND_FN_SIG(list_args)
     for (u32 i = 0; i < args.count; ++i)
     {
         Value *val = dynarray_get(&args, i);
-        pretty_print(val->typedesc_ref);
+        pretty_print(val->typeref);
         pretty_print(val);
     }
 }
@@ -891,15 +887,15 @@ CLI_COMMAND_FN_SIG(find_type)
 
     Value *arg = dynarray_get(args, 0);
 
-    if (! typedesc_ref_identical(arg->typedesc_ref, prgmem->prim_string))
+    if (! typeref_identical(arg->typeref, prgmem->prim_string))
     {
-        TypeDescriptor *argtype = get_typedesc(arg->typedesc_ref);
+        TypeDescriptor *argtype = get_typedesc(arg->typeref);
         logf_ln("Argument must be a string, got a %s intead",
                   TypeID::to_string(argtype->type_id));
         return;
     }
 
-    TypeDescriptorRef typeref = find_typeref_by_name(prgmem, arg->str_val);
+    TypeRef typeref = find_typeref_by_name(prgmem, arg->str_val);
     if (typeref.index)
     {
         pretty_print(typeref);
@@ -923,7 +919,7 @@ CLI_COMMAND_FN_SIG(set_value)
 
     Value *name_arg = dynarray_get(args, 0);
 
-    TypeDescriptor *type_desc = get_typedesc(name_arg->typedesc_ref);
+    TypeDescriptor *type_desc = get_typedesc(name_arg->typeref);
     if (type_desc->type_id != TypeID::String)
     {
         logf_ln("Error: first argument must be a string, got a %s instead",
@@ -961,7 +957,7 @@ CLI_COMMAND_FN_SIG(get_value)
     }
 
     Value *name_arg = dynarray_get(args, 0);
-    TypeDescriptor *type_desc = get_typedesc(name_arg->typedesc_ref);
+    TypeDescriptor *type_desc = get_typedesc(name_arg->typeref);
     if (type_desc->type_id != TypeID::String)
     {
         logf_ln("Error: first argument must be a string, got a %s instead",
@@ -992,7 +988,7 @@ CLI_COMMAND_FN_SIG(get_value_type)
     }
 
     Value *name_arg = dynarray_get(args, 0);
-    TypeDescriptor *type_desc = get_typedesc(name_arg->typedesc_ref);
+    TypeDescriptor *type_desc = get_typedesc(name_arg->typeref);
     if (type_desc->type_id != TypeID::String)
     {
         logf_ln("Error: first argument must be a string, got a %s instead",
@@ -1003,7 +999,7 @@ CLI_COMMAND_FN_SIG(get_value_type)
     Value *value = ht_find(&prgmem->value_map, str_slice(name_arg->str_val));
     if (value)
     {
-        pretty_print(value->typedesc_ref);
+        pretty_print(value->typeref);
     }
     else
     {
@@ -1034,8 +1030,8 @@ CLI_COMMAND_FN_SIG(print_values)
         Value *value = dynarray_get(args, i);
         fmt_buf.write("Value: ");
         pretty_print(value, &fmt_buf);
-        fmt_buf.writef("Parsed value's type: %i ", value->typedesc_ref.index);
-        pretty_print(value->typedesc_ref, &fmt_buf);
+        fmt_buf.writef("Parsed value's type: %i ", value->typeref.index);
+        pretty_print(value->typeref, &fmt_buf);
     }
 }
 
@@ -1052,7 +1048,7 @@ CLI_COMMAND_FN_SIG(bindinfer)
 
     Value *name_arg = dynarray_get(args, 0);
 
-    TypeDescriptor *type_desc = get_typedesc(name_arg->typedesc_ref);
+    TypeDescriptor *type_desc = get_typedesc(name_arg->typeref);
     if (type_desc->type_id != TypeID::String)
     {
         logf_ln("Error: first argument must be a string, got a %s instead",
@@ -1070,7 +1066,7 @@ CLI_COMMAND_FN_SIG(bindinfer)
         entry->key = str_slice(allocated);
     }
 
-    entry->value = dynarray_get(args, 1)->typedesc_ref;
+    entry->value = dynarray_get(args, 1)->typeref;
 
     FormatBuffer fbuf;
     fbuf.flush_on_destruct();
@@ -1090,7 +1086,7 @@ CLI_COMMAND_FN_SIG(print_type)
     }
 
     Value *name_arg = dynarray_get(args, 0);
-    TypeDescriptor *type_desc = get_typedesc(name_arg->typedesc_ref);
+    TypeDescriptor *type_desc = get_typedesc(name_arg->typeref);
     if (type_desc->type_id != TypeID::String)
     {
         logf_ln("Error: first argument must be a string, got a %s instead",
@@ -1098,7 +1094,7 @@ CLI_COMMAND_FN_SIG(print_type)
         return;
     }
 
-    TypeDescriptorRef *typeref = ht_find(&prgmem->type_map, str_slice(name_arg->str_val));
+    TypeRef *typeref = ht_find(&prgmem->type_map, str_slice(name_arg->str_val));
     if (typeref)
     {
         pretty_print(*typeref);
@@ -1121,7 +1117,7 @@ CLI_COMMAND_FN_SIG(checktype)
     }
 
     Value *name_arg = dynarray_get(args, 0);
-    TypeDescriptor *type_desc = get_typedesc(name_arg->typedesc_ref);
+    TypeDescriptor *type_desc = get_typedesc(name_arg->typeref);
     if (type_desc->type_id != TypeID::String)
     {
         logf_ln("Error: first argument must be a string, got a %s instead",
@@ -1129,22 +1125,22 @@ CLI_COMMAND_FN_SIG(checktype)
         return;
     }
 
-    TypeDescriptorRef *ptr_typeref = ht_find(&prgmem->type_map, str_slice(name_arg->str_val));
+    TypeRef *ptr_typeref = ht_find(&prgmem->type_map, str_slice(name_arg->str_val));
     if (!ptr_typeref)
     {
         logf_ln("No value bound to name: '%s'", name_arg->str_val.data);
         return;
     }
-    TypeDescriptorRef typeref = *ptr_typeref;
+    TypeRef typeref = *ptr_typeref;
 
     // fmt_buf.writeln("");
     Value *value = dynarray_get(args, 1);
     // fmt_buf.write("Value: ");
     // pretty_print(value, &fmt_buf);
-    // fmt_buf.writef("Parsed value's type: %i ", value->typedesc_ref.index);
-    // pretty_print(value->typedesc_ref, &fmt_buf);
+    // fmt_buf.writef("Parsed value's type: %i ", value->typeref.index);
+    // pretty_print(value->typeref, &fmt_buf);
 
-    TypeCheckInfo check = check_type_compatible(value->typedesc_ref, typeref);
+    TypeCheckInfo check = check_type_compatible(value->typeref, typeref);
 
     if (check.passed)
     {
@@ -1160,7 +1156,7 @@ CLI_COMMAND_FN_SIG(checktype)
         fmtbuf.write("Named type: ");
         pretty_print(typeref, &fmtbuf, 0);
         fmtbuf.write("\nInput value's type: ");
-        pretty_print(value->typedesc_ref, &fmtbuf, 0);
+        pretty_print(value->typeref, &fmtbuf, 0);
     }
 }
 
@@ -1179,7 +1175,7 @@ void test_json_import(ProgramMemory *prgmem, int filename_count, char **filename
         | json_parse_flags_allow_c_style_comments
         ;
 
-    TypeDescriptorRef result_ref = {};
+    TypeRef result_ref = {};
 
     for (int i = 0; i < filename_count; ++i) {
         const char *filename = filenames[i];
@@ -1199,21 +1195,21 @@ void test_json_import(ProgramMemory *prgmem, int filename_count, char **filename
             return;
         }
 
-        TypeDescriptorRef typedesc_ref = type_desc_from_json(prgmem, jv);
+        TypeRef typeref = type_desc_from_json(prgmem, jv);
         NameRef bound_name = nametable_find_or_add(&prgmem->names, filename);
-        bind_typeref(prgmem, bound_name, typedesc_ref);
+        bind_typeref(prgmem, bound_name, typeref);
 
         logln("New type desciptor:");
-        pretty_print(typedesc_ref);
+        pretty_print(typeref);
 
         if (!result_ref.index)
         {
-            result_ref = typedesc_ref;
+            result_ref = typeref;
         }
         else
         {
             TypeDescriptor *result_ptr = get_typedesc(result_ref);
-            TypeDescriptor *type_desc = get_typedesc(typedesc_ref);
+            TypeDescriptor *type_desc = get_typedesc(typeref);
             result_ref = merge_compound_types(prgmem, result_ptr, type_desc, 0);
         }
     }
@@ -1447,8 +1443,7 @@ void CliHistory::restore(s64 position, ImGuiTextEditCallbackData* data)
         return;
     }
 
-    assert(position < DYNARRAY_COUNT_MAX);
-    Str *new_input = dynarray_get(&this->input_entries, (u32)position);
+    Str *new_input = dynarray_get(&this->input_entries, DYNARRAY_COUNT(position));
     memcpy(data->Buf, new_input->data, new_input->length);
     data->Buf[new_input->length] = '\0';
     data->BufTextLen = data->SelectionStart = data->SelectionEnd = data->CursorPos = new_input->length;

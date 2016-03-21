@@ -4,14 +4,6 @@
 
 This will be maintained. Latest log entry will go below.
 
-- [X] 2016-03-19: Concrete Union Plans: Create Union type representation and infer from JSON Arrays
-
-- [X] 2016-03-19: Concrete Union Plans: Pretty Print Unions with `Union()` syntax
-
-- [X] 2016-03-19: Concrete Union Plans: Write the `bindinfer` command to associate a type with a name.
-
-- [X] 2016-03-19: Concrete Union Plans: Write a type validator
-
 - [ ] Milestone: Solid GUI Terminal: Test/develop on Windows
 
 - [ ] Memory: Free the memory used by the CLI value args
@@ -26,24 +18,24 @@ The code is gross. I mentioned before that I should make proper constructor
 functions for various objects, but there's also basic renaming and such that I
 want to do:
 
-- [] Rename TypeMember to CompoundTypeMember
+- [X] Rename TypeMember to CompoundTypeMember
 
-- [] Rename ValueMember to CompoundValueMember
+- [X] Rename ValueMember to CompoundValueMember
 
-- [] Make a CompoundType to put in the TypeDescriptor union instead just the
+- [X] Make a CompoundType to put in the TypeDescriptor union instead just the
      members array
      
-- [] Similarly, make a CompoundValue
+- [X] Similarly, make a CompoundValue
 
-- [] TypeDescriptorRef should be TypeRef
+- [X] TypeDescriptorRef should be TypeRef
 
-- [] Rename Value::typedesc_ref to typeref
+- [X] Rename Value::typedesc_ref to typeref
 
-- [] Rename `typedesc_ref_identical` to `typeref_identical`
+- [X] Rename `typedesc_ref_identical` to `typeref_identical`
 
-- [] Add a nullptr define and make everything use it
+- [X] Add a nullptr define and make everything use it
 
-- [] Add Handmade-Hero style numeric type conversion functions with asserts in them.
+- [X] Add Handmade-Hero style numeric type conversion functions with asserts in them.
 
 ## 2016-03-19: Concrete Union Plans
 
