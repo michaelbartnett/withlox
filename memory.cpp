@@ -5,9 +5,18 @@
 #include <cstdlib>
 #include <new>
 #include <cstring>
-#include <malloc/malloc.h>
 #include <vector>
 #include <map>
+
+
+#if defined(__APPLE__)
+#include <malloc/malloc.h>
+
+#define MALLOC_GET_SIZE(ptr) malloc_size(ptr)
+#elif defined(__linux__)
+#include <malloc.h>
+#define MALLOC_GET_SIZE(ptr) malloc_usable_size(ptr)
+#endif
 
 #ifdef __clang__
 #pragma clang diagnostic push
@@ -58,7 +67,7 @@ public:
 
     virtual size_t payload_size_of(void *ptr) OVERRIDE
     {
-        return malloc_size(ptr);
+        return MALLOC_GET_SIZE(ptr);
     }
 
     virtual void log_allocations() OVERRIDE
@@ -168,12 +177,12 @@ public:
 
             // fmtbuf.writef_ln("%p Alloc %u, align %u, payload-offset %u",
             printf("%p Alloc %u, align %u, payload-offset %u, next %p, prev %p\n",
-                   header,
+                   (void *)header,
                    total_size,
                    alignment,
                    payload_offset,
-                   header->next,
-                   header->prev);
+                   (void *)header->next,
+                   (void *)header->prev);
             header = header->next;
             ++i;
 
@@ -293,7 +302,11 @@ public:
 
         if (preexisting_hdr)
         {
-            std::memcpy(result, ptr, preexisting_hdr->total_size);
+	    size_t result_size = MALLOC_GET_SIZE(memblock);
+	    size_t ptr_size = MALLOC_GET_SIZE(preexisting_hdr);
+	    size_t copy_size = std::min(preexisting_hdr->payload_size(),
+					hdr->payload_size());
+            std::memcpy(result, ptr, copy_size);
             bytecount -= preexisting_hdr->total_size;
             assert(preexisting_hdr != alloclist_head);
             std::free(preexisting_hdr);
@@ -392,12 +405,12 @@ public:
         MemBlockHeader *header = alloclist_head;
         MemBlockHeader *prev_header = 0;
 
-        assert(header->prev == 0);
+        assert(!header || header->prev == 0);
 
         size_t i = 0;
         while (header)
         {
-            assert(!(header->prev == 0 && header->next == 0) || alloc_count == 0);
+            assert(!(header->prev == 0 && header->next == 0) || alloc_count <= 1);
 
             assert(i <= alloc_count);
             ++i;
@@ -405,7 +418,7 @@ public:
             header = header->next;
         }
 
-        assert(prev_header->next == 0);
+        assert(!prev_header || prev_header->next == 0);
     }
 
 

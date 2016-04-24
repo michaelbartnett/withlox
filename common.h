@@ -60,8 +60,10 @@ using std::size_t;
 #endif
 
 // Clang/Xcode defines nullptr even with -std=C++03, so
-// you can't rely on a __cplusplus check
-#if !defined(nullptr)
+// you can't rely on a __cplusplus check by itself,
+// but you do need to still check for __cplusplus
+// because linux is stupid.
+#if !defined(nullptr) && (!defined(__cplusplus) || (__cplusplus < 201103L))
 #define nullptr NULL
 #endif
 

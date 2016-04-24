@@ -1,21 +1,19 @@
 #if 0
 compiler_command=$CC
 if [ "$compiler_command" == "" ]; then
+    echo Using CLANG!
     compiler_command="clang++"
 fi
 
 DEFAULT_FLAGS="\
 -g \
 -pedantic \
--Weverything \
 -Werror \
--Wimplicit-fallthrough \
 -Wno-error=unused-parameter \
 -Wno-error=unused-variable \
 -Wno-switch-enum \
 -Wno-error=unreachable-code \
 -Wno-unused-function \
--Wno-missing-prototypes \
 -Wno-long-long \
 -Wno-unused-macros \
 -Wno-logical-op-parentheses \
@@ -24,15 +22,19 @@ DEFAULT_FLAGS="\
 -Wno-variadic-macros \
 -Wno-old-style-cast \
 -Wno-float-equal \
--Wno-documentation \
 "
 
 # DEFAULT_FLAGS=""
 
+language_version='-std=c++-03'
+if [ "$(uname)" == "Linux" ]; then
+    language_version='-std=c++11'
+fi
+
 outfile=${0%.*}
 
-echo "$compiler_command -std=c++03 $DEFAULT_FLAGS $CFLAGS $0 memory.cpp -o \"$outfile\""
-$compiler_command -std=c++03 $DEFAULT_FLAGS $CFLAGS $0 memory.cpp -o "$outfile"
+echo "$compiler_command $language_version $DEFAULT_FLAGS $CFLAGS $0 memory.cpp -o \"$outfile\""
+$compiler_command $language_version $DEFAULT_FLAGS $CFLAGS $0 memory.cpp -o "$outfile"
 compiled_ok=$?
 if [ "$compiled_ok" == "0" -a "$COMPILE_ONLY" != "1" ]; then
     $outfile
@@ -153,7 +155,7 @@ void run_memtest()
         mallocator->log_allocations();
     }
 
-    return;
+    // return;
 
     cout << "\n\n\n\n"
          << "\n\n\n\n"
@@ -174,7 +176,7 @@ void run_memtest()
     {
         ptrdiff_t idx = (it - allocations.begin());
 
-        if (idx == 47)
+        if (idx == 66)
         {
             cout << "at index 47\n";
         }
@@ -182,6 +184,8 @@ void run_memtest()
         cout << "Freeing index " << idx << "\n";
         mallocator->dealloc(it->ptr);
     }
+
+    delete mallocator;
 }
 
 
