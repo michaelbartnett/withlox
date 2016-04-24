@@ -6,8 +6,9 @@
 
 #pragma once
 
-#if defined(__clang__) && defined(__cplusplus) && __cplusplus < 201103LL
-#define va_copy(dest, src) __va_copy(dest, src)
+// #if defined(__clang__) && defined(__cplusplus) && __cplusplus < 201103LL
+#if !defined(va_copy) && defined(__clang__) && defined(__cplusplus) && __cplusplus < 201103LL
+#define va_copy(dest, src) __builtin_va_copy(dest, src)
 #endif
 
 //---- Define assertion handler. Defaults to calling assert().

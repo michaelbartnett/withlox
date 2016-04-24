@@ -7,7 +7,6 @@ if(CMAKE_BUILD_TYPE STREQUAL "")
 endif()
 # (you can also set it on the command line: -D CMAKE_BUILD_TYPE=Release)
 
-
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake_modules" ${CMAKE_MODULE_PATH})
 
 
@@ -59,6 +58,8 @@ set(CXX_SOURCES
   imgui_helpers.h
   logging.h
   logging.cpp
+  memory.h
+  memory.cpp
   ${IMGUI_SOURCES}  
   ${CXX_PLATFORM_SOURCES}
   )
@@ -104,8 +105,8 @@ elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     -Wno-long-long
     -Wno-unused-macros
     -Wno-logical-op-parentheses
-    -Wno-c++98-compat
-    -Wno-c++98-compat-pedantic
+    # -Wno-c++98-compat
+    # -Wno-c++98-compat-pedantic
     -Wno-padded
     -Wno-weak-vtables
     -Wno-variadic-macros

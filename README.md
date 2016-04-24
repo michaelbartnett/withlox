@@ -8,7 +8,163 @@ This will be maintained. Latest log entry will go below.
 
 - [ ] Memory: Wrap malloc and free in order to count allocations
 
-### 2016-03-19-0352 Cleanup Todos
+## 2016-04-18-0657EST Data sources and sadness
+
+More data sources from Star Wars and Game of Thrones:
+
+- https://tech.zalando.com/blog/your-favourite-franchises-are-having-an-open-source-love-affair-with-tech/
+
+Sadness: I guess my `formatbuffer_v_writef` never really worked for resizing.
+
+Now there are terrible bugs.
+
+Testing fail.
+
+## 2016-04-04-0114EST Test data sources
+
+- https://github.com/toddmotto/public-apis
+- https://github.com/joke2k/faker
+- http://www.programmableweb.com/apis/directory
+
+## 2016-03-31-0055EST Just make the app already
+
+Okay, the main point of this program is to be like a spreadsheet for structured
+data with the ability to create interesting views on the rows and do
+sophisticated data validation and some type manipulation.
+
+So now that I have value and type representations I need a collection of
+records/values so that I can display and edit them.
+
+I think that a good model for the final version might be that each collection
+has a single type for all of its records. That type may be a union type, but a
+single type feels clean.
+
+Maybe that's unnecessarily applying nonsensical principles onto things, but it
+feels nice to think about.
+
+In the meantime, I can just render & edit each row based on the actual
+value. Once I can load, edit, and save values, then I will go do a pass on
+cleaning up memory management.
+
+- [] CLI command to load a directory of JSON files into a collection DynArray<Value>
+
+- [] CLI command to show an editing window for the value collection
+
+- [] CLI command to save the DynArray<Value> back out to JSON files
+
+For writing out JSON files, this looks like a nice library:
+
+https://github.com/udp/json-builder
+
+The author's parser might also be good to look into:
+
+https://github.com/udp/json-parser
+
+## 2016-03-20-1130EST Thoughts about naming types
+
+So the type validator works, and was easier to write than I expected.
+
+A big outstanding issue is being able to specify that members of a
+Union/Array/Compound be of a named type, such that this named type can be
+dynamically updated.
+
+Say we define a position type:
+
+```
+type Position {
+    x: Int
+    y: Int
+}
+```
+
+Let's now define an Icon type:
+
+```
+type Icon {
+    pos: Position
+    image: {
+        cache_id: Int
+        uri: String
+    }
+}
+```
+
+Now let's create this value:
+
+```
+OkButton = {
+    pos: { 
+        x: 42
+        y, 23 
+    }
+    image: {
+        cache_id: 0
+        url: "ok_button.png"
+    }
+}
+```
+
+This would pass type checking against Icon.
+
+But then if we edit Position to be like so:
+
+```
+type Position {
+    x: Int
+    y: Int
+    z: Int
+}
+```
+
+This should now fail type checking. The Icon type's internal representation
+of its `pos` field should not have a direct TypeRef to Position, rather it should
+be some sort of named reference that will do a dynamic lookup.
+
+TypeRef should still be what it is, because fundamentally we need a stable way
+to refer to types. There should be some other sort of type that can represent
+either a direct type reference, or a bound type name.
+
+Maybe TypeRef should actually be TypeHandle, and then TypeRef is a union of
+TypeHandle and TypeNameRef or TypeSymbol or whatever.
+
+Anyway, now we have an updated Position.
+
+During normal execution of the eventual application, we'll need to figure out
+what to do about this. You can't just say "all the data is now invalid!" because
+that is stupid. In this case, we're just adding a field, and it should be
+possible to create default values for any type. No data would be destroyed, only
+added. So the editor should just do the correct thing.
+
+Cases where you can change types and not have any data be destroyed:
+
+- Add member to Compound
+
+- Add type case to Union
+
+- Convert a non-Union type into Union type containing the original
+  type. E.g. change a `String` into `Union(String | Null)`, or `[Int]` into
+  `[Union(Int | Bool)]`.
+  
+Cases where data *will* be destroyed:
+
+- Remove member from Compound
+
+- Change Array to Compound and vice versa
+
+Cases where data *may* be destroyed:
+
+- Remove type case from Union
+
+- Change "leaf" type from one to another. E.g. Change `String` to `Float`.  A
+  change such as `Int` to `Float` of course won't lose anything, and maybe it
+  could even make sense to say that `Int` to `String` could do a reasonable
+  conversion, but it would seem like something you'd want to offer as an option
+  rather than as a default.
+
+If a change to a type would cause data to be destroyed, then that calls for a
+prompt to the user about how to proceed.
+
+## 2016-03-19-0352EST Cleanup Todos
 
 The code is gross. I mentioned before that I should make proper constructor
 functions for various objects, but there's also basic renaming and such that I
@@ -100,12 +256,6 @@ track progress of walking a value.
 Union types are cool because they enable you to do the whole No-Null thing,
 which is probably a good thing. Nulls in JSON are annoying when they show up
 unexpectedly, and annoying when you expect them to show up and they don't.
-
-Anyway, here are my todos:
-
-- [] 
-
-- []
 
 ### Union Syntax
 
@@ -205,8 +355,6 @@ Union (
 ```
 
 That feels a little more readable.
-
-
 
 ## 2016-03-15 Array Success, Thinking abotu Unions
 

@@ -2,6 +2,7 @@
 #include "logging.h"
 #include "dynarray.h"
 #include "str.h"
+#include "memory.h"
 #include "common.h"
 #include <cstdarg>
 #include <cstdio>
@@ -53,11 +54,13 @@ void append_log(const char *string, size_t length)
 
 static void vlogf(const char *format, va_list vargs)
 {
+    mem::IAllocator *allocator = mem::default_allocator();
     // lazily allocate the output buffer
     if (!output_buffer)
     {
         output_buffer_size = FormatBuffer::default_format_buffer_capacity;
-        output_buffer = MALLOC_ARRAY(char, output_buffer_size);
+        // output_buffer = MALLOC_ARRAY(char, output_buffer_size);
+        output_buffer = MAKE_ARRAY(char, output_buffer_size, allocator);
     }
 
     int format_size = vsnprintf(output_buffer, output_buffer_size, format, vargs);
@@ -67,7 +70,8 @@ static void vlogf(const char *format, va_list vargs)
     if ((size_t)format_size >= output_buffer_size)
     {
         output_buffer_size = (size_t)format_size + 1;
-        REALLOC_ARRAY(output_buffer, char, output_buffer_size);
+        // REALLOC_ARRAY(output_buffer, char, output_buffer_size);
+        RESIZE_ARRAY(output_buffer, char, output_buffer_size, allocator);
         int confirm_format_size = vsnprintf(output_buffer, output_buffer_size, format, vargs);
         assert(confirm_format_size == format_size);
     }
@@ -151,12 +155,12 @@ Str concatenated_log()
 }
 
 
-void init_formatbuffer(FormatBuffer *fb, size_t initial_capacity)
-{
-    fb->capacity = initial_capacity;
-    fb->buffer = 0;
-    fb->cursor = 0;
-}
+// void init_formatbuffer(FormatBuffer *fb, size_t initial_capacity)
+// {
+//     fb->capacity = initial_capacity;
+//     fb->buffer = 0;
+//     fb->cursor = 0;
+// }
 
 // FormatBuffer::FormatBuffer(size_t initial_capacity)
 // {
@@ -168,13 +172,15 @@ void init_formatbuffer(FormatBuffer *fb, size_t initial_capacity)
 //     init_formatbuffer(this, default_format_buffer_capacity);
 // }
 
+
 FormatBuffer::~FormatBuffer()
 {
     if (do_flush_on_destruct)
     {
         this->flush_to_log();
     }
-    std::free(this->buffer);
+    // mem::IAllocator *allocator = mem::default_allocator();
+    allocator->dealloc(this->buffer);
 }
 
 
@@ -190,6 +196,7 @@ void FormatBuffer::flush_to_log()
 
 void FormatBuffer::write(const char *string, size_t length)
 {
+    // mem::IAllocator *allocator = mem::default_allocator();
     size_t bytes_remaining = this->capacity - this->cursor;
 
     if (!this->buffer)
@@ -198,15 +205,17 @@ void FormatBuffer::write(const char *string, size_t length)
         {
             this->capacity = length;
         }
-        this->buffer = MALLOC_ARRAY(char, this->capacity);
-        
+        // this->buffer = MALLOC_ARRAY(char, this->capacity);
+        this->buffer = MAKE_ARRAY(char, this->capacity, allocator);
+
     }
     else if (bytes_remaining <= length)
     {
         this->capacity = (this->capacity * 2 < this->capacity + length + 1
                           ? this->capacity + length + 1
                           : this->capacity * 2);
-        REALLOC_ARRAY(this->buffer, char, this->capacity);
+        // REALLOC_ARRAY(this->buffer, char, this->capacity);
+        RESIZE_ARRAY(this->buffer, char, this->capacity, allocator);
     }
 
     memcpy(this->buffer + this->cursor, string, length);
@@ -223,15 +232,30 @@ void formatbuffer_v_writef(FormatBuffer *fmt_buf, const char *format, va_list va
 {
     if (!fmt_buf->buffer)
     {
-        fmt_buf->buffer = MALLOC_ARRAY(char, fmt_buf->capacity);
+        fmt_buf->buffer = MAKE_ARRAY(char, fmt_buf->capacity, fmt_buf->allocator);
     }
 
     size_t bytes_remaining = fmt_buf->capacity - fmt_buf->cursor;
-    // ptrdiff_t bytes_remaining = (fmt_buf->buffer + fmt_buf->capacity) - fmt_buf->cursor;
-    assert(bytes_remaining >= 0);
 
-    int printf_result = vsnprintf(fmt_buf->buffer + fmt_buf->cursor,
-                                (size_t)bytes_remaining, format, vargs);
+    int printf_result = - 1;
+
+    {
+        va_list vargs_copy;
+        va_copy(vargs_copy, vargs);
+
+        printf_result = vsnprintf(fmt_buf->buffer + fmt_buf->cursor,
+                                      bytes_remaining, format, vargs_copy);
+        va_end(vargs_copy);
+    }
+
+
+
+
+
+
+
+
+
     assert(printf_result >= 0);
     size_t byte_write_count = (size_t)printf_result;
 
@@ -241,13 +265,13 @@ void formatbuffer_v_writef(FormatBuffer *fmt_buf, const char *format, va_list va
         size_t new_bytes_remaining = byte_write_count - bytes_remaining + 1;
         assert(new_bytes_remaining > bytes_remaining);
 
-        fmt_buf->capacity += (size_t)new_bytes_remaining;
-        assert(fmt_buf->cursor + new_bytes_remaining == fmt_buf->capacity);
+        fmt_buf->capacity += new_bytes_remaining;
+        assert(bytes_remaining + new_bytes_remaining == fmt_buf->capacity);
 
-        REALLOC_ARRAY(fmt_buf->buffer, char, fmt_buf->capacity);
+        RESIZE_ARRAY(fmt_buf->buffer, char, fmt_buf->capacity, fmt_buf->allocator);
 
         int confirm_result = vsnprintf(fmt_buf->buffer + fmt_buf->cursor,
-                                            (size_t)new_bytes_remaining, format, vargs);
+                                       new_bytes_remaining, format, vargs);
 
         // sanity check
         assert(confirm_result >= 0);

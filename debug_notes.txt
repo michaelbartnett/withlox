@@ -1,0 +1,82 @@
+
+
+
+
+
+
+
+
+
+0x7fb798e001a0 Alloc 36, align 4, payload-offset 35, next 0x7fb798e00420, prev 0x0
+0x7fb798e00420 Alloc 440, align 4, payload-offset 36, next 0x7fb798f008f0, prev 0x7fb798e001a0
+0x7fb798f008f0 Alloc 408, align 4, payload-offset 35, next 0x7fb798f00790, prev 0x7fb798e00420
+0x7fb798f00790 Alloc 344, align 4, payload-offset 33, next 0x7fb798f00650, prev 0x7fb798f008f0
+0x7fb798f00650 Alloc 316, align 4, payload-offset 36, next 0x7fb798c03d90, prev 0x7fb798f00790
+0x7fb798c03d90 Alloc 252, align 4, payload-offset 34, next 0x7fb798f00420, prev 0x7fb798f00650
+0x7fb798f00420 Alloc 220, align 4, payload-offset 33, next 0x7fb798e00240, prev 0x7fb798c03d90
+0x7fb798e00240 Alloc 0, align 0, payload-offset 0, next 0x0, prev 0x0
+
+
+
+
+
+
+----------------------------------------------------------------
+
+BEFORE REMOVE-LINK
+
+p alloclist_head
+0x100103a90
+
+p preeixsting_hdr
+0x100103a90
+p *preeixsting_hdr
+{total_size = 36, next = 0x100103ac0, prev = 0x0, alignment = 4 '\004', payload_offset = 35 '#', pad_ = ""}
+
+p preexisting_hdr->next
+0x100103ac0
+p *preexisting_hdr->next
+{total_size = 36, next = 0x0, prev = 0x100103a90, alignment = 4 '\004', payload_offset = 35 '#', pad_ = ""}
+
+
+AFTER REMOVE-LINK
+
+p alloclist_head
+0x100103a90
+
+p preexisting_hdr
+0x100103a90
+p *preexisting_hdr
+{total_size = 36, next = 0x100103ac0, prev = 0x0, alignment = 4 '\004', payload_offset = 35 '#', pad_ = ""}
+
+p preexisting_hdr->next
+0x100103ac0
+p *preexisting_hdr->next
+{total_size = 36, next = 0x0, prev = 0x0, alignment = 4 '\004', payload_offset = 35 '#', pad_ = ""}
+
+
+AFTER ADD-LINK
+
+p alloclist_head
+0x1002000d0
+
+p preexisting_hdr
+0x100103a90
+p *preexisting_hdr
+{total_size = 36, next = 0x100103ac0, prev = 0x1002000d0, alignment = 4 '\004', payload_offset = 35 '#', pad_ = ""}
+
+p preexisting_hdr->next
+0x100103ac0
+p *preexisting_hdr->next
+{total_size = 36, next = 0x0, prev = 0x0, alignment = 4 '\004', payload_offset = 35 '#', pad_ = ""}
+
+p hdr
+0x1002000d0
+p *hdr
+{total_size = 36, next = 0x100103a90, prev = 0x0, alignment = 4 '\004', payload_offset = 35 '#', pad_ = ""}
+
+p hdr->next
+0x100103a90
+p *hdr->next
+{total_size = 36, next = 0x100103ac0, prev = 0x1002000d0, alignment = 4 '\004', payload_offset = 35 '#', pad_ = ""}
+

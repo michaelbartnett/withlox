@@ -2,6 +2,7 @@
 
 #ifndef LOGGING_H
 
+#include "memory.h"
 #include "str.h"
 #include "numeric_types.h"
 
@@ -41,14 +42,25 @@ public:
         , buffer(0)
         , cursor(0)
         , do_flush_on_destruct(false)
-        {   
+        , allocator(mem::default_allocator())
+        {
         }
 
-    FormatBuffer(size_t initial_capacity)
-        : capacity(initial_capacity)
+    FormatBuffer(mem::IAllocator *use_allocator)
+        : capacity(default_format_buffer_capacity)
         , buffer(0)
         , cursor(0)
         , do_flush_on_destruct(false)
+        , allocator(use_allocator ? use_allocator : mem::default_allocator())
+        {
+        }
+
+    FormatBuffer(size_t initial_capacity, mem::IAllocator *use_allocator = nullptr)
+        : capacity(initial_capacity > 0 ? initial_capacity : 2)
+        , buffer(0)
+        , cursor(0)
+        , do_flush_on_destruct(false)
+        , allocator(use_allocator ? use_allocator : mem::default_allocator())
         {
         }
 
@@ -76,6 +88,7 @@ public:
     char *buffer;
     size_t cursor;
     bool do_flush_on_destruct;
+    mem::IAllocator *allocator;
 
     static const size_t default_format_buffer_capacity = 1024;
 

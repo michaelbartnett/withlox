@@ -1,6 +1,9 @@
+// -*- c++ -*-
 #ifndef COMMON_H
 
 #define HEADERFN inline
+
+#define STATIC_ASSERT(label, expr) typedef int static_assertion__##label[(expr) ? 1 : -1]
 
 #define COUNTOF(arr) ( \
    0 * sizeof(reinterpret_cast<const ::Bad_arg_to_COUNTOF*>(arr)) + \
@@ -50,7 +53,21 @@ using std::size_t;
 #define ZERO_ARRAY(ptr, type, count) std::memset((ptr), 0, sizeof (type) * (count))
 #define ZERO_PTR(ptr) std::memset((ptr), 0, sizeof(*(ptr)))
 
+#if __cplusplus < 201103L
+#define OVERRIDE
+#else
+#define OVERRIDE override
+#endif
+
+// Clang/Xcode defines nullptr even with -std=C++03, so
+// you can't rely on a __cplusplus check
+#if !defined(nullptr)
 #define nullptr NULL
+#endif
+
+#if !defined(va_copy)
+#define va_copy(d,s) __builtin_va_copy(d,s)
+#endif
 
 #define COMMON_H
 #endif

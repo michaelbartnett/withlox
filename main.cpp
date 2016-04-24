@@ -14,9 +14,79 @@
 // #include "dearimgui/imgui_internal.h"
 #include "dearimgui/imgui.h"
 #include "dearimgui/imgui_impl_sdl.h"
+#include "memory.h"
 #include <SDL.h>
 #include <OpenGL/OpenGL.h>
 #include <OpenGL/gl.h>
+
+#include <signal.h>
+#include <unistd.h>
+
+/*
+
+Memory Management:
+
+http://www.ibm.com/developerworks/aix/tutorials/au-memorymanager/
+
+https://bitbucket.org/bitsquid/foundation/src/7f896236dbafd2cb842655004b1c7bf6e76dcef9?at=default
+https://bitbucket.org/bitsquid/foundation/src/7f896236dbafd2cb842655004b1c7bf6e76dcef9/memory.h?at=default&fileviewer=file-view-default
+https://bitbucket.org/bitsquid/foundation/src/7f896236dbafd2cb842655004b1c7bf6e76dcef9/memory.cpp?at=default&fileviewer=file-view-default
+https://bitbucket.org/bitsquid/foundation/src/7f896236dbafd2cb842655004b1c7bf6e76dcef9/temp_allocator.h?at=default&fileviewer=file-view-default
+https://www.google.com/search?q=bitsquid+blog&oq=bitsquid+blog&aqs=chrome..69i57j0j69i59.2205j0j7&sourceid=chrome&ie=UTF-8
+http://bitsquid.blogspot.com/2016/04/the-poolroom-figure-seq-figure-arabic-1.html
+http://bitsquid.blogspot.com/2012/11/bitsquid-foundation-library.html
+http://bitsquid.blogspot.com/2012/09/a-new-way-of-organizing-header-files.html
+http://gamesfromwithin.com/the-always-evolving-coding-style
+http://gamesfromwithin.com/opengl-and-uikit-demo
+https://twitter.com/GeorgeSealy/status/15800523038
+http://gamesfromwithin.com/backwards-is-forward-making-better-games-with-test-driven-development
+http://gamesfromwithin.com/simple-is-beautiful
+http://bitsquid.blogspot.com/2012/01/sensible-error-handling-part-1.html
+http://bitsquid.blogspot.com/2012/02/sensible-error-handling-part-2.html
+http://bitsquid.blogspot.com/2012/02/sensible-error-handling-part-3.html
+http://bitsquid.blogspot.com/2010/12/bitsquid-c-coding-style.html
+http://bitsquid.blogspot.com/2011/12/platform-specific-resources.html
+http://bitsquid.blogspot.com/2011/12/pragmatic-approach-to-performance.html
+http://bitsquid.blogspot.com/2011/08/idea-for-better-watch-windows.html
+http://bitsquid.blogspot.com/2011/05/monitoring-your-game.html
+http://web.archive.org/web/20120419004126/http://www.altdevblogaday.com/2011/05/17/a-birds-eye-view-of-your-memory-map/
+http://bitsquid.blogspot.com/2011/01/managing-coupling.html
+http://bitsquid.blogspot.com/2011/02/managing-decoupling-part-2-polling.html
+http://bitsquid.blogspot.com/2011/02/some-systems-need-to-manipulate-objects.html
+http://bitsquid.blogspot.com/2011/09/managing-decoupling-part-4-id-lookup.html
+http://bitsquid.blogspot.com/2011/11/example-in-data-oriented-design-sound.html
+
+
+ */
+
+/* JSON Libraries
+
+http://www.json.org/
+http://lloyd.github.io/yajl/
+http://www.json.org/JSON_checker/
+https://github.com/udp/json-parser
+https://github.com/udp/json-builder
+https://github.com/zserge/jsmn
+https://docs.google.com/spreadsheets/d/1L8XrSas9_PS5RKduSgXUiHDmH50VQxsvwjYDoRHu_9I/edit#gid=0
+https://github.com/kgabis/parson
+https://github.com/esnme/ujson4c/
+https://github.com/esnme/ultrajson
+https://bitbucket.org/yarosla/nxjson/src
+https://github.com/cesanta/frozen
+
+https://github.com/nothings/stb/blob/master/docs/other_libs.md
+https://github.com/kazuho/picojson
+https://github.com/sheredom/json.h
+https://github.com/Zguy/Jzon/blob/master/Jzon.h
+https://github.com/kgabis/parson
+https://github.com/miloyip/nativejson-benchmark
+https://github.com/open-source-parsers/jsoncpp
+https://github.com/giacomodrago/minijson_writer
+https://www.quora.com/What-is-the-best-C-JSON-library
+https://github.com/esnme/ujson4c/blob/master/src/ujdecode.c
+https://www.google.com/search?q=c%2B%2B+json&oq=c%2B%2B+json&aqs=chrome.0.0l2j69i60j0j69i61l2.1031j0j7&sourceid=chrome&ie=UTF-8#q=c+json
+
+ */
 
 // Debugging
 // http://stackoverflow.com/questions/312312/what-are-some-reasons-a-release-build-would-run-differently-than-a-debug-build
@@ -90,6 +160,7 @@ struct CliCommand
 typedef OAHashtable<StrSlice, Value, StrSliceEqual, StrSliceHash> StrToValueMap;
 typedef OAHashtable<StrSlice, TypeRef, StrSliceEqual, StrSliceHash> StrToTypeMap;
 
+
 struct ProgramMemory
 {
     NameTable names;
@@ -105,6 +176,8 @@ struct ProgramMemory
     OAHashtable<StrSlice, CliCommand, StrSliceEqual, StrSliceHash> command_map;
     StrToValueMap value_map;
     StrToTypeMap type_map;
+
+    DynArray<Value> collection;
 };
 
 
@@ -771,7 +844,6 @@ Value create_value_from_json(ProgramMemory *prgmem, json_value_s *jv)
 
         case json_type_object:
         {
-            // result.typeref = prgmem->
             TypeRef typeref = type_desc_from_json_object(prgmem, jv);
             json_object_s *jobj = (json_object_s *)jv->payload;
             result = create_object_with_type_from_json(prgmem, jobj, typeref);
@@ -1146,6 +1218,17 @@ CLI_COMMAND_FN_SIG(checktype)
 }
 
 
+CLI_COMMAND_FN_SIG(list_allocs)
+{
+    UNUSED(prgmem);
+    UNUSED(userdata);
+    UNUSED(args);
+
+    mem::IAllocator *allocator = mem::default_allocator();
+    allocator->log_allocations();
+}
+
+
 void test_json_import(ProgramMemory *prgmem, int filename_count, char **filenames)
 {
     if (filename_count < 1)
@@ -1217,6 +1300,7 @@ void init_cli_commands(ProgramMemory *prgmem)
     REGISTER_COMMAND(prgmem, bindinfer, nullptr);
     REGISTER_COMMAND(prgmem, print_type, nullptr);
     REGISTER_COMMAND(prgmem, checktype, nullptr);
+    REGISTER_COMMAND(prgmem, list_allocs, nullptr);
 }
 
 
@@ -1598,16 +1682,36 @@ void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
 }
 
 
+typedef void signal_handler(int);
+// signal_handler *signal(int sig, signal_handler *func);
+// fucking wow
+// void (∗signal(int sig , void (∗func)(int) ))(int);
+
+void handle_sigsegv(int sig)
+{
+    assert(sig == SIGSEGV);
+
+    printf("BEGIN MEMCALL LOG\n");
+
+    mem::log_memcalls();
+
+    printf("\nEND MEMCALL LOG\n");
+
+    signal(SIGSEGV, SIG_DFL);
+    pid_t my_pid = getpid();
+    kill(my_pid, SIGSEGV);
+}
+
+
 int main(int argc, char **argv)
 {
-    // void run_tests();
-    // run_tests();
-    // return 0;
+    signal_handler *result = signal(SIGSEGV, &handle_sigsegv);
+    assert(result != SIG_ERR);
 
     ProgramMemory prgmem;
     prgmem_init(&prgmem);
     init_cli_commands(&prgmem);
-
+    mem::default_allocator()->log_allocations();
     test_json_import(&prgmem, argc - 1, argv + 1);
     // run_terminal_cli(&prgmem);
     // run_terminal_json_cli(&prgmem);

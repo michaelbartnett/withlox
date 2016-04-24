@@ -4,6 +4,7 @@
 
 #include "common.h"
 #include "numeric_types.h"
+#include "memory.h"
 #include <cassert>
 #include <algorithm>
 
@@ -22,17 +23,18 @@ DynArrayCount DYNARRAY_COUNT(TInteger i)
 template<typename T>
 struct DynArray
 {
-
     T *data;
     DynArrayCount count;
     DynArrayCount capacity;
+    mem::IAllocator *allocator;
 };
 
 
 template<typename T>
 void dynarray_init(DynArray<T> *dynarr, DynArrayCount capacity)
 {
-    dynarr->data = capacity > 0 ? MALLOC_ARRAY(T, capacity) : 0;
+    dynarr->allocator = mem::default_allocator();
+    dynarr->data = capacity > 0 ? MAKE_ARRAY(T, capacity, dynarr->allocator) : 0;
     dynarr->count = 0;
     dynarr->capacity = capacity;
 }
@@ -49,7 +51,7 @@ DynArray<T> dynarray_init(DynArrayCount capacity)
 template<typename T>
 void dynarray_deinit(DynArray<T> *dynarray)
 {
-    free(dynarray->data);
+    dynarray->allocator->dealloc(dynarray->data);
     dynarray->data = 0;
     dynarray->count = 0;
     dynarray->capacity = 0;
@@ -66,7 +68,7 @@ T *dynarray_append(DynArray<T> *dynarray)
     if (dynarray->count == dynarray->capacity)
     {
         DynArrayCount new_capacity = (dynarray->capacity + 1) * 2;
-        REALLOC_ARRAY(dynarray->data, T, new_capacity);
+        RESIZE_ARRAY(dynarray->data, T, new_capacity, dynarray->allocator);
         dynarray->capacity = new_capacity;
     }
 
