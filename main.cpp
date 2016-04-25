@@ -1682,32 +1682,8 @@ void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
 }
 
 
-typedef void signal_handler(int);
-// signal_handler *signal(int sig, signal_handler *func);
-// fucking wow
-// void (∗signal(int sig , void (∗func)(int) ))(int);
-
-void handle_sigsegv(int sig)
-{
-    assert(sig == SIGSEGV);
-
-    printf("BEGIN MEMCALL LOG\n");
-
-    mem::log_memcalls();
-
-    printf("\nEND MEMCALL LOG\n");
-
-    signal(SIGSEGV, SIG_DFL);
-    pid_t my_pid = getpid();
-    kill(my_pid, SIGSEGV);
-}
-
-
 int main(int argc, char **argv)
 {
-    signal_handler *result = signal(SIGSEGV, &handle_sigsegv);
-    assert(result != SIG_ERR);
-
     ProgramMemory prgmem;
     prgmem_init(&prgmem);
     init_cli_commands(&prgmem);
