@@ -5,11 +5,31 @@
 #include "numeric_types.h"
 #include <cstring>
 
-#define MAKE_OBJ(type, allocator) (type *)allocator->realloc(0, sizeof (type), 4)
-#define MAKE_ARRAY(type, count, allocator) (type *)allocator->realloc(0, count * sizeof (type), 4)
-#define MAKE_ZEROED_ARRAY(type, count, allocator) (type *)allocator->calloc(count * sizeof (type), 4)
-// #define RESIZE_ARRAY(ptr, count, allocator) ( *)allocator->realloc(ptr, count * sizeof (*ptr), 4)
-#define RESIZE_ARRAY(ptr, type, count, allocator) ptr = (type *)allocator->realloc(ptr, count * sizeof (type), 4)
+#define MAKE_OBJ(type, allocator) (type *)allocator->realloc(                       \
+        0, sizeof (type), 4,                                                        \
+        mem::AllocationMetadata(__FILE__ ":" S__LINE__))
+#define MAKE_ARRAY(type, count, allocator) (type *)allocator->realloc(              \
+        0, count * sizeof (type), 4,                                                \
+        (mem::AllocationMetadata(__FILE__ ":" S__LINE__)))
+#define MAKE_ZEROED_ARRAY(type, count, allocator) (type *)allocator->calloc(        \
+        count * sizeof (type), 4,                                                   \
+        mem::AllocationMetadata(__FILE__ ":" S__LINE__))
+#define RESIZE_ARRAY(ptr, type, count, allocator) ptr = (type *)allocator->realloc( \
+        ptr, count * sizeof (type), 4,                                              \
+        mem::AllocationMetadata(__FILE__ ":" S__LINE__))
+
+#define MAKE_OBJ_CAT(type, allocator, category) (type *)allocator->realloc(                       \
+        0, sizeof (type), 4,                                                                      \
+        mem::AllocationMetadata(__FILE__ ":" S__LINE__, category))
+#define MAKE_ARRAY_CAT(type, count, allocator, category) (type *)allocator->realloc(              \
+        0, count * sizeof (type), 4,                                                              \
+        mem::AllocationMetadata(__FILE__ ":" S__LINE__, category))
+#define MAKE_ZEROED_ARRAY_CAT(type, count, allocator, category) (type *)allocator->calloc(        \
+        count * sizeof (type), 4,                                                                 \
+        mem::AllocationMetadata(__FILE__ ":" S__LINE__, category))
+#define RESIZE_ARRAY_CAT(ptr, type, count, allocator, category) ptr = (type *)allocator->realloc( \
+        ptr, count * sizeof (type), 4,                                                            \
+        mem::AllocationMetadata(__FILE__ ":" S__LINE__, category))
 
 
 namespace mem
@@ -21,19 +41,47 @@ typedef void logf_fn(void *userdata, const char *fmt, ...);
 
 void memory_init(logf_fn *logf, void *userdata);
 
+
+class AllocationMetadata
+{
+public:
+    const char *sourceline;
+    const char *category;
+
+    AllocationMetadata()
+        : sourceline("")
+        , category("")
+    {
+    }
+
+    AllocationMetadata(const char *sourceline_)
+        : sourceline(sourceline_)
+        , category("")
+    {
+    }
+
+
+    AllocationMetadata(const char *sourceline_, const char *category_)
+        : sourceline(sourceline_)
+        , category(category_)
+    {
+    }
+};
+
+
 class IAllocator
 {
 public:
-    virtual void *realloc(void *ptr, size_t size, size_t align) = 0;
+    virtual void *realloc(void *ptr, size_t size, size_t align, AllocationMetadata meta) = 0;
     virtual void dealloc(void *ptr) = 0;
     virtual size_t bytes_allocated() = 0;
     virtual size_t payload_size_of(void *ptr) = 0;
     virtual void log_allocations() = 0;
     virtual ~IAllocator() {}
 
-    void *calloc(size_t size, size_t align)
+    void *calloc(size_t size, size_t align, AllocationMetadata meta)
     {
-        void *result = this->realloc(0, size, align);
+        void *result = this->realloc(0, size, align, meta);
         std::memset(result, 0, size);
         return result;
     }
@@ -50,7 +98,7 @@ public:
     {
     }
 
-    virtual void   *realloc(void *ptr, size_t size, size_t align) OVERRIDE ;
+    virtual void   *realloc(void *ptr, size_t size, size_t align, AllocationMetadata meta) OVERRIDE ;
     virtual void    dealloc(void *ptr) OVERRIDE;
     virtual size_t  bytes_allocated() OVERRIDE;
     virtual size_t  payload_size_of(void *ptr) OVERRIDE;
@@ -66,6 +114,8 @@ public:
         size_t total_size;
         MemBlockHeader *next;
         MemBlockHeader *prev;
+        const char *category;
+        const char *sourceline;
         u8 alignment;
         u8 payload_offset;
 
@@ -112,7 +162,7 @@ Mallocator()
 
     virtual void log_allocations() OVERRIDE ;
     virtual size_t payload_size_of(void *ptr) OVERRIDE;
-    virtual void *realloc(void *ptr, size_t size, size_t align) OVERRIDE;
+    virtual void *realloc(void *ptr, size_t size, size_t align, AllocationMetadata meta) OVERRIDE;
     virtual void dealloc(void *ptr) OVERRIDE;
     virtual size_t bytes_allocated() OVERRIDE;
     MemBlockHeader *get_header(void *ptr);

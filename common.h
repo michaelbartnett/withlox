@@ -1,6 +1,11 @@
 // -*- c++ -*-
 #ifndef COMMON_H
 
+#define XSTRFY(s) #s
+#define STRFY(s) XSTRFY(s)
+
+#define S__LINE__ STRFY(__LINE__)
+
 #define HEADERFN inline
 
 #define STATIC_ASSERT(label, expr) typedef int static_assertion__##label[(expr) ? 1 : -1]

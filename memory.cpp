@@ -44,9 +44,10 @@ void memory_init(logf_fn *logf, void *userdata)
 ////////////////// Fallback Allocator //////////////////
 ////////////////////////////////////////////////////////
 
-void *FallbackAllocator::realloc(void *ptr, size_t size, size_t align) OVERRIDE
+void *FallbackAllocator::realloc(void *ptr, size_t size, size_t align, AllocationMetadata meta) OVERRIDE
 {
     UNUSED(align);
+    UNUSED(meta);
     assert(size > 0);
     if (ptr)
     {
@@ -94,9 +95,13 @@ void Mallocator::log_allocations() OVERRIDE
         void *header;
         size_t payload_size;
         u32 alignment;
+        const char *sourceline;
+        const char *category;
+        
     };
 
     AllocLogInfo *allocinfo_list = MAKE_ARRAY(AllocLogInfo, alloc_count, this);
+    size_t allocinfo_count = alloc_count - 1;
 
     logging_allocations = true;
 
@@ -112,28 +117,30 @@ void Mallocator::log_allocations() OVERRIDE
             allocinfo_iter->header = header;
             allocinfo_iter->payload_size = header->payload_size();
             allocinfo_iter->alignment = header->alignment;
+            allocinfo_iter->sourceline = header->sourceline;
+            allocinfo_iter->category = header->category;
             ++i;
             header = header->next;
             ++allocinfo_iter;
         }
 
-        assert(i == alloc_count - 1);
-        assert(allocinfo_iter == allocinfo_list + (alloc_count - 1));
+        assert(i == allocinfo_count);
+        assert(allocinfo_iter == allocinfo_list + allocinfo_count);
     }
 
     logging_allocations = false;
 
     sys_state.logf(sys_state.userdata, "--- LOG ALLOCS %lu ---\n", alloc_count);
 
-    for (AllocLogInfo *it = allocinfo_list, *end = allocinfo_list + alloc_count;
-         it != end;
-         ++it)
+    for (size_t i = 0; i < allocinfo_count; ++i)
     {
         sys_state.logf(sys_state.userdata,
-                       "%p Payload Size: %u, Alignment: %u\n",
-                       (void *)it->header,
-                       it->payload_size,
-                       it->alignment);
+                       "category: \"%s\", address: %p payload_size: %u, alignment: %u, source: \"%s\"\n",
+                       allocinfo_list[i].category,
+                       allocinfo_list[i].header,
+                       allocinfo_list[i].payload_size,
+                       allocinfo_list[i].alignment,
+                       allocinfo_list[i].sourceline);
     }
 
     dealloc(allocinfo_list);
@@ -156,7 +163,7 @@ size_t Mallocator::payload_size_of(void *ptr) OVERRIDE
 }
 
 
-void *Mallocator::realloc(void *ptr, size_t size, size_t align) OVERRIDE
+void *Mallocator::realloc(void *ptr, size_t size, size_t align, AllocationMetadata meta) OVERRIDE
 {
     assert(!logging_allocations);
     assert(size > 0);
@@ -208,6 +215,10 @@ void *Mallocator::realloc(void *ptr, size_t size, size_t align) OVERRIDE
     size_t offset = aligned_header_size + (align - misalign);
     assert(offset < UINT8_MAX);
     hdr->payload_offset = (u8)offset;
+
+    // Set metadata
+    hdr->sourceline = meta.sourceline;
+    hdr->category = meta.category;
 
     // Update allocation list
     hdr->next = alloclist_head;

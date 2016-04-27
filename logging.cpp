@@ -130,6 +130,7 @@ Str *get_log(u32 i)
 
 void log_write_with_userdata(void *userdata, const char *buffer, size_t length)
 {
+    UNUSED(userdata);
     append_log(str(buffer, STRLEN(length)));
 }
 

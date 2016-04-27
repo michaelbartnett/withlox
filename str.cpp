@@ -1,4 +1,5 @@
 #include "str.h"
+#include "memory.h"
 
 static char empty_string_storage[] = { '\0' };
 static char *empty_string = empty_string_storage;
@@ -17,7 +18,8 @@ Str str_alloc(StrLen str_size)
 {
     assert(str_size < UINT16_MAX);
     Str result;
-    result.data = MALLOC_ARRAY(char, str_size + 1);
+    // result.data = MALLOC_ARRAY(char, str_size + 1);
+    result.data = MAKE_ARRAY(char, str_size + 1, mem::default_allocator());
     result.data[0] = 0;
     result.length = 0;
     result.capacity = (StrLen)str_size;
@@ -48,7 +50,7 @@ Str str(const char *cstr)
 void str_free(Str *str)
 {
     assert(str->capacity);
-    std::free(str->data);
+    mem::default_allocator()->dealloc(str->data);
     str->data = empty_string;
     str->capacity = 0;
     str->length = 0;

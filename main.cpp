@@ -942,6 +942,12 @@ CLI_COMMAND_FN_SIG(find_type)
 {
     UNUSED(userdata);
 
+    if (args.count == 0)
+    {
+        logf_ln("Expected one argument, got zero instead");
+        return;
+    }
+
     Value *arg = dynarray_get(args, 0);
 
     if (! typeref_identical(arg->typeref, prgmem->prim_string))

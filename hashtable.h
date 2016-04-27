@@ -290,8 +290,8 @@ void ht_rehash(OAHASH_TYPE *ht, u32 new_bucket_count)
         new_buckets[picked_index] = ht->buckets[i];
     }
 
-    free(ht->buckets);
-    free(ht->entries);
+    ht->allocator->dealloc(ht->buckets);
+    ht->allocator->dealloc(ht->entries);
     ht->bucket_count = new_bucket_count;
     ht->buckets = new_buckets;
     ht->entries = new_entries;
