@@ -4,6 +4,7 @@
 #include "str.h"
 #include "memory.h"
 #include "common.h"
+#include "formatbuffer.h"
 #include <cstdarg>
 #include <cstdio>
 #include <cstddef>
@@ -58,7 +59,7 @@ static void vlogf(const char *format, va_list vargs)
     // lazily allocate the output buffer
     if (!output_buffer)
     {
-        output_buffer_size = FormatBuffer::default_format_buffer_capacity;
+        output_buffer_size = FormatBuffer::DefaultCapacity;
         // output_buffer = MALLOC_ARRAY(char, output_buffer_size);
         output_buffer = MAKE_ARRAY(char, output_buffer_size, allocator);
     }
@@ -127,6 +128,21 @@ Str *get_log(u32 i)
 }
 
 
+void log_write_with_userdata(void *userdata, const char *buffer, size_t length)
+{
+    append_log(str(buffer, STRLEN(length)));
+}
+
+void logf_with_userdata(void *userdata, const char *format, ...)
+{
+    UNUSED(userdata);
+    va_list vargs;
+    va_start(vargs, format);
+    vlogf(format, vargs);
+    va_end(vargs);
+}
+
+
 Str concatenated_log()
 {
     if (!concatenated)
@@ -153,188 +169,6 @@ Str concatenated_log()
     result.capacity = result.capacity;
     return result;
 }
-
-
-// void init_formatbuffer(FormatBuffer *fb, size_t initial_capacity)
-// {
-//     fb->capacity = initial_capacity;
-//     fb->buffer = 0;
-//     fb->cursor = 0;
-// }
-
-// FormatBuffer::FormatBuffer(size_t initial_capacity)
-// {
-//     init_formatbuffer(this, initial_capacity);
-// }
-
-// FormatBuffer::FormatBuffer()
-// {
-//     init_formatbuffer(this, default_format_buffer_capacity);
-// }
-
-
-FormatBuffer::~FormatBuffer()
-{
-    if (do_flush_on_destruct)
-    {
-        this->flush_to_log();
-    }
-    // mem::IAllocator *allocator = mem::default_allocator();
-    allocator->dealloc(this->buffer);
-}
-
-
-void FormatBuffer::flush_to_log()
-{
-    if (this->cursor > 0)
-    {
-        logf("%s", this->buffer);
-        this->clear();
-    }
-}
-
-
-void FormatBuffer::write(const char *string, size_t length)
-{
-    // mem::IAllocator *allocator = mem::default_allocator();
-    size_t bytes_remaining = this->capacity - this->cursor;
-
-    if (!this->buffer)
-    {
-        if (this->capacity < length)
-        {
-            this->capacity = length;
-        }
-        // this->buffer = MALLOC_ARRAY(char, this->capacity);
-        this->buffer = MAKE_ARRAY(char, this->capacity, allocator);
-
-    }
-    else if (bytes_remaining <= length)
-    {
-        this->capacity = (this->capacity * 2 < this->capacity + length + 1
-                          ? this->capacity + length + 1
-                          : this->capacity * 2);
-        // REALLOC_ARRAY(this->buffer, char, this->capacity);
-        RESIZE_ARRAY(this->buffer, char, this->capacity, allocator);
-    }
-
-    memcpy(this->buffer + this->cursor, string, length);
-    this->cursor += length;
-    this->buffer[this->cursor] = '\0';
-}
-
-void FormatBuffer::write_indent(int indent, const char *string)
-{
-    writef("%*s", indent, string);
-}
-
-void formatbuffer_v_writef(FormatBuffer *fmt_buf, const char *format, va_list vargs)
-{
-    if (!fmt_buf->buffer)
-    {
-        fmt_buf->buffer = MAKE_ARRAY(char, fmt_buf->capacity, fmt_buf->allocator);
-    }
-
-    size_t bytes_remaining = fmt_buf->capacity - fmt_buf->cursor;
-
-    int printf_result = - 1;
-
-    {
-        va_list vargs_copy;
-        va_copy(vargs_copy, vargs);
-
-        printf_result = vsnprintf(fmt_buf->buffer + fmt_buf->cursor,
-                                      bytes_remaining, format, vargs_copy);
-        va_end(vargs_copy);
-    }
-
-
-
-
-
-
-
-
-
-    assert(printf_result >= 0);
-    size_t byte_write_count = (size_t)printf_result;
-
-    // format size should always be less than output size, otherwise we risk losing the null terminator
-    if (byte_write_count >= bytes_remaining)
-    {
-        size_t new_bytes_remaining = byte_write_count - bytes_remaining + 1;
-        assert(new_bytes_remaining > bytes_remaining);
-
-        fmt_buf->capacity += new_bytes_remaining;
-        assert(bytes_remaining + new_bytes_remaining == fmt_buf->capacity);
-
-        RESIZE_ARRAY(fmt_buf->buffer, char, fmt_buf->capacity, fmt_buf->allocator);
-
-        int confirm_result = vsnprintf(fmt_buf->buffer + fmt_buf->cursor,
-                                       new_bytes_remaining, format, vargs);
-
-        // sanity check
-        assert(confirm_result >= 0);
-        assert(confirm_result == printf_result);
-    }
-
-    fmt_buf->cursor += byte_write_count;
-
-    assert(fmt_buf->capacity < STR_LENGTH_MAX);    
-}
-
-
-void FormatBuffer::writef(const char *format, ...)
-{
-    va_list vargs;
-    va_start(vargs, format);
-    formatbuffer_v_writef(this, format, vargs);
-    va_end(vargs);
-}
-
-
-void FormatBuffer::writeln(const char *string)
-{
-    writef("%s\n", string);
-}
-
-
-void FormatBuffer::writef_ln(const char *format, ...)
-{
-    va_list vargs;
-    va_start(vargs, format);
-    formatbuffer_v_writef(this, format, vargs);
-    va_end(vargs);
-    writeln("");
-}
-
-
-void FormatBuffer::writef_indent(int indent, const char *format, ...)
-{
-    this->writef("%*s", indent, "");
-    va_list vargs;
-    va_start(vargs, format);
-    formatbuffer_v_writef(this, format, vargs);
-    va_end(vargs);
-}
-
-
-void FormatBuffer::writef_ln_indent(int indent, const char *format, ...)
-{
-    this->writef("%*s", indent, "");
-    va_list vargs;
-    va_start(vargs, format);
-    formatbuffer_v_writef(this, format, vargs);
-    writeln("");
-    va_end(vargs);
-}
-
-
-void FormatBuffer::writeln_indent(int indent, const char *string)
-{
-    this->writef("%*s%s\n", indent, "", string);
-}
-
 
 #ifdef __clang__
 #pragma clang diagnostic pop

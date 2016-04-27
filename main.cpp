@@ -1684,11 +1684,16 @@ void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
 
 int main(int argc, char **argv)
 {
+    mem::memory_init(logf_with_userdata, nullptr);
+    FormatBuffer::set_default_flush_fn(log_write_with_userdata, nullptr);
+
     ProgramMemory prgmem;
     prgmem_init(&prgmem);
     init_cli_commands(&prgmem);
     mem::default_allocator()->log_allocations();
     test_json_import(&prgmem, argc - 1, argv + 1);
+
+    // TTY console
     // run_terminal_cli(&prgmem);
     // run_terminal_json_cli(&prgmem);
 

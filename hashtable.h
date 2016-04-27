@@ -6,6 +6,7 @@
 #include "common.h"
 #include <algorithm>
 #include "MurmurHash3.h"
+#include "memory.h"
 #include <cassert>
 
 /*
@@ -192,6 +193,7 @@ struct OAHashtable
     Bucket *buckets;
     Entry *entries;
     u32 count;
+    mem::IAllocator *allocator;
 };
 
 
@@ -207,17 +209,28 @@ void ht_deinit(OAHASH_TYPE *ht)
 // template<typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
 template OAHASH_TPARAMS
 void ht_init(OAHASH_TYPE *ht,
-             u32 initial_bucket_count = 23)
+             u32 initial_bucket_count = 23,
+             mem::IAllocator *allocator = nullptr)
 {
     typedef typename OAHASH_TYPE::Entry Entry;
     typedef typename OAHASH_TYPE::Bucket Bucket;
 
+    if (!allocator)
+    {
+        allocator = mem::default_allocator();
+    }
+
+    ht->allocator = allocator;
     ht->count = 0;
     // ht.hashfn = hashfn;
     // ht.keys_equal_fn = keys_equal_fn;
     ht->bucket_count = initial_bucket_count;
-    ht->buckets = CALLOC_ARRAY(Bucket, initial_bucket_count);
-    ht->entries = CALLOC_ARRAY(Entry, initial_bucket_count);
+    // ht->buckets = CALLOC_ARRAY(Bucket, initial_bucket_count);
+    // ht->entries = CALLOC_ARRAY(Entry, initial_bucket_count);
+
+    ht->buckets = MAKE_ZEROED_ARRAY(Bucket, initial_bucket_count, ht->allocator);
+    ht->entries = MAKE_ZEROED_ARRAY(Entry, initial_bucket_count, ht->allocator);
+
 }
 
 
@@ -232,8 +245,11 @@ void ht_rehash(OAHASH_TYPE *ht, u32 new_bucket_count)
     // don't shrink
     new_bucket_count = std::max(ht->bucket_count, new_bucket_count);
 
-    Bucket *new_buckets = CALLOC_ARRAY(Bucket, new_bucket_count);
-    Entry *new_entries = CALLOC_ARRAY(Entry, new_bucket_count);
+    // Bucket *new_buckets = CALLOC_ARRAY(Bucket, new_bucket_count);
+    // Entry *new_entries = CALLOC_ARRAY(Entry, new_bucket_count);
+
+    Bucket *new_buckets = MAKE_ZEROED_ARRAY(Bucket, new_bucket_count, ht->allocator);
+    Entry *new_entries = MAKE_ZEROED_ARRAY(Entry, new_bucket_count, ht->allocator);
 
     for (u32 i = 0; i < ht->bucket_count; ++i)
     {

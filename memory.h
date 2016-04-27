@@ -3,10 +3,11 @@
 // -*- c++ -*-
 #include "common.h"
 #include "numeric_types.h"
-/* #include <cstddef> */
+#include <cstring>
 
 #define MAKE_OBJ(type, allocator) (type *)allocator->realloc(0, sizeof (type), 4)
 #define MAKE_ARRAY(type, count, allocator) (type *)allocator->realloc(0, count * sizeof (type), 4)
+#define MAKE_ZEROED_ARRAY(type, count, allocator) (type *)allocator->calloc(count * sizeof (type), 4)
 // #define RESIZE_ARRAY(ptr, count, allocator) ( *)allocator->realloc(ptr, count * sizeof (*ptr), 4)
 #define RESIZE_ARRAY(ptr, type, count, allocator) ptr = (type *)allocator->realloc(ptr, count * sizeof (type), 4)
 
@@ -29,6 +30,13 @@ public:
     virtual size_t payload_size_of(void *ptr) = 0;
     virtual void log_allocations() = 0;
     virtual ~IAllocator() {}
+
+    void *calloc(size_t size, size_t align)
+    {
+        void *result = this->realloc(0, size, align);
+        std::memset(result, 0, size);
+        return result;
+    }
 };
 
 
@@ -69,6 +77,13 @@ public:
         size_t payload_size()
         {
             return total_size - payload_offset;
+        }
+
+        void *payload()
+        {
+            u8 *headerptr = (u8 *)this;
+            u8 *payload = headerptr + payload_offset;
+            return payload;
         }
     };
 

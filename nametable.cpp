@@ -1,7 +1,6 @@
 #include "nametable.h"
 
 
-
 bool nameref_identical(const NameRef &lhs, const NameRef &rhs)
 {
     return lhs.offset == rhs.offset
@@ -14,7 +13,7 @@ StrSlice str_slice(const NameRef &nameref)
     StrSlice result;
     assert((size_t)nameref.offset < nameref.table->storage_capacity);
     assert((size_t)nameref.offset % sizeof(StrLen) == 0);
-    
+
     if (!nameref.offset || !nameref.table)
     {
         result = empty_str_slice();
@@ -31,20 +30,27 @@ StrSlice str_slice(const NameRef &nameref)
 }
 
 
-void nametable_init(NameTable *nt, size_t storage_size)
+void nametable_init(NameTable *nt, size_t storage_size, mem::IAllocator *allocator)
 {
     // There should be 8 bytes of padding at the beginning of the
     // storage, so minimum storage size is 8. But, like, don't do that. It's weird.
     // The padding is so that ptrdiff_t == 0 can mean not-found.
     size_t capacity = storage_size < 8 ? 8 : storage_size;
     nt->storage_capacity = capacity;
-    nt->storage = CALLOC_ARRAY(char, capacity);
+    // nt->storage = CALLOC_ARRAY(char, capacity);
+
+    if (!allocator)
+    {
+        allocator = mem::default_allocator();
+    }
+
+    nt->storage = MAKE_ZEROED_ARRAY(char, capacity, allocator);
 
     // had to use reinterpret_cast because -Wcast-align
     *reinterpret_cast<u64 *>(nt->storage) = 0xdeadbeefdeadbeef;
 
     nt->next_storage_offset = 8;
-    ht_init(&nt->lookup, 29);
+    ht_init(&nt->lookup, 29, allocator);
 }
 
 

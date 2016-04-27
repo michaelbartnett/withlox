@@ -5,6 +5,7 @@
 
 #include "tokenizer.h"
 #include "logging.h"
+#include "formatbuffer.h"
 
 void pretty_print(TypeDescriptor *type_desc, int indent = 0);
 void pretty_print(TypeDescriptor *type_desc, int indent);

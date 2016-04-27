@@ -60,6 +60,8 @@ set(CXX_SOURCES
   logging.cpp
   memory.h
   memory.cpp
+  formatbuffer.h
+  formatbuffer.cpp
   ${IMGUI_SOURCES}  
   ${CXX_PLATFORM_SOURCES}
   )

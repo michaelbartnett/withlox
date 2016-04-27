@@ -25,6 +25,8 @@ Str concatenated_log();
 void append_log(const char *string);
 
 // printf-like functions that prints to stdout and adds to global log_entries
+void log_write_with_userdata(void *userdata, const char *buffer, size_t length);
+void logf_with_userdata(void *userdata, const char *format, ...) FORMAT_ARG_FLAGS(2);
 void logf(const char *format, ...) FORMAT_ARG_FLAGS(1);
 void logln(const char *string);
 void logf_ln(const char *format, ...);
@@ -34,68 +36,68 @@ inline void log(const char *string)
 }
 
 
-class FormatBuffer
-{
-public:
-    FormatBuffer()
-        : capacity(default_format_buffer_capacity)
-        , buffer(0)
-        , cursor(0)
-        , do_flush_on_destruct(false)
-        , allocator(mem::default_allocator())
-        {
-        }
+// class FormatBuffer
+// {
+// public:
+//     FormatBuffer()
+//         : capacity(default_format_buffer_capacity)
+//         , buffer(0)
+//         , cursor(0)
+//         , do_flush_on_destruct(false)
+//         , allocator(mem::default_allocator())
+//         {
+//         }
 
-    FormatBuffer(mem::IAllocator *use_allocator)
-        : capacity(default_format_buffer_capacity)
-        , buffer(0)
-        , cursor(0)
-        , do_flush_on_destruct(false)
-        , allocator(use_allocator ? use_allocator : mem::default_allocator())
-        {
-        }
+//     FormatBuffer(mem::IAllocator *use_allocator)
+//         : capacity(default_format_buffer_capacity)
+//         , buffer(0)
+//         , cursor(0)
+//         , do_flush_on_destruct(false)
+//         , allocator(use_allocator ? use_allocator : mem::default_allocator())
+//         {
+//         }
 
-    FormatBuffer(size_t initial_capacity, mem::IAllocator *use_allocator = nullptr)
-        : capacity(initial_capacity > 0 ? initial_capacity : 2)
-        , buffer(0)
-        , cursor(0)
-        , do_flush_on_destruct(false)
-        , allocator(use_allocator ? use_allocator : mem::default_allocator())
-        {
-        }
+//     FormatBuffer(size_t initial_capacity, mem::IAllocator *use_allocator = nullptr)
+//         : capacity(initial_capacity > 0 ? initial_capacity : 2)
+//         , buffer(0)
+//         , cursor(0)
+//         , do_flush_on_destruct(false)
+//         , allocator(use_allocator ? use_allocator : mem::default_allocator())
+//         {
+//         }
 
-    ~FormatBuffer();
+//     ~FormatBuffer();
 
-    void write(const char *string, size_t length);
-    void write(const char *string) { this->writef("%s", string); }
-    void write_indent(int indent, const char *string);
-    void writeln(const char *string);
-    void writef(const char *format, ...) FORMAT_ARG_FLAGS(2);
-    void writef_ln(const char *string, ...) FORMAT_ARG_FLAGS(2);
-    void writef_indent(int indent, const char *string, ...) FORMAT_ARG_FLAGS(3);
-    void writef_ln_indent(int indent, const char *string, ...) FORMAT_ARG_FLAGS(3);
-    void writeln_indent(int indent, const char *string);
-    void clear() { this->cursor = 0; }
+//     void write(const char *string, size_t length);
+//     void write(const char *string) { this->writef("%s", string); }
+//     void write_indent(int indent, const char *string);
+//     void writeln(const char *string);
+//     void writef(const char *format, ...) FORMAT_ARG_FLAGS(2);
+//     void writef_ln(const char *string, ...) FORMAT_ARG_FLAGS(2);
+//     void writef_indent(int indent, const char *string, ...) FORMAT_ARG_FLAGS(3);
+//     void writef_ln_indent(int indent, const char *string, ...) FORMAT_ARG_FLAGS(3);
+//     void writeln_indent(int indent, const char *string);
+//     void clear() { this->cursor = 0; }
 
-    void flush_on_destruct(bool enable_flush_on_destruct = true)
-    {
-        do_flush_on_destruct = enable_flush_on_destruct;
-    }
+//     void flush_on_destruct(bool enable_flush_on_destruct = true)
+//     {
+//         do_flush_on_destruct = enable_flush_on_destruct;
+//     }
 
-    void flush_to_log();
+//     void flush_to_log();
 
-    size_t capacity;
-    char *buffer;
-    size_t cursor;
-    bool do_flush_on_destruct;
-    mem::IAllocator *allocator;
+//     size_t capacity;
+//     char *buffer;
+//     size_t cursor;
+//     bool do_flush_on_destruct;
+//     mem::IAllocator *allocator;
 
-    static const size_t default_format_buffer_capacity = 1024;
+//     static const size_t default_format_buffer_capacity = 1024;
 
-private:
-    FormatBuffer(const FormatBuffer& other); // copy constructor
-    FormatBuffer& operator=(const FormatBuffer& other); // copy assignment
-};
+// private:
+//     FormatBuffer(const FormatBuffer& other); // copy constructor
+//     FormatBuffer& operator=(const FormatBuffer& other); // copy assignment
+// };
 
 
 #undef FORMAT_ARG_FLAGS

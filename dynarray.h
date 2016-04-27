@@ -31,9 +31,14 @@ struct DynArray
 
 
 template<typename T>
-void dynarray_init(DynArray<T> *dynarr, DynArrayCount capacity)
+void dynarray_init(DynArray<T> *dynarr, DynArrayCount capacity,
+                   mem::IAllocator *allocator = nullptr)
 {
-    dynarr->allocator = mem::default_allocator();
+    if (!allocator)
+    {
+        allocator = mem::default_allocator();
+    }
+    dynarr->allocator = allocator;
     dynarr->data = capacity > 0 ? MAKE_ARRAY(T, capacity, dynarr->allocator) : 0;
     dynarr->count = 0;
     dynarr->capacity = capacity;
