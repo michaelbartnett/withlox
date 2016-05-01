@@ -393,7 +393,7 @@ TypeRef type_desc_from_json_array(ProgramMemory *prgmem, json_value_s *jv)
         bool found = false;
         for (DynArrayCount i = 0; i < element_types.count; ++i)
         {
-            TypeRef *existing = dynarray_get(element_types, i);
+            TypeRef *existing = &element_types[i];
             if (typeref_identical(typeref, *existing))
             {
                 found = true;
@@ -445,7 +445,7 @@ TypeRef type_desc_from_json_array(ProgramMemory *prgmem, json_value_s *jv)
         }
         else
         {
-            constructed_typedesc.array_type.elem_typeref = *dynarray_get(element_types, 0);
+            constructed_typedesc.array_type.elem_typeref = element_types[0];
         }
     }
 
@@ -546,7 +546,7 @@ DynArray<CompoundTypeMember> clone(const DynArray<CompoundTypeMember> &memberset
 
     for (u32 i = 0; i < memberset.count; ++i)
     {
-        CompoundTypeMember *src_member = dynarray_get(memberset, i);
+        CompoundTypeMember *src_member = &memberset[i];
         CompoundTypeMember *dest_member = dynarray_append(&result);
         ZERO_PTR(dest_member);
         NameRef newname = src_member->name;
@@ -600,7 +600,7 @@ CompoundTypeMember *find_member(const TypeDescriptor &type_desc, NameRef name)
     size_t count = type_desc.compound_type.members.count;
     for (u32 i = 0; i < count; ++i)
     {
-        CompoundTypeMember *mem = dynarray_get(type_desc.compound_type.members, i);
+        CompoundTypeMember *mem = &type_desc.compound_type.members[i];
 
         if (nameref_identical(mem->name, name))
         {
@@ -639,7 +639,7 @@ TypeRef merge_compound_types(ProgramMemory *prgmem,
 
     for (DynArrayCount ib = 0; ib < typedesc_b->compound_type.members.count; ++ib)
     {
-        CompoundTypeMember *b_member = dynarray_get(typedesc_b->compound_type.members, ib);
+        CompoundTypeMember *b_member = &typedesc_b->compound_type.members[ib];
         CompoundTypeMember *a_member = find_member(*typedesc_a, b_member->name);
 
         if (! (a_member && typeref_identical(a_member->typeref, b_member->typeref)))
@@ -775,7 +775,7 @@ Value create_object_with_type_from_json(ProgramMemory *prgmem, json_object_s *jo
          jelem;
          jelem = jelem->next)
     {
-        CompoundTypeMember *type_member = dynarray_get(&type_desc->compound_type.members, member_idx);
+        CompoundTypeMember *type_member = &type_desc->compound_type.members[member_idx];
         CompoundValueMember *value_member = dynarray_append(&result.compound_value.members);
         value_member->name = type_member->name;
 
@@ -931,7 +931,7 @@ CLI_COMMAND_FN_SIG(list_args)
     logln("list_args:");
     for (u32 i = 0; i < args.count; ++i)
     {
-        Value *val = dynarray_get(&args, i);
+        Value *val = &args[i];
         pretty_print(val->typeref);
         pretty_print(val);
     }
@@ -948,7 +948,7 @@ CLI_COMMAND_FN_SIG(find_type)
         return;
     }
 
-    Value *arg = dynarray_get(args, 0);
+    Value *arg = &args[0];
 
     if (! typeref_identical(arg->typeref, prgmem->prim_string))
     {
@@ -980,7 +980,7 @@ CLI_COMMAND_FN_SIG(set_value)
         return;
     }
 
-    Value *name_arg = dynarray_get(args, 0);
+    Value *name_arg = &args[0];
 
     TypeDescriptor *type_desc = get_typedesc(name_arg->typeref);
     if (type_desc->type_id != TypeID::String)
@@ -1000,7 +1000,7 @@ CLI_COMMAND_FN_SIG(set_value)
         entry->key = str_slice(allocated);
     }
 
-    entry->value = clone(dynarray_get(args, 1));
+    entry->value = clone(&args[1]);
 
     FormatBuffer fbuf;
     fbuf.flush_on_destruct();
@@ -1019,7 +1019,7 @@ CLI_COMMAND_FN_SIG(get_value)
         return;
     }
 
-    Value *name_arg = dynarray_get(args, 0);
+    Value *name_arg = &args[0];
     TypeDescriptor *type_desc = get_typedesc(name_arg->typeref);
     if (type_desc->type_id != TypeID::String)
     {
@@ -1050,7 +1050,7 @@ CLI_COMMAND_FN_SIG(get_value_type)
         return;
     }
 
-    Value *name_arg = dynarray_get(args, 0);
+    Value *name_arg = &args[0];
     TypeDescriptor *type_desc = get_typedesc(name_arg->typeref);
     if (type_desc->type_id != TypeID::String)
     {
@@ -1090,7 +1090,7 @@ CLI_COMMAND_FN_SIG(print_values)
     for (u32 i = 0; i < args.count; ++i)
     {
         fmt_buf.writeln("");
-        Value *value = dynarray_get(args, i);
+        Value *value = &args[i];
         fmt_buf.write("Value: ");
         pretty_print(value, &fmt_buf);
         fmt_buf.writef("Parsed value's type: %i ", value->typeref.index);
@@ -1109,7 +1109,7 @@ CLI_COMMAND_FN_SIG(bindinfer)
         return;
     }
 
-    Value *name_arg = dynarray_get(args, 0);
+    Value *name_arg = &args[0];
 
     TypeDescriptor *type_desc = get_typedesc(name_arg->typeref);
     if (type_desc->type_id != TypeID::String)
@@ -1129,7 +1129,7 @@ CLI_COMMAND_FN_SIG(bindinfer)
         entry->key = str_slice(allocated);
     }
 
-    entry->value = dynarray_get(args, 1)->typeref;
+    entry->value = args[1].typeref;
 
     FormatBuffer fbuf;
     fbuf.flush_on_destruct();
@@ -1148,7 +1148,7 @@ CLI_COMMAND_FN_SIG(print_type)
         return;
     }
 
-    Value *name_arg = dynarray_get(args, 0);
+    Value *name_arg = &args[0];
     TypeDescriptor *type_desc = get_typedesc(name_arg->typeref);
     if (type_desc->type_id != TypeID::String)
     {
@@ -1179,7 +1179,7 @@ CLI_COMMAND_FN_SIG(checktype)
         return;
     }
 
-    Value *name_arg = dynarray_get(args, 0);
+    Value *name_arg = &args[0];
     TypeDescriptor *type_desc = get_typedesc(name_arg->typeref);
     if (type_desc->type_id != TypeID::String)
     {
@@ -1197,7 +1197,7 @@ CLI_COMMAND_FN_SIG(checktype)
     TypeRef typeref = *ptr_typeref;
 
     // fmt_buf.writeln("");
-    Value *value = dynarray_get(args, 1);
+    Value *value = &args[1];
     // fmt_buf.write("Value: ");
     // pretty_print(value, &fmt_buf);
     // fmt_buf.writef("Parsed value's type: %i ", value->typeref.index);
@@ -1518,7 +1518,7 @@ void CliHistory::restore(s64 position, ImGuiTextEditCallbackData* data)
         return;
     }
 
-    Str *new_input = dynarray_get(&this->input_entries, DYNARRAY_COUNT(position));
+    Str *new_input = &this->input_entries[DYNARRAY_COUNT(position)];
     memcpy(data->Buf, new_input->data, new_input->length);
     data->Buf[new_input->length] = '\0';
     data->BufTextLen = data->SelectionStart = data->SelectionEnd = data->CursorPos = new_input->length;
@@ -1687,6 +1687,8 @@ void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
     first_draw = false;
 }
 
+
+void run_tests();
 
 int main(int argc, char **argv)
 {

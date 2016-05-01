@@ -74,7 +74,7 @@ void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
 
                 for (u32 i = 0; i < type_desc->compound_type.members.count; ++i)
                 {
-                    CompoundTypeMember *member = dynarray_get(type_desc->compound_type.members, i);
+                    CompoundTypeMember *member = &type_desc->compound_type.members[i];
                     fmt_buf->writef_indent(indent, "%s: ", str_slice(member->name).data);
                     pretty_print(member->typeref, fmt_buf, indent);
                 }
@@ -96,7 +96,7 @@ void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
                  ++i)
             {
                 fmt_buf->write_indent(indent, "| ");
-                pretty_print(*dynarray_get(type_desc->union_type.type_cases, i), fmt_buf, indent);
+                pretty_print(type_desc->union_type.type_cases[i], fmt_buf, indent);
             }
 
             indent -= 2;
@@ -157,7 +157,7 @@ void pretty_print(Value *value, FormatBuffer *fmt_buf, int indent)
                 for (DynArrayCount i = 0; i < value->array_value.elements.count; ++i)
                 {
                     fmt_buf->write_indent(indent, "");
-                    Value *value_element = dynarray_get(value->array_value.elements, i);
+                    Value *value_element = &value->array_value.elements[i];
                     pretty_print(value_element, fmt_buf, indent);
                 }
 
@@ -180,7 +180,7 @@ void pretty_print(Value *value, FormatBuffer *fmt_buf, int indent)
 
                 for (u32 i = 0; i < value->compound_value.members.count; ++i)
                 {
-                    CompoundValueMember *member = dynarray_get(value->compound_value.members, i);
+                    CompoundValueMember *member = &value->compound_value.members[i];
                     fmt_buf->writef_indent(indent, "'%s': ", str_slice(member->name).data);
                     pretty_print(&member->value, fmt_buf, indent);
                 }

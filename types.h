@@ -179,8 +179,10 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
 
             for (u32 i = 0; i < a_mem_count; ++i)
             {
-                if (! equal(dynarray_get(a->compound_type.members, i),
-                            dynarray_get(b->compound_type.members, i)))
+                if (! equal(&a->compound_type.members[i],
+                            &b->compound_type.members[i]))
+                // if (! equal(dynarray_get(a->compound_type.members, i),
+                            // dynarray_get(b->compound_type.members, i)))
                 {
                     return false;
                 }
@@ -199,8 +201,8 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
                  i < count;
                  ++i)
             {
-                TypeRef *a_case = dynarray_get(a->union_type.type_cases, i);
-                TypeRef *b_case = dynarray_get(b->union_type.type_cases, i);
+                TypeRef *a_case = &a->union_type.type_cases[i];
+                TypeRef *b_case = &b->union_type.type_cases[i];
 
                 if (!typeref_identical(*a_case, *b_case))
                 {
@@ -214,7 +216,7 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
 
 inline TypeDescriptor *get_typedesc(TypeRef ref)
 {
-    return ref.index && ref.owner ? dynarray_get(ref.owner, ref.index) : 0;
+    return ref.index && ref.owner ? &(*ref.owner)[ref.index] : 0;
 }
 
 
@@ -323,14 +325,14 @@ HEADERFN TypeCheckInfo check_type_compatible(TypeRef input_typeref, TypeRef vali
                      i < icount;
                     ++i)
                 {
-                    CompoundTypeMember *validator_member = dynarray_get(&validator->compound_type.members, i);
+                    CompoundTypeMember *validator_member = &validator->compound_type.members[i];
                     CompoundTypeMember *input_member = nullptr;
                     for (DynArrayCount j = 0,
                                        jcount = input->compound_type.members.count;
                          j < jcount;
                          ++j)
                     {
-                        CompoundTypeMember *mem = dynarray_get(input->compound_type.members, j);
+                        CompoundTypeMember *mem = &input->compound_type.members[j];
                         if (nameref_identical(mem->name, validator_member->name))
                         {
                             input_member = mem;
@@ -375,7 +377,7 @@ HEADERFN TypeCheckInfo check_type_compatible(TypeRef input_typeref, TypeRef vali
                      i < count && !match_found;
                     ++i)
                 {
-                    TypeRef typeref = *dynarray_get(validator->union_type.type_cases, i);
+                    TypeRef typeref = validator->union_type.type_cases[i];
                     TypeCheckInfo check = check_type_compatible(input_typeref, typeref);
                     if (check.passed)
                     {
@@ -400,14 +402,14 @@ HEADERFN TypeCheckInfo check_type_compatible(TypeRef input_typeref, TypeRef vali
                      i < icount;
                      ++i)
                 {
-                    TypeRef input_case_typeref = *dynarray_get(input->union_type.type_cases, i);
+                    TypeRef input_case_typeref = input->union_type.type_cases[i];
                     bool found_match = false;
                     for (DynArrayCount j = 0,
                              jcount = validator->union_type.type_cases.count;
                          j < jcount;
                          ++j)
                     {
-                        TypeRef validator_case_typeref = *dynarray_get(validator->union_type.type_cases, j);
+                        TypeRef validator_case_typeref = validator->union_type.type_cases[j];
                         TypeCheckInfo check = check_type_compatible(input_case_typeref, validator_case_typeref);
                         if (check.passed)
                         {
@@ -498,7 +500,7 @@ HEADERFN CompoundValueMember *find_member(const Value *value, NameRef name)
 {
     for (u32 i = 0; i < value->compound_value.members.count; ++i)
     {
-        CompoundValueMember *member = dynarray_get(value->compound_value.members, i);
+        CompoundValueMember *member = &value->compound_value.members[i];
         if (nameref_identical(member->name, name))
         {
             return member;
@@ -543,7 +545,7 @@ HEADERFN Value clone(const Value *src)
             dynarray_init(&result.array_value.elements, src->array_value.elements.count);
             for (DynArrayCount i = 0; i < src->array_value.elements.count; ++i)
             {
-                Value *src_element = dynarray_get(src->array_value.elements, i);
+                Value *src_element = &src->array_value.elements[i];
                 Value *dest_element = dynarray_append(&result.array_value.elements);
                 *dest_element = clone(src_element);
             }
@@ -553,7 +555,7 @@ HEADERFN Value clone(const Value *src)
             dynarray_init(&result.compound_value.members, src->compound_value.members.count);
             for (DynArrayCount i = 0; i < src->compound_value.members.count; ++i)
             {
-                CompoundValueMember *src_member = dynarray_get(src->compound_value.members, i);
+                CompoundValueMember *src_member = &src->compound_value.members[i];
                 CompoundValueMember *dest_member = dynarray_append(&result.compound_value.members);
                 dest_member->name = src_member->name;
                 dest_member->value = clone(&src_member->value);
@@ -598,8 +600,8 @@ HEADERFN bool value_equal(const Value &lhs, const Value &rhs)
             }
             for (DynArrayCount i = 0; i < num_elems; ++i)
             {
-                Value *l_elem = dynarray_get(lhs.array_value.elements, i);
-                Value *r_elem = dynarray_get(rhs.array_value.elements, i);
+                Value *l_elem = &lhs.array_value.elements[i];
+                Value *r_elem = &rhs.array_value.elements[i];
                 if (!value_equal(*l_elem, *r_elem))
                 {
                     return false;
@@ -611,7 +613,7 @@ HEADERFN bool value_equal(const Value &lhs, const Value &rhs)
         case TypeID::Compound:
             for (u32 i = 0; i < type_desc->compound_type.members.count; ++i)
             {
-                CompoundTypeMember *type_member = dynarray_get(type_desc->compound_type.members, i);
+                CompoundTypeMember *type_member = &type_desc->compound_type.members[i];
                 CompoundValueMember *lh_member = find_member(&lhs, type_member->name);
                 CompoundValueMember *rh_member = find_member(&rhs, type_member->name);
 
@@ -650,7 +652,7 @@ HEADERFN void value_free(Value *value)
         case TypeID::Array:
             for (DynArrayCount i = 0; i < value->array_value.elements.count; ++i)
             {
-                Value *element = dynarray_get(value->array_value.elements, i);
+                Value *element = &value->array_value.elements[i];
                 value_free(element);
             }
             break;
@@ -658,7 +660,7 @@ HEADERFN void value_free(Value *value)
         case TypeID::Compound:            
             for (u32 i = 0; i < value->compound_value.members.count; ++i)
             {
-                CompoundValueMember *member = dynarray_get(value->compound_value.members, i);
+                CompoundValueMember *member = &value->compound_value.members[i];
                 value_free(&member->value);
             }
             dynarray_deinit(&value->compound_value.members);

@@ -27,6 +27,11 @@ struct DynArray
     DynArrayCount count;
     DynArrayCount capacity;
     mem::IAllocator *allocator;
+
+    T &operator[](DynArrayCount index) const
+    {
+        return this->data[index];
+    }
 };
 
 
@@ -43,6 +48,7 @@ void dynarray_init(DynArray<T> *dynarr, DynArrayCount capacity,
     dynarr->count = 0;
     dynarr->capacity = capacity;
 }
+
 
 template<typename T>
 DynArray<T> dynarray_init(DynArrayCount capacity)
@@ -91,23 +97,11 @@ T *dynarray_append(DynArray<T> *dynarray, T item)
     return result;
 }
 
+
 template<typename T>
 T *dynarray_last(DynArray<T> *dynarray)
 {
     return dynarray->data + (dynarray->count - 1);
-}
-
-template<typename T>
-T *dynarray_get(const DynArray<T> &dynarray, DynArrayCount index)
-{
-    return &dynarray.data[index];
-}
-
-
-template<typename T>
-T *dynarray_get(const DynArray<T> *dynarray, DynArrayCount index)
-{
-    return &dynarray->data[index];
 }
 
 
@@ -176,6 +170,7 @@ void dynarray_copy_count(const DynArray<T> *src, DynArray<T> *dest, DynArrayCoun
     dynarray_copy(src, dest, 0, count);
 }
 
+
 template<typename T>
 DynArray<T> dynarray_clone(const DynArray<T> *src)
 {
@@ -185,6 +180,7 @@ DynArray<T> dynarray_clone(const DynArray<T> *src)
     return result;
 }
 
+
 template<typename Compare, typename T>
 void dynarray_sort_unstable(const DynArray<T> *dynarray)
 {
@@ -193,6 +189,7 @@ void dynarray_sort_unstable(const DynArray<T> *dynarray)
               dynarray->data + dynarray->count,
               comp);
 }
+
 
 #define DYNARRAY_H
 #endif

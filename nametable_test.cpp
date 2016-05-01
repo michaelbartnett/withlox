@@ -87,7 +87,7 @@ static const char * test_find_names[] = {
     "IndexArray",
     "Param",
     "Key",
-    "Animation",        
+    "Animation",
 };
 
 
@@ -116,17 +116,17 @@ s32 run_nametable_tests()
         {
             NameTableTest *test = dynarray_append(&tests);
             test->name = str_slice(test_find_names[i]);
-        }    
+        }
 
         for (DynArrayCount i = 0; i < test_count; ++i)
         {
-            NameTableTest *test = dynarray_get(tests, i);
+            NameTableTest *test = &tests[i];
             test->ref = nametable_find_or_add(&nt, test->name);
 
             if (!test->ref.offset)
             {
                 printf_ln("Failed to add '%s' to NameTable", test->name.data);
-                ++add_fails;                
+                ++add_fails;
             }
         }
 
@@ -155,7 +155,7 @@ s32 run_nametable_tests()
 
         for (DynArrayCount i = 0; i < test_count; ++i)
         {
-            NameTableTest *test = dynarray_get(tests, i);
+            NameTableTest *test = &tests[i];
 
             test->ref = nametable_find(&nt, test->name);
 
