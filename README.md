@@ -6,7 +6,38 @@ This will be maintained. Latest log entry will go below.
 
 - [ ] Milestone: Solid GUI Terminal: Test/develop on Windows
 
-- [ ] Memory: Wrap malloc and free in order to count allocations
+- [ ] CLI command to load a directory of JSON files into a collection DynArray<Value>
+
+- [ ] CLI command to show an editing window for the value collection
+
+- [ ] CLI command to save the DynArray<Value> back out to JSON files
+
+## 2016-04-27-0215EST Memory system lookin' kind of okay
+
+After an embarassing memory corruption bug (and a journey to the land of linux
+to seek out the AddressSanitizer to help vanquish said bug), I have got an
+IAllocator interface and a Mallocator implementation for it that enforces
+alignment and can associate metadata with it. For the moment, that metadata is
+just the source line that `realloc` was called from, and an optional cateogry
+string. Nothing is using that now, but it seemed like it would be useful.
+
+I made the `AllocatorMetadata` a class, so that any `IAllocator` implementation
+could use or ignore whatever metadata is available. There's also a
+`FallbackAllocator` which just does straight `malloc` and `free` calls without
+doing alignment or storing metadata or supporting `log_allocations`, so
+naturally the `FallbackAllocator::realloc` implementation just ignores the
+`meta` parameter.
+
+I've started to use more OOP C++ features, at least for the memory system,
+because I feel like the virtual allocator pattern is probably a good one. I also
+watched Alexandrescu's talk about allocators to get some ideas, but it was more
+about composing template parameters so get policy-based allocator template
+classes, so interesting but not something I care about at the moment.
+
+So what to do next? Probably those CLI commands to load a directory of JSON
+files into a dynarray.
+
+I also want to get a basic value editing UI in.
 
 ## 2016-04-18-0657EST Data sources and sadness
 
@@ -515,7 +546,7 @@ In the meantime, after the dearimgui console is done:
 
 - [X] Free the memory used by the CLI value args
 
-- [] Wrap malloc and free in order to count allocations
+- [X] Wrap malloc and free in order to count allocations
 
 ## DearImgui works, now what?
 
