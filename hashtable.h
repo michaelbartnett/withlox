@@ -201,8 +201,12 @@ struct OAHashtable
 template OAHASH_TPARAMS
 void ht_deinit(OAHASH_TYPE *ht)
 {
-    free(ht->buckets);
-    free(ht->entries);
+    assert((!ht->buckets) == (!ht->entries));
+    if (ht->buckets)
+    {
+        ht->allocator->dealloc(ht->buckets);
+        ht->allocator->dealloc(ht->entries);
+    }
 }
 
 
@@ -228,9 +232,16 @@ void ht_init(OAHASH_TYPE *ht,
     // ht->buckets = CALLOC_ARRAY(Bucket, initial_bucket_count);
     // ht->entries = CALLOC_ARRAY(Entry, initial_bucket_count);
 
-    ht->buckets = MAKE_ZEROED_ARRAY(Bucket, initial_bucket_count, ht->allocator);
-    ht->entries = MAKE_ZEROED_ARRAY(Entry, initial_bucket_count, ht->allocator);
-
+    if (initial_bucket_count == 0)
+    {
+        ht->buckets = nullptr;
+        ht->entries = nullptr;
+    }
+    else
+    {
+        ht->buckets = MAKE_ZEROED_ARRAY(Bucket, initial_bucket_count, ht->allocator);
+        ht->entries = MAKE_ZEROED_ARRAY(Entry, initial_bucket_count, ht->allocator);
+    }
 }
 
 
@@ -306,9 +317,17 @@ bool ht_find_or_add_entry(typename OAHASH_TYPE::Entry **result, OAHASH_TYPE *ht,
     typename OAHASH_TYPE::KeyEqualFn keys_equal_fn;
     typedef typename OAHASH_TYPE::Entry Entry;;
 
-    if (ht->count * 3 > ht->bucket_count * 2)
+    if (ht->count * 3 + 1 > ht->bucket_count * 2)
     {
-        ht_rehash(ht, ht->bucket_count * 2 + 1);
+        const typename OAHASH_TYPE::hash_type min_buckets = 7;
+        const typename OAHASH_TYPE::hash_type calculated_buckets = ht->bucket_count * 2 + 1;
+        const typename OAHASH_TYPE::hash_type new_bucket_count =
+            min_buckets > calculated_buckets
+            ? min_buckets
+            : calculated_buckets;
+
+        // ht_rehash(ht, ht->bucket_count * 2 + 1);
+        ht_rehash(ht, new_bucket_count);
     }
 
     u32 hash = hashfn(key);
