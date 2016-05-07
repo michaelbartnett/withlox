@@ -62,10 +62,19 @@ DynArray<T> dynarray_init(DynArrayCount capacity)
 template<typename T>
 void dynarray_deinit(DynArray<T> *dynarray)
 {
-    dynarray->allocator->dealloc(dynarray->data);
-    dynarray->data = 0;
-    dynarray->count = 0;
-    dynarray->capacity = 0;
+    if (dynarray->capacity)
+    {
+        dynarray->allocator->dealloc(dynarray->data);
+        dynarray->data = 0;
+        dynarray->count = 0;
+        dynarray->capacity = 0;
+    }
+    else
+    {
+        assert(dynarray->data == 0);
+        assert(dynarray->count == 0);
+        assert(dynarray->capacity == 0);
+    }
 }
 
  
@@ -73,7 +82,6 @@ void dynarray_deinit(DynArray<T> *dynarray)
 template<typename T>
 T *dynarray_append(DynArray<T> *dynarray)
 {
-    // assert(dynarray->data);
     assert(dynarray->count <= dynarray->capacity);
 
     if (dynarray->count == dynarray->capacity)

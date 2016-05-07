@@ -167,7 +167,6 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
         case TypeID::Array:
             return typeref_identical(a->array_type.elem_typeref,
                                           b->array_type.elem_typeref);
-            break;
 
         case TypeID::Compound:
         {
@@ -216,7 +215,7 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
 
 inline TypeDescriptor *get_typedesc(TypeRef ref)
 {
-    return ref.index && ref.owner ? &(*ref.owner)[ref.index] : 0;
+    return ref.index && ref.owner ? &ref.owner->operator[](ref.index) : 0;
 }
 
 
@@ -260,10 +259,10 @@ struct TypeCheckInfo
 tests:
 
 bindinfer "TestType" {"test":[1, "two", 3.0], "test2":["hello", "goodbye", []]}
-checktype "TestType" {"test":[9], "test2":["awkward"]}
-checktype "TestType" {"test":[9], "test2":["awkward", [null, null]]}
-checktype "TestType" {"test":[9], "test2":["awkward", null]}
-checktype "TestType" {"test":[9, "hi", null], "test2":["awkward"]}
+(should pass) checktype "TestType" {"test":[9], "test2":["awkward"]}
+(should pass) checktype "TestType" {"test":[9], "test2":["awkward", [null, null]]}
+(should fail) checktype "TestType" {"test":[9], "test2":["awkward", null]} 
+(should fail) checktype "TestType" {"test":[9, "hi", null], "test2":["awkward"]}
 
  */
 

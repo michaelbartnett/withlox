@@ -177,6 +177,7 @@ struct ProgramMemory
     StrToValueMap value_map;
     StrToTypeMap type_map;
 
+    Str collection_directory;
     DynArray<Value> collection;
 };
 
@@ -1235,6 +1236,16 @@ CLI_COMMAND_FN_SIG(list_allocs)
 }
 
 
+CLI_COMMAND_FN_SIG(loaddir)
+{
+    UNUSED(prgmem);
+    UNUSED(userdata);
+    UNUSED(args);
+
+    
+}
+
+
 void test_json_import(ProgramMemory *prgmem, int filename_count, char **filenames)
 {
     if (filename_count < 1)
@@ -1600,7 +1611,6 @@ int imgui_cli_history_callback(ImGuiTextEditCallbackData *data)
 }
 
 
-
 void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
 {
     static float scroll_y = 0;
@@ -1687,8 +1697,6 @@ void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
     first_draw = false;
 }
 
-
-void run_tests();
 
 int main(int argc, char **argv)
 {

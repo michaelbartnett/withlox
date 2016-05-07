@@ -18,7 +18,6 @@ Str str_alloc(StrLen str_size)
 {
     assert(str_size < UINT16_MAX);
     Str result;
-    // result.data = MALLOC_ARRAY(char, str_size + 1);
     result.data = MAKE_ARRAY(char, str_size + 1, mem::default_allocator());
     result.data[0] = 0;
     result.length = 0;

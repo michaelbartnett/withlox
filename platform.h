@@ -51,3 +51,13 @@ inline double seconds_since(u64 earlier)
     return seconds_since(query_abstime(), earlier);
 }
 
+// class FilesystemWalker
+// {
+//     virtual const char *current_name();
+//     virtual bool current_isdir();
+//     virtual bool has_next();
+
+//     virtual ~IFilesystemWalker()
+//     {
+//     }
+// }
