@@ -1639,7 +1639,7 @@ void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
     ImGui::BeginChild("Output",
                       ImVec2(0,-ImGui::GetItemsLineHeightWithSpacing()),
                       false,
-                      ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_ForceHorizontalScrollbar);
+                      ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar);
 
 
     ImGuiInputTextFlags output_flags = ImGuiInputTextFlags_ReadOnly;
