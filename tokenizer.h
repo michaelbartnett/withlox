@@ -102,5 +102,13 @@ inline Token read_number(const char *str, size_t len)
 
 } // namespace tokenizer
 
+
+inline StrSlice str_slice(tokenizer::State tokstate)
+{
+    return str_slice(tokstate.current, (size_t)(tokstate.end - tokstate.current));
+}
+
+
+
 #define TOKENIZER_H
 #endif

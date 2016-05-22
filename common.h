@@ -1,6 +1,8 @@
 // -*- c++ -*-
 #ifndef COMMON_H
 
+#define OUTPARAM
+
 #define XSTRFY(s) #s
 #define STRFY(s) XSTRFY(s)
 

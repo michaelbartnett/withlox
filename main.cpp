@@ -144,9 +144,9 @@ https://www.google.com/search?q=c%2B%2B+json&oq=c%2B%2B+json&aqs=chrome.0.0l2j69
 #include "tokenizer.h"
 #include <algorithm>
 
-struct ProgramMemory;
+struct ProgramState;
 
-#define CLI_COMMAND_FN_SIG(name) void name(ProgramMemory *prgmem, void *userdata, DynArray<Value> args)
+#define CLI_COMMAND_FN_SIG(name) void name(ProgramState *prgstate, void *userdata, DynArray<Value> args)
 typedef CLI_COMMAND_FN_SIG(CliCommandFn);
 
 
@@ -161,7 +161,7 @@ typedef OAHashtable<StrSlice, Value, StrSliceEqual, StrSliceHash> StrToValueMap;
 typedef OAHashtable<StrSlice, TypeRef, StrSliceEqual, StrSliceHash> StrToTypeMap;
 
 
-struct ProgramMemory
+struct ProgramState
 {
     NameTable names;
     DynArray<TypeDescriptor> type_descriptors;
@@ -179,121 +179,126 @@ struct ProgramMemory
 
     Str collection_directory;
     DynArray<Value> collection;
+    bool collection_loaded;
 };
 
 
-TypeRef add_typedescriptor(ProgramMemory *prgmem, TypeDescriptor **ptr);
+TypeRef add_typedescriptor(ProgramState *prgstate, TypeDescriptor **ptr);
 
 
-void bind_typeref(ProgramMemory *prgmem, NameRef name, TypeRef typeref)
+void bind_typeref(ProgramState *prgstate, NameRef name, TypeRef typeref)
 {
-    ht_set(&prgmem->typedesc_bindings, name, typeref);
+    ht_set(&prgstate->typedesc_bindings, name, typeref);
 }
 
 
-void bind_typeref(ProgramMemory *prgmem, const char *name, TypeRef typeref)
+void bind_typeref(ProgramState *prgstate, const char *name, TypeRef typeref)
 {
-    NameRef nameref = nametable_find_or_add(&prgmem->names, str_slice(name));
-    bind_typeref(prgmem, nameref, typeref);
+    NameRef nameref = nametable_find_or_add(&prgstate->names, str_slice(name));
+    bind_typeref(prgstate, nameref, typeref);
 }
 
 
-void prgmem_init(ProgramMemory *prgmem)
+void prgstate_init(ProgramState *prgstate)
 {
-    nametable_init(&prgmem->names, MEGABYTES(2));
-    dynarray_init(&prgmem->type_descriptors, 0);
-    dynarray_append(&prgmem->type_descriptors);
-    ht_init(&prgmem->typedesc_bindings);
+    nametable_init(&prgstate->names, MEGABYTES(2));
+    dynarray_init(&prgstate->type_descriptors, 0);
+    dynarray_append(&prgstate->type_descriptors);
+    ht_init(&prgstate->typedesc_bindings);
+
+    prgstate->collection_loaded = false;
+    dynarray_init(&prgstate->collection, 256);
+    prgstate->collection_directory = make_empty_str();
 
     TypeDescriptor *none_type;
-    prgmem->prim_none = add_typedescriptor(prgmem, &none_type);
+    prgstate->prim_none = add_typedescriptor(prgstate, &none_type);
     none_type->type_id = TypeID::None;
-    bind_typeref(prgmem, TypeID::to_string(none_type->type_id),
-                 prgmem->prim_none);
+    bind_typeref(prgstate, TypeID::to_string(none_type->type_id),
+                 prgstate->prim_none);
 
     TypeDescriptor *string_type;
-    prgmem->prim_string = add_typedescriptor(prgmem, &string_type);
+    prgstate->prim_string = add_typedescriptor(prgstate, &string_type);
     string_type->type_id = TypeID::String;
-    bind_typeref(prgmem, TypeID::to_string(string_type->type_id),
-                 prgmem->prim_string);
+    bind_typeref(prgstate, TypeID::to_string(string_type->type_id),
+                 prgstate->prim_string);
 
     TypeDescriptor *int_type;
-    prgmem->prim_int = add_typedescriptor(prgmem, &int_type);
+    prgstate->prim_int = add_typedescriptor(prgstate, &int_type);
     int_type->type_id = TypeID::Int;
-    bind_typeref(prgmem, TypeID::to_string(int_type->type_id),
-                 prgmem->prim_int);
+    bind_typeref(prgstate, TypeID::to_string(int_type->type_id),
+                 prgstate->prim_int);
 
     TypeDescriptor *float_type;
-    prgmem->prim_float = add_typedescriptor(prgmem, &float_type);
+    prgstate->prim_float = add_typedescriptor(prgstate, &float_type);
     float_type->type_id = TypeID::Float;
-    bind_typeref(prgmem, TypeID::to_string(float_type->type_id),
-                 prgmem->prim_float);
+    bind_typeref(prgstate, TypeID::to_string(float_type->type_id),
+                 prgstate->prim_float);
 
     TypeDescriptor *bool_type;
-    prgmem->prim_bool = add_typedescriptor(prgmem, &bool_type);
+    prgstate->prim_bool = add_typedescriptor(prgstate, &bool_type);
     bool_type->type_id = TypeID::Bool;
-    bind_typeref(prgmem, TypeID::to_string(bool_type->type_id),
-                 prgmem->prim_bool);
+    bind_typeref(prgstate, TypeID::to_string(bool_type->type_id),
+                 prgstate->prim_bool);
 
-    ht_init(&prgmem->command_map);
-    ht_init(&prgmem->value_map);
-    ht_init(&prgmem->type_map);
+    ht_init(&prgstate->command_map);
+    ht_init(&prgstate->value_map);
+    ht_init(&prgstate->type_map);
 }
 
 
-TypeRef make_typeref(ProgramMemory *prgmem, u32 index)
+TypeRef make_typeref(ProgramState *prgstate, u32 index)
 {
-    TypeRef result = {index, &prgmem->type_descriptors};
+    TypeRef result = {index, &prgstate->type_descriptors};
     return result;
 }
 
 
-TypeRef add_typedescriptor(ProgramMemory *prgmem, TypeDescriptor type_desc, TypeDescriptor **ptr)
+TypeRef add_typedescriptor(ProgramState *prgstate, TypeDescriptor type_desc, TypeDescriptor **ptr)
 {
-    TypeDescriptor *td = dynarray_append(&prgmem->type_descriptors, type_desc);
+    TypeDescriptor *td = dynarray_append(&prgstate->type_descriptors, type_desc);
 
     if (ptr)
     {
         *ptr = td;
     }
 
-    TypeRef result = make_typeref(prgmem,
-                                            prgmem->type_descriptors.count - 1);
+    TypeRef result = make_typeref(prgstate,
+                                            prgstate->type_descriptors.count - 1);
     return result;
 }
 
 
-TypeRef add_typedescriptor(ProgramMemory *prgmem, TypeDescriptor **ptr)
+TypeRef add_typedescriptor(ProgramState *prgstate, TypeDescriptor **ptr)
 {
     TypeDescriptor td = {};
-    return add_typedescriptor(prgmem, td, ptr);
+    return add_typedescriptor(prgstate, td, ptr);
 }
 
 
 // TODO(mike): Guarantee no structural duplicates, and do it fast. Hashtable.
-TypeRef find_equiv_typedescriptor(ProgramMemory *prgmem, TypeDescriptor *type_desc)
+TypeRef find_equiv_typedescriptor(ProgramState *prgstate, TypeDescriptor *type_desc)
 {
     TypeRef result = {};
 
     switch ((TypeID::Tag)type_desc->type_id)
     {
         // Builtins/primitives
-        case TypeID::None:   result =  prgmem->prim_none;   break;
-        case TypeID::String: result =  prgmem->prim_string; break;
-        case TypeID::Int:    result =  prgmem->prim_int;    break;
-        case TypeID::Float:  result =  prgmem->prim_float;  break;
-        case TypeID::Bool:   result =  prgmem->prim_bool;   break;
+        case TypeID::None:   result =  prgstate->prim_none;   break;
+        case TypeID::String: result =  prgstate->prim_string; break;
+        case TypeID::Int:    result =  prgstate->prim_int;    break;
+        case TypeID::Float:  result =  prgstate->prim_float;  break;
+        case TypeID::Bool:   result =  prgstate->prim_bool;   break;
 
 
         // Unique / user-defined
         case TypeID::Array:
         case TypeID::Compound:
             for (DynArrayCount i = 0,
-                     count = prgmem->type_descriptors.count;
+                     count = prgstate->type_descriptors.count;
                  i < count;
                  ++i)
             {
-                TypeRef ref = make_typeref(prgmem, i);
+                TypeRef ref = make_typeref(prgstate, i);
                 TypeDescriptor *predefined = get_typedesc(ref);
                 if (predefined && equal(type_desc, predefined))
                 {
@@ -304,11 +309,11 @@ TypeRef find_equiv_typedescriptor(ProgramMemory *prgmem, TypeDescriptor *type_de
             break;
 
         case TypeID::Union:
-            for (DynArrayCount i = 0, count = prgmem->type_descriptors.count;
+            for (DynArrayCount i = 0, count = prgstate->type_descriptors.count;
                  i < count;
                  ++i)
             {
-                TypeRef ref = make_typeref(prgmem, i);
+                TypeRef ref = make_typeref(prgstate, i);
                 TypeDescriptor *predefined = get_typedesc(ref);
                 if (predefined && equal(type_desc, predefined))
                 {
@@ -322,9 +327,9 @@ TypeRef find_equiv_typedescriptor(ProgramMemory *prgmem, TypeDescriptor *type_de
     return result;
 }
 
-TypeRef find_equiv_type_or_add(ProgramMemory *prgmem, TypeDescriptor *type_desc, TypeDescriptor **ptr)
+TypeRef find_equiv_type_or_add(ProgramState *prgstate, TypeDescriptor *type_desc, TypeDescriptor **ptr)
 {
-    TypeRef preexisting = find_equiv_typedescriptor(prgmem, type_desc);
+    TypeRef preexisting = find_equiv_typedescriptor(prgstate, type_desc);
     if (preexisting.index)
     {
         if (ptr)
@@ -334,13 +339,13 @@ TypeRef find_equiv_type_or_add(ProgramMemory *prgmem, TypeDescriptor *type_desc,
         return preexisting;
     }
 
-    return add_typedescriptor(prgmem, *type_desc, ptr);
+    return add_typedescriptor(prgstate, *type_desc, ptr);
 }
 
-TypeRef find_typeref_by_name(ProgramMemory *prgmem, NameRef name)
+TypeRef find_typeref_by_name(ProgramState *prgstate, NameRef name)
 {
     TypeRef result = {};
-    TypeRef *typeref = ht_find(&prgmem->typedesc_bindings, name);
+    TypeRef *typeref = ht_find(&prgstate->typedesc_bindings, name);
     if (typeref)
     {
         result = *typeref;
@@ -348,33 +353,33 @@ TypeRef find_typeref_by_name(ProgramMemory *prgmem, NameRef name)
     return result;
 }
 
-TypeRef find_typeref_by_name(ProgramMemory *prgmem, StrSlice name)
+TypeRef find_typeref_by_name(ProgramState *prgstate, StrSlice name)
 {
     TypeRef result = {};
-    NameRef nameref = nametable_find(&prgmem->names, name);
+    NameRef nameref = nametable_find(&prgstate->names, name);
     if (nameref.offset)
     {
-        result = find_typeref_by_name(prgmem, nameref);
+        result = find_typeref_by_name(prgstate, nameref);
     }
     return result;
 }
 
-TypeRef find_typeref_by_name(ProgramMemory *prgmem, Str name)
+TypeRef find_typeref_by_name(ProgramState *prgstate, Str name)
 {
-    return find_typeref_by_name(prgmem, str_slice(name));
+    return find_typeref_by_name(prgstate, str_slice(name));
 }
 
 
-TypeDescriptor *find_typedesc_by_name(ProgramMemory *prgmem, NameRef name)
+TypeDescriptor *find_typedesc_by_name(ProgramState *prgstate, NameRef name)
 {
-    return get_typedesc(find_typeref_by_name(prgmem, name));
+    return get_typedesc(find_typeref_by_name(prgstate, name));
 }
 
 
-TypeRef type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv);
+TypeRef type_desc_from_json(ProgramState *prgstate, json_value_s *jv);
 
 
-TypeRef type_desc_from_json_array(ProgramMemory *prgmem, json_value_s *jv)
+TypeRef type_desc_from_json_array(ProgramState *prgstate, json_value_s *jv)
 {
     TypeRef result;
 
@@ -388,7 +393,7 @@ TypeRef type_desc_from_json_array(ProgramMemory *prgmem, json_value_s *jv)
          elem;
          elem = elem->next)
     {
-        TypeRef typeref = type_desc_from_json(prgmem, elem->value);
+        TypeRef typeref = type_desc_from_json(prgstate, elem->value);
 
         // This is a set insertion
         bool found = false;
@@ -429,7 +434,7 @@ TypeRef type_desc_from_json_array(ProgramMemory *prgmem, json_value_s *jv)
         element_union_type.type_id = TypeID::Union;
         element_union_type.union_type = union_type;
 
-        constructed_typedesc.array_type.elem_typeref = find_equiv_type_or_add(prgmem, &element_union_type, nullptr);
+        constructed_typedesc.array_type.elem_typeref = find_equiv_type_or_add(prgstate, &element_union_type, nullptr);
     }
     else
     {
@@ -441,7 +446,7 @@ TypeRef type_desc_from_json_array(ProgramMemory *prgmem, json_value_s *jv)
             // empty,  untyped array...?
             // maybe use an Any type here, if that ever becomes a thing.
             logln("Got an empty json array. This defaults to type [None], but I don't like it!");
-            array_type.elem_typeref = prgmem->prim_none;
+            array_type.elem_typeref = prgstate->prim_none;
             constructed_typedesc.array_type = array_type;
         }
         else
@@ -451,7 +456,7 @@ TypeRef type_desc_from_json_array(ProgramMemory *prgmem, json_value_s *jv)
     }
 
     // If it's the empty array, bound to find a preexisting. Will that be common?
-    result = find_equiv_type_or_add(prgmem, &constructed_typedesc, nullptr);
+    result = find_equiv_type_or_add(prgstate, &constructed_typedesc, nullptr);
 
     dynarray_deinit(&element_types);
 
@@ -459,7 +464,7 @@ TypeRef type_desc_from_json_array(ProgramMemory *prgmem, json_value_s *jv)
 }
 
 
-TypeRef type_desc_from_json_object(ProgramMemory *prgmem, json_value_s *jv)
+TypeRef type_desc_from_json_object(ProgramState *prgstate, json_value_s *jv)
 {
     TypeRef result;
 
@@ -474,30 +479,30 @@ TypeRef type_desc_from_json_object(ProgramMemory *prgmem, json_value_s *jv)
          elem = elem->next)
     {
         CompoundTypeMember *member = dynarray_append(&members);
-        member->name = nametable_find_or_add(&prgmem->names,
+        member->name = nametable_find_or_add(&prgstate->names,
                                              elem->name->string, elem->name->string_size);
-        member->typeref = type_desc_from_json(prgmem, elem->value);
+        member->typeref = type_desc_from_json(prgstate, elem->value);
     }
 
     TypeDescriptor constructed_typedesc;
     constructed_typedesc.type_id = TypeID::Compound;
     constructed_typedesc.compound_type.members = members;
 
-    TypeRef preexisting = find_equiv_typedescriptor(prgmem, &constructed_typedesc);
+    TypeRef preexisting = find_equiv_typedescriptor(prgstate, &constructed_typedesc);
     if (preexisting.index)
     {
         result = preexisting;
     }
     else
     {
-        result = add_typedescriptor(prgmem, constructed_typedesc, 0);
+        result = add_typedescriptor(prgstate, constructed_typedesc, 0);
     }
 
     return result;
 }
 
 
-TypeRef type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv)
+TypeRef type_desc_from_json(ProgramState *prgstate, json_value_s *jv)
 {
     TypeRef result;
 
@@ -505,32 +510,32 @@ TypeRef type_desc_from_json(ProgramMemory *prgmem, json_value_s *jv)
     switch (jvtype)
     {
         case json_type_string:
-            result = prgmem->prim_string;
+            result = prgstate->prim_string;
             break;
 
         case json_type_number:
         {
             json_number_s *jnum = (json_number_s *)jv->payload;
             tokenizer::Token number_token = tokenizer::read_number(jnum->number, jnum->number_size);
-            result = number_token.type == tokenizer::TokenType::Int ? prgmem->prim_int : prgmem->prim_float;
+            result = number_token.type == tokenizer::TokenType::Int ? prgstate->prim_int : prgstate->prim_float;
             break;
         }
 
         case json_type_object:
-            result = type_desc_from_json_object(prgmem, jv);
+            result = type_desc_from_json_object(prgstate, jv);
             break;
 
         case json_type_array:
-            result = type_desc_from_json_array(prgmem, jv);
+            result = type_desc_from_json_array(prgstate, jv);
             break;
 
         case json_type_true:
         case json_type_false:
-            result = prgmem->prim_bool;
+            result = prgstate->prim_bool;
             break;
 
        case json_type_null:
-           result = prgmem->prim_none;
+           result = prgstate->prim_none;
            break;
     }
 
@@ -559,10 +564,10 @@ DynArray<CompoundTypeMember> clone(const DynArray<CompoundTypeMember> &memberset
 }
 
 
-TypeRef clone(ProgramMemory *prgmem, const TypeDescriptor *src_typedesc, TypeDescriptor **ptr)
+TypeRef clone(ProgramState *prgstate, const TypeDescriptor *src_typedesc, TypeDescriptor **ptr)
 {
     TypeDescriptor *dest_typedesc;
-    TypeRef result = add_typedescriptor(prgmem, &dest_typedesc);
+    TypeRef result = add_typedescriptor(prgstate, &dest_typedesc);
     if (ptr)
     {
         *ptr = dest_typedesc;
@@ -625,7 +630,7 @@ void add_member(TypeDescriptor *type_desc, const CompoundTypeMember &member)
 // That would be cool, but might be a bit much. We'll see.
 // TypeDescriptor *merge_type_descriptors(TypeDescriptor *typedesc_a, TypeDescriptor *typedesc_b)
 
-TypeRef merge_compound_types(ProgramMemory *prgmem,
+TypeRef merge_compound_types(ProgramState *prgstate,
                                        const TypeDescriptor *typedesc_a,
                                        const TypeDescriptor *typedesc_b,
                                        TypeDescriptor **ptr)
@@ -636,7 +641,7 @@ TypeRef merge_compound_types(ProgramMemory *prgmem,
     assert(typedesc_b->type_id == TypeID::Compound);
 
     TypeDescriptor *result_ptr;
-    TypeRef result_ref = clone(prgmem, typedesc_a, &result_ptr);
+    TypeRef result_ref = clone(prgstate, typedesc_a, &result_ptr);
 
     for (DynArrayCount ib = 0; ib < typedesc_b->compound_type.members.count; ++ib)
     {
@@ -657,7 +662,7 @@ TypeRef merge_compound_types(ProgramMemory *prgmem,
 }
 
 
-Value create_value_from_token(ProgramMemory *prgmem, tokenizer::Token token)
+Value create_value_from_token(ProgramState *prgstate, tokenizer::Token token)
 {
     // good test: {"tulsi": "gabbard", "julienne": { "fries": 42.2, "asponge": {}, "hillarymoney": 9001}}
     Str token_copy = str(token.text);
@@ -667,33 +672,33 @@ Value create_value_from_token(ProgramMemory *prgmem, tokenizer::Token token)
     {
         case tokenizer::TokenType::Eof:
         case tokenizer::TokenType::Unknown:
-            result.typeref = prgmem->prim_none;
+            result.typeref = prgstate->prim_none;
             break;
 
         case tokenizer::TokenType::String:
             result.str_val = token_copy;
-            result.typeref = prgmem->prim_string;
+            result.typeref = prgstate->prim_string;
             // indicate no need to free
             token_copy.data = 0;
             break;
 
         case tokenizer::TokenType::Int:
             result.s32_val = atoi(token_copy.data);
-            result.typeref = prgmem->prim_int;
+            result.typeref = prgstate->prim_int;
             break;
 
         case tokenizer::TokenType::Float:
             result.f32_val = (float)atof(token_copy.data);
-            result.typeref = prgmem->prim_float;
+            result.typeref = prgstate->prim_float;
             break;
 
         case tokenizer::TokenType::True:
-            result.typeref = prgmem->prim_bool;
+            result.typeref = prgstate->prim_bool;
             result.bool_val = true;
             break;
 
         case tokenizer::TokenType::False:
-            result.typeref = prgmem->prim_bool;
+            result.typeref = prgstate->prim_bool;
             result.bool_val = false;
             break;
     }
@@ -706,12 +711,12 @@ Value create_value_from_token(ProgramMemory *prgmem, tokenizer::Token token)
 }
 
 
-Value create_value_from_json(ProgramMemory *prgmem, json_value_s *jv);
+Value create_value_from_json(ProgramState *prgstate, json_value_s *jv);
 
-Value create_object_with_type_from_json(ProgramMemory *prgmem, json_object_s *jobj, TypeRef typeref);
+Value create_object_with_type_from_json(ProgramState *prgstate, json_object_s *jobj, TypeRef typeref);
 
 
-Value create_array_with_type_from_json(ProgramMemory *prgmem, json_array_s *jarray, TypeRef typeref)
+Value create_array_with_type_from_json(ProgramState *prgstate, json_array_s *jarray, TypeRef typeref)
 {
     Value result;
     result.typeref = typeref;
@@ -736,13 +741,13 @@ Value create_array_with_type_from_json(ProgramMemory *prgmem, json_array_s *jarr
             case TypeID::Float:
             case TypeID::Bool:
             case TypeID::Union:
-                *value_element = create_value_from_json(prgmem, jelem->value);
+                *value_element = create_value_from_json(prgstate, jelem->value);
                 break;
 
             case TypeID::Array:
                 assert(jelem->value->type == json_type_array);
                 *value_element =
-                    create_array_with_type_from_json(prgmem,
+                    create_array_with_type_from_json(prgstate,
                                                      (json_array_s *)jelem->value->payload,
                                                      elem_typeref);
                 break;
@@ -750,7 +755,7 @@ Value create_array_with_type_from_json(ProgramMemory *prgmem, json_array_s *jarr
             case TypeID::Compound:
                 assert(jelem->value->type == json_type_object);
                 *value_element =
-                    create_object_with_type_from_json(prgmem,
+                    create_object_with_type_from_json(prgstate,
                                                       (json_object_s *)jelem->value->payload,
                                                       elem_typeref);
                 break;
@@ -763,7 +768,7 @@ Value create_array_with_type_from_json(ProgramMemory *prgmem, json_array_s *jarr
 }
 
 
-Value create_object_with_type_from_json(ProgramMemory *prgmem, json_object_s *jobj, TypeRef typeref)
+Value create_object_with_type_from_json(ProgramState *prgstate, json_object_s *jobj, TypeRef typeref)
 {
     Value result;
 
@@ -789,12 +794,12 @@ Value create_object_with_type_from_json(ProgramMemory *prgmem, json_object_s *jo
             case TypeID::Int:
             case TypeID::Float:
             case TypeID::Bool:
-                value_member->value = create_value_from_json(prgmem, jelem->value);
+                value_member->value = create_value_from_json(prgstate, jelem->value);
                 break;
 
             case TypeID::Array:
                 value_member->value =
-                    create_array_with_type_from_json(prgmem,
+                    create_array_with_type_from_json(prgstate,
                                                      (json_array_s *)jelem->value->payload,
                                                      type_member->typeref);
                 break;
@@ -802,7 +807,7 @@ Value create_object_with_type_from_json(ProgramMemory *prgmem, json_object_s *jo
             case TypeID::Compound:
                 assert(jelem->value->type == json_type_object);
                 value_member->value =
-                    create_object_with_type_from_json(prgmem,
+                    create_object_with_type_from_json(prgstate,
                                                       (json_object_s *)jelem->value->payload,
                                                       type_member->typeref);
                 break;
@@ -819,7 +824,7 @@ Value create_object_with_type_from_json(ProgramMemory *prgmem, json_object_s *jo
 }
 
 
-Value create_value_from_json(ProgramMemory *prgmem, json_value_s *jv)
+Value create_value_from_json(ProgramState *prgstate, json_value_s *jv)
 {
     Value result;
 
@@ -828,7 +833,7 @@ Value create_value_from_json(ProgramMemory *prgmem, json_value_s *jv)
         case json_type_string:
         {
             json_string_s *jstr = (json_string_s *)jv->payload;
-            result.typeref = prgmem->prim_string;
+            result.typeref = prgstate->prim_string;
             StrLen length = STRLEN(jstr->string_size);
             result.str_val = str(jstr->string, length);
             break;
@@ -839,39 +844,39 @@ Value create_value_from_json(ProgramMemory *prgmem, json_value_s *jv)
             json_number_s *jnum = (json_number_s *)jv->payload;
             tokenizer::Token number_token = tokenizer::read_number(jnum->number, jnum->number_size);
 
-            result = create_value_from_token(prgmem, number_token);
+            result = create_value_from_token(prgstate, number_token);
             break;
         }
 
         case json_type_object:
         {
-            TypeRef typeref = type_desc_from_json_object(prgmem, jv);
+            TypeRef typeref = type_desc_from_json_object(prgstate, jv);
             json_object_s *jobj = (json_object_s *)jv->payload;
-            result = create_object_with_type_from_json(prgmem, jobj, typeref);
+            result = create_object_with_type_from_json(prgstate, jobj, typeref);
             break;
         }
 
         case json_type_array:
         {
-            TypeRef typeref = type_desc_from_json_array(prgmem, jv);
+            TypeRef typeref = type_desc_from_json_array(prgstate, jv);
             assert(get_typedesc(typeref)->type_id == TypeID::Array);
             json_array_s *jarray = (json_array_s *)jv->payload;
-            result = create_array_with_type_from_json(prgmem, jarray, typeref);
+            result = create_array_with_type_from_json(prgstate, jarray, typeref);
             break;
         }
 
         case json_type_true:
-            result.typeref = prgmem->prim_bool;
+            result.typeref = prgstate->prim_bool;
             result.bool_val = true;
             break;
 
         case json_type_false:
-            result.typeref = prgmem->prim_bool;
+            result.typeref = prgstate->prim_bool;
             result.bool_val = false;
             break;
 
         case json_type_null:
-            result.typeref = prgmem->prim_none;
+            result.typeref = prgstate->prim_none;
             break;
     }
 
@@ -879,12 +884,12 @@ Value create_value_from_json(ProgramMemory *prgmem, json_value_s *jv)
 }
 
 
-void register_command(ProgramMemory *prgmem, StrSlice name, CliCommandFn *fnptr, void *userdata)
+void register_command(ProgramState *prgstate, StrSlice name, CliCommandFn *fnptr, void *userdata)
 {
     assert(fnptr);
     CliCommand cmd = {fnptr, userdata};
     Str allocated_name = str(name);
-    if (ht_set(&prgmem->command_map, str_slice(allocated_name), cmd))
+    if (ht_set(&prgstate->command_map, str_slice(allocated_name), cmd))
     {
         logf_ln("Warning, overriding command: %s", allocated_name.data);
         str_free(&allocated_name);
@@ -892,17 +897,17 @@ void register_command(ProgramMemory *prgmem, StrSlice name, CliCommandFn *fnptr,
 }
 
 
-void register_command(ProgramMemory *prgmem, const char *name, CliCommandFn *fnptr, void *userdata)
+void register_command(ProgramState *prgstate, const char *name, CliCommandFn *fnptr, void *userdata)
 {
-    register_command(prgmem, str_slice(name), fnptr, userdata);
+    register_command(prgstate, str_slice(name), fnptr, userdata);
 }
 
-#define REGISTER_COMMAND(prgmem, fn_ident, userdata) register_command((prgmem), # fn_ident, &fn_ident, userdata)
+#define REGISTER_COMMAND(prgstate, fn_ident, userdata) register_command((prgstate), # fn_ident, &fn_ident, userdata)
 
 
-void exec_command(ProgramMemory *prgmem, StrSlice name, DynArray<Value> args)
+void exec_command(ProgramState *prgstate, StrSlice name, DynArray<Value> args)
 {
-    CliCommand *cmd = ht_find(&prgmem->command_map, name);
+    CliCommand *cmd = ht_find(&prgstate->command_map, name);
 
     if (!cmd)
     {
@@ -910,13 +915,13 @@ void exec_command(ProgramMemory *prgmem, StrSlice name, DynArray<Value> args)
         return;
     }
 
-    cmd->fn(prgmem, cmd->userdata, args);
+    cmd->fn(prgstate, cmd->userdata, args);
 }
 
 
 CLI_COMMAND_FN_SIG(say_hello)
 {
-    UNUSED(prgmem);
+    UNUSED(prgstate);
     UNUSED(userdata);
     UNUSED(args);
 
@@ -926,7 +931,7 @@ CLI_COMMAND_FN_SIG(say_hello)
 
 CLI_COMMAND_FN_SIG(list_args)
 {
-    UNUSED(prgmem);
+    UNUSED(prgstate);
     UNUSED(userdata);
 
     logln("list_args:");
@@ -951,7 +956,7 @@ CLI_COMMAND_FN_SIG(find_type)
 
     Value *arg = &args[0];
 
-    if (! typeref_identical(arg->typeref, prgmem->prim_string))
+    if (! typeref_identical(arg->typeref, prgstate->prim_string))
     {
         TypeDescriptor *argtype = get_typedesc(arg->typeref);
         logf_ln("Argument must be a string, got a %s intead",
@@ -959,7 +964,7 @@ CLI_COMMAND_FN_SIG(find_type)
         return;
     }
 
-    TypeRef typeref = find_typeref_by_name(prgmem, arg->str_val);
+    TypeRef typeref = find_typeref_by_name(prgstate, arg->str_val);
     if (typeref.index)
     {
         pretty_print(typeref);
@@ -993,7 +998,7 @@ CLI_COMMAND_FN_SIG(set_value)
 
     // This is maybe a bit too manual, but I want everything to be POD, no destructors
     StrToValueMap::Entry *entry;
-    bool was_occupied = ht_find_or_add_entry(&entry, &prgmem->value_map, str_slice(name_arg->str_val));
+    bool was_occupied = ht_find_or_add_entry(&entry, &prgstate->value_map, str_slice(name_arg->str_val));
     if (!was_occupied)
     {
         // allocate dedicated space
@@ -1029,7 +1034,7 @@ CLI_COMMAND_FN_SIG(get_value)
         return;
     }
 
-    Value *value = ht_find(&prgmem->value_map, str_slice(name_arg->str_val));
+    Value *value = ht_find(&prgstate->value_map, str_slice(name_arg->str_val));
     if (value)
     {
         pretty_print(value);
@@ -1060,7 +1065,7 @@ CLI_COMMAND_FN_SIG(get_value_type)
         return;
     }
 
-    Value *value = ht_find(&prgmem->value_map, str_slice(name_arg->str_val));
+    Value *value = ht_find(&prgstate->value_map, str_slice(name_arg->str_val));
     if (value)
     {
         pretty_print(value->typeref);
@@ -1076,7 +1081,7 @@ CLI_COMMAND_FN_SIG(get_value_type)
 
 CLI_COMMAND_FN_SIG(print_values)
 {
-    UNUSED(prgmem);
+    UNUSED(prgstate);
     UNUSED(userdata);
 
     if (args.count < 1)
@@ -1122,7 +1127,7 @@ CLI_COMMAND_FN_SIG(bindinfer)
 
     // This is maybe a bit too manual, but I want everything to be POD, no destructors
     StrToTypeMap::Entry *entry;
-    bool was_occupied = ht_find_or_add_entry(&entry, &prgmem->type_map, str_slice(name_arg->str_val));
+    bool was_occupied = ht_find_or_add_entry(&entry, &prgstate->type_map, str_slice(name_arg->str_val));
     if (!was_occupied)
     {
         // allocate dedicated space
@@ -1158,7 +1163,7 @@ CLI_COMMAND_FN_SIG(print_type)
         return;
     }
 
-    TypeRef *typeref = ht_find(&prgmem->type_map, str_slice(name_arg->str_val));
+    TypeRef *typeref = ht_find(&prgstate->type_map, str_slice(name_arg->str_val));
     if (typeref)
     {
         pretty_print(*typeref);
@@ -1189,7 +1194,7 @@ CLI_COMMAND_FN_SIG(checktype)
         return;
     }
 
-    TypeRef *ptr_typeref = ht_find(&prgmem->type_map, str_slice(name_arg->str_val));
+    TypeRef *ptr_typeref = ht_find(&prgstate->type_map, str_slice(name_arg->str_val));
     if (!ptr_typeref)
     {
         logf_ln("No value bound to name: '%s'", name_arg->str_val.data);
@@ -1227,7 +1232,7 @@ CLI_COMMAND_FN_SIG(checktype)
 
 CLI_COMMAND_FN_SIG(list_allocs)
 {
-    UNUSED(prgmem);
+    UNUSED(prgstate);
     UNUSED(userdata);
     UNUSED(args);
 
@@ -1238,7 +1243,7 @@ CLI_COMMAND_FN_SIG(list_allocs)
 
 CLI_COMMAND_FN_SIG(loaddir)
 {
-    UNUSED(prgmem);
+    UNUSED(prgstate);
     UNUSED(userdata);
     UNUSED(args);
 
@@ -1246,7 +1251,7 @@ CLI_COMMAND_FN_SIG(loaddir)
 }
 
 
-void test_json_import(ProgramMemory *prgmem, int filename_count, char **filenames)
+void test_json_import(ProgramState *prgstate, int filename_count, char **filenames)
 {
     if (filename_count < 1)
     {
@@ -1280,9 +1285,9 @@ void test_json_import(ProgramMemory *prgmem, int filename_count, char **filename
             return;
         }
 
-        TypeRef typeref = type_desc_from_json(prgmem, jv);
-        NameRef bound_name = nametable_find_or_add(&prgmem->names, filename);
-        bind_typeref(prgmem, bound_name, typeref);
+        TypeRef typeref = type_desc_from_json(prgstate, jv);
+        NameRef bound_name = nametable_find_or_add(&prgstate->names, filename);
+        bind_typeref(prgstate, bound_name, typeref);
 
         logln("New type desciptor:");
         pretty_print(typeref);
@@ -1295,7 +1300,7 @@ void test_json_import(ProgramMemory *prgmem, int filename_count, char **filename
         {
             TypeDescriptor *result_ptr = get_typedesc(result_ref);
             TypeDescriptor *type_desc = get_typedesc(typeref);
-            result_ref = merge_compound_types(prgmem, result_ptr, type_desc, 0);
+            result_ref = merge_compound_types(prgstate, result_ptr, type_desc, 0);
         }
     }
 
@@ -1305,23 +1310,113 @@ void test_json_import(ProgramMemory *prgmem, int filename_count, char **filename
 }
 
 
-void init_cli_commands(ProgramMemory *prgmem)
+void init_cli_commands(ProgramState *prgstate)
 {
-    REGISTER_COMMAND(prgmem, say_hello, nullptr);
-    REGISTER_COMMAND(prgmem, list_args, nullptr);
-    REGISTER_COMMAND(prgmem, find_type, nullptr);
-    REGISTER_COMMAND(prgmem, set_value, nullptr);
-    REGISTER_COMMAND(prgmem, get_value, nullptr);
-    REGISTER_COMMAND(prgmem, get_value_type, nullptr);
-    REGISTER_COMMAND(prgmem, print_values, nullptr);
-    REGISTER_COMMAND(prgmem, bindinfer, nullptr);
-    REGISTER_COMMAND(prgmem, print_type, nullptr);
-    REGISTER_COMMAND(prgmem, checktype, nullptr);
-    REGISTER_COMMAND(prgmem, list_allocs, nullptr);
+    REGISTER_COMMAND(prgstate, say_hello, nullptr);
+    REGISTER_COMMAND(prgstate, list_args, nullptr);
+    REGISTER_COMMAND(prgstate, find_type, nullptr);
+    REGISTER_COMMAND(prgstate, set_value, nullptr);
+    REGISTER_COMMAND(prgstate, get_value, nullptr);
+    REGISTER_COMMAND(prgstate, get_value_type, nullptr);
+    REGISTER_COMMAND(prgstate, print_values, nullptr);
+    REGISTER_COMMAND(prgstate, bindinfer, nullptr);
+    REGISTER_COMMAND(prgstate, print_type, nullptr);
+    REGISTER_COMMAND(prgstate, checktype, nullptr);
+    REGISTER_COMMAND(prgstate, list_allocs, nullptr);
 }
 
 
-void process_console_input(ProgramMemory *prgmem, StrSlice input_buf)
+struct ParseResult
+{
+    enum Status
+    {
+        Eof,
+        Failed,
+        Succeeded
+    };
+
+    Status status;
+    const char *error_desc;
+    size_t parse_offset;
+    size_t error_offset;
+    size_t error_line;
+    size_t error_column;
+};
+
+ParseResult try_parse_json_as_value(OUTPARAM Value *output, ProgramState *prgstate, const StrSlice input)
+{
+    ParseResult result = {};
+    result.error_desc = "";
+
+    if (input.length == 0)
+    {
+        result.status = ParseResult::Eof;
+        return result;
+    }
+
+    size_t jsonflags = json_parse_flags_default
+        | json_parse_flags_allow_trailing_comma
+        | json_parse_flags_allow_c_style_comments
+        ;
+
+    json_parse_result_s jp_result = {};
+    json_value_s *jv = json_parse_ex(input.data, input.length,
+                                     jsonflags, &jp_result);
+
+    result.parse_offset = jp_result.parse_offset;
+
+    if (jp_result.error != json_parse_error_none)
+    {
+        // json.h doesn't seem to be consistent in whether it point to
+        // errors before or after the relevant character
+        bool invalid_value = jp_result.error == json_parse_error_invalid_value;
+        bool invalid_number = jp_result.error == json_parse_error_invalid_number_format;
+
+        result.error_offset = jp_result.error_offset;
+        result.error_line = jp_result.error_line_no;
+        result.error_column = jp_result.error_row_no;
+        result.error_desc = json_error_code_string(jp_result.error);
+
+        // offset for json.h error reporting weirdness
+        result.error_column += (invalid_number ? 1 : 0);
+        result.error_offset += (invalid_value ? 1 : 0);
+
+        result.status = ParseResult::Failed;
+    }
+    else if (! jv)
+    {
+        // if jv was null, that means end of input,
+        // but need to check for error first
+        result.status = ParseResult::Eof;
+    }
+    else
+    {
+        *output = create_value_from_json(prgstate, jv);
+        result.status = ParseResult::Succeeded;
+    }
+
+    return result;
+}
+
+
+void log_parse_error(ParseResult pr, StrSlice input, size_t input_offset_from_src)
+{
+    FormatBuffer fmt_buf;
+    fmt_buf.flush_on_destruct();
+
+    fmt_buf.writef("Json parse error: %s\nAt %lu:%lu\n%s\n",
+                   pr.error_desc,
+                   pr.error_line,
+                   pr.error_column + (pr.error_line > 1 ? 0 : input_offset_from_src),
+                   input.data);
+
+    size_t buffer_offset = pr.error_offset + input_offset_from_src;
+    for (size_t i = 0; i < buffer_offset - 1; ++i) fmt_buf.write("~");
+    fmt_buf.write("^");
+}
+
+
+void process_console_input(ProgramState *prgstate, StrSlice input_buf)
 {
     tokenizer::State tokstate;
     tokenizer::init(&tokstate, input_buf.data);
@@ -1331,65 +1426,42 @@ void process_console_input(ProgramMemory *prgmem, StrSlice input_buf)
     DynArray<Value> cmd_args;
     dynarray_init(&cmd_args, 10);
 
-    size_t jsonflags = json_parse_flags_default
-        | json_parse_flags_allow_trailing_comma
-        | json_parse_flags_allow_c_style_comments
-        ;
-
     bool error = false;
 
     for (;;) {
         size_t offset_from_input = (size_t)(tokstate.current - input_buf.data);
-        json_parse_result_s jp_result = {};
-        json_value_s *jv = json_parse_ex(tokstate.current, (size_t)(tokstate.end - tokstate.current),
-                                         jsonflags, &jp_result);
 
+        Value parsed_value;
+        StrSlice parse_slice = str_slice(tokstate);
+        ParseResult parse_result = try_parse_json_as_value(OUTPARAM &parsed_value, prgstate, parse_slice);
 
-        if (jp_result.error != json_parse_error_none)
+        switch (parse_result.status)
         {
-            FormatBuffer fmt_buf;
-            fmt_buf.flush_on_destruct();
-
-            // json.h doesn't seem to be consistent in whether it point to errors before or after the relevant character
-            bool invalid_value = jp_result.error == json_parse_error_invalid_value;
-            bool invalid_number = jp_result.error == json_parse_error_invalid_number_format;
-
-            fmt_buf.writef("Json parse error: %s\nAt %lu:%lu\n%s\n",
-                           json_error_code_string(jp_result.error),
-                           jp_result.error_line_no,
-                           jp_result.error_row_no + (jp_result.error_line_no > 1 ? 0 : offset_from_input) - (invalid_number ? 1 : 0),
-                           input_buf.data);
-
-            size_t buffer_offset = jp_result.error_offset + offset_from_input + (invalid_value ? 1 : 0);
-            for (size_t i = 0; i < buffer_offset - 1; ++i) fmt_buf.write("~");
-            fmt_buf.write("^");
-            error =  true;
-            break;
-        }
-        else if (jv)
-        {
-            Value parsed_value = create_value_from_json(prgmem, jv);
-            dynarray_append(&cmd_args, parsed_value);
-        }
-        else
-        {
-            // if jv was null, that means end of input
-            break;
+            case ParseResult::Failed:
+                log_parse_error(parse_result, parse_slice, offset_from_input);
+                error = true;
+                goto AfterArgParseLoop;
+            case ParseResult::Succeeded:
+                dynarray_append(&cmd_args, parsed_value);
+                break;
+            case ParseResult::Eof:
+                goto AfterArgParseLoop;
         }
 
-        tokstate.current += jp_result.parse_offset;
+        tokstate.current += parse_result.parse_offset;
     }
+AfterArgParseLoop:
 
     if (!error)
     {
-        exec_command(prgmem, first_token.text, cmd_args);
+        exec_command(prgstate, first_token.text, cmd_args);
     }
 
     dynarray_deinit(&cmd_args);
 }
 
 
-void run_terminal_cli(ProgramMemory *prgmem)
+void run_terminal_cli(ProgramState *prgstate)
 {
     for (;;)
     {
@@ -1424,12 +1496,12 @@ void run_terminal_cli(ProgramMemory *prgmem)
                 break;
             }
 
-            Value value = create_value_from_token(prgmem, token);
+            Value value = create_value_from_token(prgstate, token);
 
             dynarray_append(&cmd_args, value);
         }
 
-        exec_command(prgmem, first_token.text, cmd_args);
+        exec_command(prgstate, first_token.text, cmd_args);
 
         dynarray_deinit(&cmd_args);
         std::free(input);
@@ -1437,7 +1509,7 @@ void run_terminal_cli(ProgramMemory *prgmem)
 }
 
 
-void run_terminal_json_cli(ProgramMemory *prgmem)
+void run_terminal_json_cli(ProgramState *prgstate)
 {
     for (;;)
     {
@@ -1461,7 +1533,7 @@ void run_terminal_json_cli(ProgramMemory *prgmem)
             continue;
         }
 
-        process_console_input(prgmem, str_slice(input));
+        process_console_input(prgstate, str_slice(input));
 
         std::free(input);
     }
@@ -1611,7 +1683,7 @@ int imgui_cli_history_callback(ImGuiTextEditCallbackData *data)
 }
 
 
-void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
+void draw_imgui_json_cli(ProgramState *prgstate, SDL_Window *window)
 {
     static float scroll_y = 0;
     static bool highlight_output_mode = false;
@@ -1684,7 +1756,7 @@ void draw_imgui_json_cli(ProgramMemory *prgmem, SDL_Window *window)
             history.add(input_slice);
             log(input_buf);
 
-            process_console_input(prgmem, input_slice);
+            process_console_input(prgstate, input_slice);
 
             input_buf[0] = '\0';
         }
@@ -1703,15 +1775,15 @@ int main(int argc, char **argv)
     mem::memory_init(logf_with_userdata, nullptr);
     FormatBuffer::set_default_flush_fn(log_write_with_userdata, nullptr);
 
-    ProgramMemory prgmem;
-    prgmem_init(&prgmem);
-    init_cli_commands(&prgmem);
+    ProgramState prgstate;
+    prgstate_init(&prgstate);
+    init_cli_commands(&prgstate);
     mem::default_allocator()->log_allocations();
-    test_json_import(&prgmem, argc - 1, argv + 1);
+    test_json_import(&prgstate, argc - 1, argv + 1);
 
     // TTY console
-    // run_terminal_cli(&prgmem);
-    // run_terminal_json_cli(&prgmem);
+    // run_terminal_cli(&prgstate);
+    // run_terminal_json_cli(&prgstate);
 
     if (0 != SDL_Init(SDL_INIT_VIDEO))
     {
@@ -1770,7 +1842,7 @@ int main(int argc, char **argv)
 
         ImGui_ImplSdl_NewFrame(window);
 
-        draw_imgui_json_cli(&prgmem, window);
+        draw_imgui_json_cli(&prgstate, window);
 
         ImGui::ShowTestWindow();
 

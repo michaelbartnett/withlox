@@ -48,6 +48,13 @@ Str str_concated_v_impl(StrSlice first_slice...);
 
 StrSlice empty_str_slice();
 
+
+inline Str make_empty_str()
+{
+    return str("", 0);
+}
+
+
 inline Str str(StrSlice strslice)
 {
     return str(strslice.data, strslice.length);
@@ -58,13 +65,13 @@ inline Str str(const Str &src)
 {
     return str(src.data, src.length);
 }
-    
+
 inline StrSlice str_slice(const char *cstr, size_t length)
 {
     StrSlice result;
     result.length = STRLEN(length);
     result.data = cstr;
-    return result;    
+    return result;
 }
 
 inline StrSlice str_slice(const char *begin, const char *end)
@@ -87,13 +94,6 @@ inline StrSlice str_slice(const Str &str)
     result.length = str.length;
     return result;
 }
-
-
-union SliceOrZero
-{
-    StrSlice slice;
-    int zero;
-};
 
 
 #define str_concated(...) str_concated_v_impl(__VA_ARGS__, 0);

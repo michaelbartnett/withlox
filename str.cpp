@@ -56,6 +56,13 @@ void str_free(Str *str)
 }
 
 
+union SliceOrZero
+{
+    StrSlice slice;
+    int zero;
+};
+
+
 Str str_concated_v_impl(StrSlice first_slice...)
 {
     StrLen len = first_slice.length;
