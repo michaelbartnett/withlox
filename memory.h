@@ -31,7 +31,6 @@
         ptr, count * sizeof (type), 4,                                                            \
         mem::AllocationMetadata(__FILE__ ":" S__LINE__, category))
 
-
 namespace mem
 {
 

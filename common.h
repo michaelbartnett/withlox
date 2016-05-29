@@ -12,6 +12,8 @@
 
 #define STATIC_ASSERT(label, expr) typedef int static_assertion__##label[(expr) ? 1 : -1]
 
+#define ASSERT_MSG(msg) assert(!(bool)(msg))
+
 #define COUNTOF(arr) ( \
    0 * sizeof(reinterpret_cast<const ::Bad_arg_to_COUNTOF*>(arr)) + \
    0 * sizeof(::Bad_arg_to_COUNTOF::check_type((arr), &(arr))) + \
@@ -24,6 +26,20 @@ struct Bad_arg_to_COUNTOF {
    static Is_pointer check_type(const T*, const T* const*);
    static Is_array check_type(const void*, const void*);
 };
+
+
+template <typename T>
+inline T max(T a, T b)
+{
+    return (a >= b) ? a : b;
+}
+
+
+template <typename T>
+inline T min(T a, T b)
+{
+    return (a <= b) ? a : b;
+}
 
 #include <cstdlib>
 #include <cstdio>

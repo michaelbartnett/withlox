@@ -82,6 +82,11 @@ void dynarray_deinit(DynArray<T> *dynarray)
 template<typename T>
 T *dynarray_append(DynArray<T> *dynarray)
 {
+    if (! dynarray->allocator)
+    {
+        dynarray->allocator = mem::default_allocator();
+    }
+
     assert(dynarray->count <= dynarray->capacity);
 
     if (dynarray->count == dynarray->capacity)

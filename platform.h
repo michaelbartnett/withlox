@@ -3,6 +3,62 @@
 #include "str.h"
 #include "numeric_types.h"
 #include "common.h"
+#include "memory.h"
+
+
+typedef s32 ErrorCode;
+
+struct PlatformError
+{
+    static const StrLen MaxMessageLen = 256;
+
+    ErrorCode code;
+    Str message;
+
+    bool is_error()
+    {
+        return code != 0;
+    }
+
+    static PlatformError from_code(ErrorCode code);
+};
+
+
+struct FileReadResult
+{
+    enum ErrorKind
+    {
+        NoError,
+        AccessDenied,
+        NotFound,
+        MaxPathExceeded,
+        AlreadyExists,
+        Other
+    };
+
+    ErrorKind error_kind;
+    int error_code;
+};
+
+
+PlatformError current_dir(OUTPARAM Str *path);
+
+PlatformError change_dir(const char *path);
+
+
+inline PlatformError change_dir(const Str path)
+{
+    return change_dir(path.data);
+}
+
+
+inline PlatformError change_dir(StrSlice path)
+{
+    Str pathstr = str(path);
+    PlatformError result = change_dir(pathstr);
+    str_free(&pathstr);
+    return result;
+}
 
 
 void end_of_program();
@@ -10,6 +66,10 @@ void end_of_program();
 void waitkey();
 
 Str read_file(const char *filename);
+
+FileReadResult read_text_file(Str *output, const char *filename);
+
+void log_file_error(FileReadResult error, const char *prefix);
 
 u64 query_abstime();
 
@@ -51,13 +111,46 @@ inline double seconds_since(u64 earlier)
     return seconds_since(query_abstime(), earlier);
 }
 
-// class FilesystemWalker
-// {
-//     virtual const char *current_name();
-//     virtual bool current_isdir();
-//     virtual bool has_next();
 
-//     virtual ~IFilesystemWalker()
-//     {
-//     }
-// }
+struct DirEntry
+{
+    bool is_file;
+    StrSlice name;
+    Str access_path;
+    // StrSlice name;
+
+    // DirEntry copy()
+    // {
+    //     DirEntry result = {is_file, str_make_copy(name)};
+    //     return result;
+    // }
+};
+
+
+class DirLister
+{
+public:
+    Str path;
+    DirEntry current;
+    PlatformError error;
+    s64 stream_loc;
+    void *pimpl;
+
+    DirLister(const char *path, size_t length);
+
+    // // Assumes valid initialized
+    // DirLister(const Str &path);
+
+    DirLister(const char *path);
+    DirLister(const StrSlice path);
+
+    ~DirLister();
+
+    bool has_error()
+    {
+        return error.is_error();
+    }
+
+    bool next();
+};
+

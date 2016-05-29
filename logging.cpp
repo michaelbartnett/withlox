@@ -12,9 +12,10 @@
 static DynArray<Str> log_entries = {};
 static char *output_buffer = 0;
 static size_t output_buffer_size = 0;
-static FormatBuffer *concatenated = 0;
+// static FormatBuffer *concatenated = 0;
 static u32 next_log_entry_to_concat = 0;
 static bool concatenated_dirty = false;
+static Str concatenated = {};
 
 #ifdef __clang__
 #pragma clang diagnostic push
@@ -144,31 +145,72 @@ void logf_with_userdata(void *userdata, const char *format, ...)
 }
 
 
-Str concatenated_log()
+// Str concatenated_log()
+// {
+//     if (!concatenated)
+//     {
+//         concatenated_dirty = true;
+//         concatenated = new FormatBuffer(128); // ugh, new
+//     }
+
+//     if (concatenated_dirty)
+//     {
+//         for (u32 i = next_log_entry_to_concat; i < log_entries.count; ++i)
+//         {
+//             Str *str = &log_entries[i];
+//             concatenated->write(str->data, str->length);
+//             concatenated->write("\n", 1);
+//         }
+//         concatenated_dirty = false;
+//         next_log_entry_to_concat = log_entries.count;
+//     }
+
+//     Str result;
+//     result.length = STRLEN(concatenated->cursor);
+//     result.data = concatenated->buffer;
+//     result.capacity = result.capacity;
+//     return result;
+// }
+
+
+Str *concatenated_log()
 {
-    if (!concatenated)
+    if (!concatenated.data)
     {
-        concatenated_dirty = true;
-        concatenated = new FormatBuffer(128); // ugh, new
+        str_ensure_capacity(&concatenated, 128);
     }
 
     if (concatenated_dirty)
     {
+        StrLen min_capacity = concatenated.capacity;
         for (u32 i = next_log_entry_to_concat; i < log_entries.count; ++i)
         {
-            Str *str = &log_entries[i];
-            concatenated->write(str->data, str->length);
-            concatenated->write("\n", 1);
+            min_capacity = STRLEN(min_capacity + log_entries[i].length + 1);
+        }
+
+        str_ensure_capacity(&concatenated, min_capacity);
+
+        for (u32 i = next_log_entry_to_concat; i < log_entries.count; ++i)
+        {
+            str_append(&concatenated, log_entries[i]);
+            str_append(&concatenated, '\n');
+
+            // Str *str = &log_entries[i];
+            // concatenated->write(str->data, str->length);
+            // concatenated->write("\n", 1);
         }
         concatenated_dirty = false;
         next_log_entry_to_concat = log_entries.count;
     }
 
-    Str result;
-    result.length = STRLEN(concatenated->cursor);
-    result.data = concatenated->buffer;
-    result.capacity = result.capacity;
-    return result;
+    return &concatenated;
+}
+
+
+void clear_concatenated_log()
+{
+    str_clear(&concatenated);
+    next_log_entry_to_concat = log_entries.count;
 }
 
 #ifdef __clang__

@@ -76,26 +76,81 @@ void FormatBuffer::flush_to_log()
 }
 
 
-void FormatBuffer::write(const char *string, size_t length)
+
+
+
+static void ensure_formatbuffer_space(FormatBuffer *fb, size_t length)
 {
-    size_t bytes_remaining = this->capacity - this->cursor;
+    size_t bytes_remaining = fb->capacity - fb->cursor;
 
-    if (!this->buffer)
+    if (!fb->buffer)
     {
-        if (this->capacity < length)
+        if (fb->capacity < length)
         {
-            this->capacity = length;
+            fb->capacity = length;
         }
-        this->buffer = MAKE_ARRAY(char, this->capacity, allocator);
-
+        fb->buffer = MAKE_ARRAY(char, fb->capacity, fb->allocator);
     }
     else if (bytes_remaining <= length)
     {
-        this->capacity = (this->capacity * 2 < this->capacity + length + 1
-                          ? this->capacity + length + 1
-                          : this->capacity * 2);
-        RESIZE_ARRAY(this->buffer, char, this->capacity, allocator);
+        fb->capacity = (fb->capacity * 2 < fb->capacity + length + 1
+                        ? fb->capacity + length + 1
+                        : fb->capacity * 2);
+        RESIZE_ARRAY(fb->buffer, char, fb->capacity, fb->allocator);
     }
+}
+
+
+void FormatBuffer::write(char c)
+{
+    const size_t minlength = 5;
+
+    ensure_formatbuffer_space(this, minlength);
+
+    // if (!this->buffer)
+    // {
+    //     // Just set to 5, because if we go hyper-unicode, at least we'll always have 4 bytes available plus null terminator
+    //     if (this->capacity < 5)
+    //     {
+    //         this->capacity = 5;
+    //     }
+    //     this->buffer = MAKE_ARRAY(char, this->capacity, this->allocator);
+    // }
+    // else if (bytes_remaining < 2)
+    // {
+    //     this->capacity
+    // }
+
+    this->buffer[this->cursor] = c;
+    ++this->cursor;
+    this->buffer[this->cursor] = '\0';
+}
+
+
+void FormatBuffer::write(const char *string, size_t length)
+{
+    ensure_formatbuffer_space(this, length);
+
+
+    // size_t bytes_remaining = this->capacity - this->cursor;
+
+
+    // if (!this->buffer)
+    // {
+    //     if (this->capacity < length)
+    //     {
+    //         this->capacity = length;
+    //     }
+    //     this->buffer = MAKE_ARRAY(char, this->capacity, allocator);
+
+    // }
+    // else if (bytes_remaining <= length)
+    // {
+    //     this->capacity = (this->capacity * 2 < this->capacity + length + 1
+    //                       ? this->capacity + length + 1
+    //                       : this->capacity * 2);
+    //     RESIZE_ARRAY(this->buffer, char, this->capacity, allocator);
+    // }
 
     std::memcpy(this->buffer + this->cursor, string, length);
     this->cursor += length;

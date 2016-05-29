@@ -1,8 +1,40 @@
 // -*- c++ -*-
 
 #include "platform.h"
+#include "formatbuffer.h"
+#include "logging.h"
 #include <sys/stat.h>
+#include <sys/param.h>
 #include <mach/mach_time.h>
+// #include <errno.h>
+#include <cerrno>
+#include <dirent.h>
+#include <unistd.h>
+
+
+#define MAX_OP_TRIES 10
+
+
+PlatformError current_dir(OUTPARAM Str *result)
+{
+    str_ensure_capacity(result, MAXPATHLEN);
+    char *ok = getcwd(result->data, result->capacity);
+
+    PlatformError error_result = ok
+        ? PlatformError::from_code(0)
+        : PlatformError::from_code(errno);
+    assert(error_result.code == 0 || error_result.code == EACCES);
+
+    return error_result;
+}
+
+
+PlatformError change_dir(const char *path)
+{
+    int error = chdir(path);
+    return PlatformError::from_code(error);
+}
+
 
 void end_of_program()
 {
@@ -42,6 +74,91 @@ Str read_file(const char *filename)
 }
 
 
+FileReadResult::ErrorKind check_file_error(int err)
+{
+    switch (err)
+    {
+        case 0:
+            break;
+        case ENOENT:
+        case ENOTDIR:
+            return FileReadResult::NotFound;
+        case ENAMETOOLONG:
+            return FileReadResult::MaxPathExceeded;
+        case EEXIST:
+            return FileReadResult::AlreadyExists;
+        default:
+            break;
+    }
+    return FileReadResult::Other;
+}
+
+
+void write_file_error(FormatBuffer *fb, FileReadResult error)
+{
+    fb->write(std::strerror(error.error_code));
+}
+
+
+// void log_file_error(FileReadResult error, const char *prefix, const char *filename)
+// {
+//     FormatBuffer fb;
+//     fb.writef(fmt_with_filename, filename);
+//     logf_ln("%s: %s\n", prefix, std::strerror(err));
+// }
+
+
+FileReadResult read_text_file(Str *dest, const char *filename)
+{
+    FileReadResult result;
+
+    struct stat statbuf;
+    result.error_code = stat(filename, &statbuf);
+
+    result.error_kind = check_file_error(result.error_code);
+
+    if (result.error_kind != FileReadResult::NoError)
+    {
+        return result;
+    }
+
+    assert(statbuf.st_size > 0);
+    StrLen filesize = STRLEN(statbuf.st_size);
+    *dest = str_alloc(filesize);
+    std::FILE *f = std::fopen(filename, "r");
+
+    result.error_code = errno;
+
+    result.error_kind = check_file_error(result.error_code);
+
+    if (result.error_kind != FileReadResult::NoError)
+    {
+        return result;
+    }
+
+    size_t bytes_read = fread(dest->data, 1, filesize, f);
+
+    if (bytes_read != filesize)
+    {
+        // we shouldn't have have the EOF...
+        assert(!feof(f));
+
+        // so just try to return an error, assert that there is an error
+        result.error_code = ferror(f);
+        assert(result.error_code != 0);
+        result.error_kind = check_file_error(result.error_code);
+        return result;
+    }
+
+    dest->length = filesize;
+
+    int fcloseerr = fclose(f);
+    assert(fcloseerr == 0);
+
+    return result;
+}
+
+
 
 static mach_timebase_info_data_t mach_timebase = {};
 
@@ -62,3 +179,175 @@ u64 nanoseconds_since(u64 later, u64 earlier)
     return diff * mach_timebase.numer / mach_timebase.denom;
 }
 
+
+PlatformError PlatformError::from_code(ErrorCode error_code)
+{
+    Str errormsg = str_alloc(MaxMessageLen);
+    int strerror_error = strerror_r(error_code, errormsg.data, errormsg.capacity);
+    assert(strerror_error == 0 || strerror_error == ERANGE);
+    if (strerror_error == ERANGE)
+    {
+        logln("WARNING: error message truncated");
+    }
+    PlatformError result = {error_code, errormsg};
+    return result;
+}
+
+
+//////////////// DirLister BEGIN ////////////////
+
+static void DirLister_init(DirLister *dl, Str path)
+{
+    ZERO_PTR(dl);
+
+    DIR *dirp = opendir(path.data);
+
+    if (!dirp)
+    {
+        dl->error = PlatformError::from_code(errno);
+        dl->pimpl = nullptr;
+        return;
+    }
+
+    // Assumes ownership of path
+    // Always end in a path separator
+    if (path.data[path.length - 1] != '/')
+    {
+        str_append(&path, '/');
+    }
+    else
+    {
+        while (path.length > 2 && path.data[path.length - 2] == '/')
+        {
+            str_popchar(&path);
+        }
+    }
+
+    dl->path = path;
+    dl->stream_loc = 0;
+    dl->pimpl = dirp;
+
+    // current.access_path will always be prefixed by path
+    str_overwrite(&dl->current.access_path, str_slice(dl->path));
+    dl->current.name = str_slice(dl->current.access_path.data + dl->current.access_path.length, size_t(0));
+}
+
+
+static void DirLister_deinit(DirLister *dl)
+{
+    assert(dl->pimpl);
+
+    str_clear(&dl->current.access_path);
+    dl->current.is_file = false;
+
+    DIR *dirp = (DIR *)dl->pimpl;
+
+    for (s32 i = 0; i < MAX_OP_TRIES; ++i)
+    {
+        int close_error = closedir(dirp);
+
+        if (close_error != EINTR)
+        {
+            goto CloseDirSuccess;
+        }
+
+        // otherwise, we got it EINTR, which means interrupted, so try
+        // to close it a few more times
+    }
+    ASSERT_MSG("closedir failed after " STRFY(MAX_OP_TRIES) " tries, kept getting interrupted");
+
+CloseDirSuccess:
+    dl->pimpl = nullptr;
+}
+
+
+DirLister::DirLister(const char *dirpath)
+{
+    DirLister_init(this, str(dirpath));
+}
+DirLister::DirLister(const char *dirpath, size_t length)
+{
+    DirLister_init(this, str(dirpath, STRLEN(length)));
+}
+DirLister::DirLister(const StrSlice dirpath)
+{
+    DirLister_init(this, str(dirpath));
+}
+// DirLister::DirLister(const Str &path)
+// {
+//     DirLister_init(this, path.data);
+// }
+
+
+DirLister::~DirLister()
+{
+    if (pimpl)
+    {
+        DirLister_deinit(this);
+    }
+
+    if (this->current.name.data)
+    {
+        str_free(&this->current.access_path);
+    }
+}
+
+
+bool DirLister::next()
+{
+    if (!this->pimpl) return false;
+
+    DIR *dirp = (DIR *)this->pimpl;
+
+    for (;;)
+    {
+        dirent entry;
+        dirent *pentry;
+        int read_error = readdir_r(dirp, &entry, &pentry);
+
+        if (read_error)
+        {
+            this->error = PlatformError::from_code(read_error);
+            return false;
+        }
+
+        if (!pentry)
+        {
+            DirLister_deinit(this);
+            return false;
+        }
+
+        switch (entry.d_type)
+        {
+            case DT_REG:
+                this->current.is_file = true;
+                break;
+
+            case DT_DIR:
+                // Skip dot directories
+                if ((entry.d_namlen == 1 && entry.d_name[0] == '.') ||
+                    (entry.d_namlen == 2 && entry.d_name[0] == '.' && entry.d_name[1] == '.'))
+                {
+                    continue;
+                }
+
+                this->current.is_file = false;
+                break;
+
+            default:
+                // Skip anything that's not a file or a directo ry (i.e. no symlinks)
+                continue;
+        }
+
+        this->stream_loc = telldir(dirp);
+        StrSlice nameslice = str_slice(entry.d_name);
+        str_copy_truncate(&this->current.access_path, this->path.length, nameslice, 0, nameslice.length);
+        this->current.name = str_slice(this->current.access_path.data + this->path.length);
+        // str_overwrite(&this->current.name, str_slice(entry.d_name));
+        break;
+    }
+
+    return true;
+}
+
+/////////////// DirLister END ///////////////

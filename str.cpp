@@ -1,5 +1,6 @@
 #include "str.h"
 #include "memory.h"
+#include "common.h"
 
 static char empty_string_storage[] = { '\0' };
 static char *empty_string = empty_string_storage;
@@ -22,6 +23,26 @@ Str str_alloc(StrLen str_size)
     result.data[0] = 0;
     result.length = 0;
     result.capacity = (StrLen)str_size;
+    return result;
+}
+
+
+void str_ensure_capacity(Str *str, StrLen capacity)
+{
+    if (str->capacity < capacity)
+    {
+        str->capacity = capacity;
+        RESIZE_ARRAY(str->data, char, str->capacity, mem::default_allocator());
+    }
+}
+
+
+Str str_make_copy(const Str &str)
+{
+    assert(str.capacity >= str.length + 1);
+    Str result = str_alloc(str.capacity);
+    std::strncpy(result.data, str.data, str.length + 1);
+    result.data[result.length] = 0;
     return result;
 }
 
@@ -53,6 +74,47 @@ void str_free(Str *str)
     str->data = empty_string;
     str->capacity = 0;
     str->length = 0;
+}
+
+
+// TODO(mike): unit test
+void str_copy(Str *dest, size_t dest_start, StrSlice src, size_t src_start, size_t count)
+{
+    StrLen sl_src_start = STRLEN(src_start);
+    StrLen sl_count = STRLEN(count);
+    assert(sl_src_start + sl_count <= src.length);
+
+    StrLen sl_dest_start = STRLEN(dest_start);
+    StrLen final_length = max<StrLen>(sl_dest_start + sl_count, dest->length);
+    assert(final_length > sl_dest_start || sl_count == 0);
+
+
+    StrLen capacity_required = sl_dest_start + sl_count + 1;
+    str_ensure_capacity(dest, capacity_required);
+    std::strncpy(dest->data + sl_dest_start, src.data + sl_src_start, sl_count);
+
+
+    if (final_length > dest->length)
+    {
+        dest->data[final_length] = '\0';
+    }
+
+    dest->length = final_length;
+}
+
+
+void str_copy_truncate(Str *dest, size_t dest_start, StrSlice src, size_t src_start, size_t count)
+{
+    str_copy(dest, dest_start, src, src_start, count);
+    *(dest->data + dest_start + count) = '\0';
+}
+
+
+void str_overwrite(Str *dest, StrSlice src)
+{
+    str_copy(dest, 0, src, 0, src.length);
+    dest->data[src.length] = '\0';
+    dest->length = src.length;
 }
 
 

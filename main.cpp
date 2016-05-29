@@ -207,8 +207,8 @@ void prgstate_init(ProgramState *prgstate)
     ht_init(&prgstate->typedesc_bindings);
 
     prgstate->collection_loaded = false;
-    dynarray_init(&prgstate->collection, 256);
-    prgstate->collection_directory = make_empty_str();
+    dynarray_init(&prgstate->collection, 0);
+    prgstate->collection_directory = str_make_empty();
 
     TypeDescriptor *none_type;
     prgstate->prim_none = add_typedescriptor(prgstate, &none_type);
@@ -884,6 +884,92 @@ Value create_value_from_json(ProgramState *prgstate, json_value_s *jv)
 }
 
 
+struct ParseResult
+{
+    enum Status
+    {
+        Eof,
+        Failed,
+        Succeeded
+    };
+
+    Status status;
+    const char *error_desc;
+    size_t parse_offset;
+    size_t error_offset;
+    size_t error_line;
+    size_t error_column;
+};
+
+
+// // TODO(mike): Should probably be its own return type instead
+// // of piggybacking on the ParseResult
+// ParseResult load_json_dir(ProgramState *prgstate, StrSlice path)
+// {
+//     ParseResult result = {};
+
+//     platform::DirWalker dw = platformDirWalker::list(path.data); // non-recursive
+//     platform::DirLister dirlist(path.data);
+//         directory_entries(path.data);
+
+//     assert(dw.is_valid);
+
+//     DynArray<Value> loaded_values;
+//     dynarray_init(&loaded_values, 64);
+
+//     bool error = false;
+
+//     while (!error && dirlist.next())
+//     {
+//         if (dirlist.current.is_file && str_endswith(dirlist.current.filename, ".json"))
+//         {
+//             size_t filesize = dirlist.current.filesize;
+
+//             Str filecontents = str_alloc(STRLEN(filesize + 1));
+//             FileReadResult read_result = read_text_file(&filecontents, dirlist.current.filename);
+
+//             if (read_result.error_kind != FileReadResult::NoError)
+//             {
+//                 FormatBuffer errorfmt;
+//                 errorfmt.writef("Error reading json file '%s': ", dw.current.filename);
+//                 write_file_error(&errorfmt, errorfmt);
+//                 errorfmt.write('\c');
+//                 result.error_desc = str(errorfmt.buffer, errorfmt.cursor);
+//                 error = true;
+//                 break;
+//             }
+
+//             Value parsed_value;
+//             ParseResult parse_result = try_parse_json_as_value(
+//                 OUTPARAM &parsed_value, prgstate, str_slice(filecontents));
+
+//             switch (parse_result.status)
+//             {
+//                 case ParseResult::Eof:
+//                     break;
+//                 case ParseResult::Failed:
+//                 {
+//                     result = parsed_result;
+//                     FormatBuffer errorfmt;
+//                     errorfmt.writef("error parsing json file %s: %s", dw.current.filename.data, result.error_desc.data);
+//                     result.error_desc = str(errorfmt.buffer, errorfmt.cursor);
+//                     error = true;
+//                     break;
+//                 }
+//                 case ParseResult::Succeeded:
+//                     dynarray_append(loaded_values, parsed_value);
+//                     break;
+//             }
+//         }
+//     }
+
+//     if (error)
+//     {
+//         dynarray_(&loaded_values);
+//     }
+// }
+
+
 void register_command(ProgramState *prgstate, StrSlice name, CliCommandFn *fnptr, void *userdata)
 {
     assert(fnptr);
@@ -1247,7 +1333,95 @@ CLI_COMMAND_FN_SIG(loaddir)
     UNUSED(userdata);
     UNUSED(args);
 
-    
+    logln("not implemented yet");
+}
+
+
+CLI_COMMAND_FN_SIG(listdir)
+{
+    UNUSED(prgstate);
+    UNUSED(userdata);
+    // UNUSED(args);
+
+    if (args.count == 0 || get_typedesc(args[0].typeref)->type_id != TypeID::String)
+    {
+        logln("Usage: listdir \"path/to/directory\"");
+        return;
+    }
+
+    DirLister dirlister(str_slice(args[0].str_val));
+
+    while (dirlister.next())
+    {
+
+        logf("[%02lli %s] %s, fullpath: %s",
+             dirlister.stream_loc,
+             (dirlister.current.is_file ? "F" : "D"),
+             dirlister.current.name.data,
+             dirlister.current.access_path.data);
+    }
+
+    if (dirlister.has_error())
+    {
+        logf_ln("Error listing directories: %s", dirlister.error.message.data);
+    }
+}
+
+CLI_COMMAND_FN_SIG(changedir)
+{
+    UNUSED(prgstate);
+    UNUSED(userdata);
+
+    if (args.count == 0 || get_typedesc(args[0].typeref)->type_id != TypeID::String)
+    {
+        logln("Usage: listdir \"path/to/directory\"");
+        return;
+    }
+
+    PlatformError error = change_dir(args[0].str_val);
+
+    if (error.is_error())
+    {
+        logf_ln("Error changing directories: %s", error.message.data);
+    }
+    else
+    {
+        logln("Ok");
+    }
+}
+
+
+CLI_COMMAND_FN_SIG(curdir)
+{
+    UNUSED(prgstate);
+    UNUSED(userdata);
+
+    if (args.count != 0)
+    {
+        logln("Usage: curdir");
+        return;
+    }
+
+    Str str = {};
+    PlatformError error = current_dir(&str);
+
+    if (error.is_error())
+    {
+        logf_ln("Error getting current directory: %s", error.message.data);
+    }
+    else
+    {
+        logf_ln("Current directory is %s", str.data);
+    }
+}
+
+
+CLI_COMMAND_FN_SIG(cls)
+{
+    UNUSED(prgstate);
+    UNUSED(userdata);
+    UNUSED(args);
+    clear_concatenated_log();
 }
 
 
@@ -1323,25 +1497,12 @@ void init_cli_commands(ProgramState *prgstate)
     REGISTER_COMMAND(prgstate, print_type, nullptr);
     REGISTER_COMMAND(prgstate, checktype, nullptr);
     REGISTER_COMMAND(prgstate, list_allocs, nullptr);
+    REGISTER_COMMAND(prgstate, listdir, nullptr);
+    REGISTER_COMMAND(prgstate, changedir, nullptr);
+    REGISTER_COMMAND(prgstate, curdir, nullptr);
+    REGISTER_COMMAND(prgstate, cls, nullptr);
 }
 
-
-struct ParseResult
-{
-    enum Status
-    {
-        Eof,
-        Failed,
-        Succeeded
-    };
-
-    Status status;
-    const char *error_desc;
-    size_t parse_offset;
-    size_t error_offset;
-    size_t error_line;
-    size_t error_column;
-};
 
 ParseResult try_parse_json_as_value(OUTPARAM Value *output, ProgramState *prgstate, const StrSlice input)
 {
@@ -1616,6 +1777,7 @@ void CliHistory::backward(ImGuiTextEditCallbackData* data)
     if (this->pos == -1)
     {
         this->pos = this->input_entries.count - 1;
+        // str_overwrite(this->saved_input_buf, data->Buf);
         this->saved_input_buf = str(data->Buf);
         this->saved_cursor_pos = data->CursorPos;
         this->saved_selection_start = data->SelectionStart;
@@ -1715,11 +1877,11 @@ void draw_imgui_json_cli(ProgramState *prgstate, SDL_Window *window)
 
 
     ImGuiInputTextFlags output_flags = ImGuiInputTextFlags_ReadOnly;
-    Str biglog = concatenated_log();
+    Str *biglog = concatenated_log();
 
     if (highlight_output_mode)
     {
-        ImGui::InputTextMultiline("##log-output", biglog.data, biglog.length, ImVec2(-1, -1), output_flags);
+        ImGui::InputTextMultiline("##log-output", biglog->data, biglog->length, ImVec2(-1, -1), output_flags);
 
         if ((! (ImGui::IsWindowHovered() || ImGui::IsItemHovered()) && ImGui::IsMouseReleased(0))
             || ImGui::IsKeyReleased(SDLK_TAB))
@@ -1729,7 +1891,7 @@ void draw_imgui_json_cli(ProgramState *prgstate, SDL_Window *window)
     }
     else
     {
-        ImGui::TextUnformatted(biglog.data, biglog.data + biglog.length);
+        ImGui::TextUnformatted(biglog->data, biglog->data + biglog->length);
         scroll_y = ImGui::GetItemRectSize().y;
         if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(0))
         {
@@ -1814,8 +1976,8 @@ int main(int argc, char **argv)
     while (running)
     {
         SDL_Event event;
-        while (SDL_PollEvent(&event))
-        {
+
+        while (SDL_PollEvent(&event)) {
             if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE)
             {
                 running = false;
@@ -1839,6 +2001,7 @@ int main(int argc, char **argv)
                 }
             }
         }
+
 
         ImGui_ImplSdl_NewFrame(window);
 

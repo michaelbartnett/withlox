@@ -19,7 +19,9 @@ u32 log_count();
 
 // returns log entry at index
 Str *get_log(u32 i);
-Str concatenated_log();
+// Str concatenated_log();
+Str *concatenated_log();
+void clear_concatenated_log();
 
 // append to the log entries directly without writing to stdout
 void append_log(const char *string);
@@ -29,7 +31,7 @@ void log_write_with_userdata(void *userdata, const char *buffer, size_t length);
 void logf_with_userdata(void *userdata, const char *format, ...) FORMAT_ARG_FLAGS(2);
 void logf(const char *format, ...) FORMAT_ARG_FLAGS(1);
 void logln(const char *string);
-void logf_ln(const char *format, ...);
+void logf_ln(const char *format, ...) FORMAT_ARG_FLAGS(1);
 inline void log(const char *string)
 {
     logf("%s", string);

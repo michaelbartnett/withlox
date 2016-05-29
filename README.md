@@ -12,6 +12,165 @@ This will be maintained. Latest log entry will go below.
 
 - [ ] CLI command to save the DynArray<Value> back out to JSON files
 
+# 2016-05-29-0048EST strings and Files and Directories Oh My
+
+My next major goal is to load up a directory of JSON files so I can write a
+litlte UI to edit their values.
+
+But to do that I needed some more utility functionality, so I wrote DirLister,
+which is a platform-specific OOP-lite interface to list all directory entries
+under a given directory. I just did that macosx version for now, which uses
+opendir/readdir.
+
+It doesn't do a walk, which I thought I needed, but now I think I don't need.
+This isn't there yet, but I can add an `access_path` field to `DirEntry` which
+will just prepend the initial path parameter to the name of each directory
+entry. I guess that's what `_ftsent.fts_accpath` is on bsd/linux. So, yeah,
+maybe this is just reimplementing `fts.h`, but mine can be prettier and more
+approachable, and provide less information. Which is a good thing, because I
+really don't care about inode numbers, I promise. I also want a common interface
+with a Windows implementation (via `FindFirstFile` and friends).
+
+So I could walk directories using that thing, or if that hurts, I can always
+make a `DirWalker` helper.
+
+Errors have been annoying to deal with, until I realized that basically all my
+platforms could usefully return platform-specific error code + message `Str`. So
+I made a `PlatformError` struct that any sort of platform-specific operation can
+return (mostly for filesystem crap). This is probably not the best long-term
+thing (allocating for an error message seems a little excessive), but works
+pretty well, and I could later change this to static error message pointers.
+
+While making that I also added a few things to `str.h`:
+
+- `str_make_copy`
+- `str_copy`
+- `str_overwrite`
+- `str_append`
+- `str_clear`
+
+I had been using `FormatBuffer` for most cases where I wanted to concatenate a
+bunch of strings together, rather than `str_concated`, since that one allocates
+a new `Str`. Most languages I've used outside of C and C++ have immutable
+strings, so the `str_concated` operation makes sense considering that sort of
+flow, but this is not C# or Python or Elisp or whatever. While making
+`DirLister` I found myself wanting ot just reuse a single `Str` object and
+extend its capacity as needed as I hit longer and longer file names. So
+`str_copy` is the workhorse, with `str_overwrite` and `str_append` being
+implemented by passing appropriate parameters to `str_copy`.
+
+While doing this, I've been more and more clarifying my usage patterns for when
+to use `Str` versus `StrSlice`. My general idea:
+
+- If you have a `Str` you should generally be aware of where it came from or
+  what's responsible for it
+- If you have a `StrSlice`, it's a view of a `Str` or a `const char *`, and in Rust-lifetime terms, should not outlive its source. 
+
+Seems to have worked out pretty well. Something that felt uncomfortable at first
+but proved to be a pretty good rule of thumb use point that if you have a
+`StrSlice` to have its own lifetime, then allocate a `Str` for it. I think this felt
+weird at first because I didn't have the `IAllocator` interface figured out.
+
+Another thing that sort of clicked after reading a tweet(discussed a few
+paragraphs ahead) from Casey Muratori is that you can't really null-terminate a
+StrSlice whose source you don't control, so for cases where you absolutely must
+have a null-terminated C string, you pretty much have to allocate a `Str`. This
+is sort of obvious, and observable in my code, but having it clearly spelled out
+was useful.
+
+String storage is still not something I'm terribly happy with (`Str` always uses
+`mem::default_allocator()` at the moment), but at least now I can see how many
+string allocations I've made. Later I might want to add some sort of string heap
+allocator. Heap allocators are annoying to implement, but I can probably do this one
+in chunks and get away with it. It doesn't have to be general either, since I'm pretty
+sure most other types in this program can use pool or stack allocators.
+
+In the meantime though, the default allocator is fine. And a more immediate
+memory problem that I would like to solve is getting persistent vector / bucket
+/ deque style storage for `Type` objects. Right now, they use this `TypeRef`
+thing which keeps an index and a pointer to the containing
+`DynArray<TypeDescriptor>`, and it's a little annoying to deal with.
+
+My thought for doing this was that I want to be able to dump the program state
+to disk, and reload it with minimal pointer patching. This method probably
+achieves that goal, but it might be easier to just do the work of translating
+from pointers to indices and back for saving and loading states. I could also
+try to do something like Shawn McGrath's virtual memory stacks. They're like the
+Handmade Hero persistent storage, except the idea is to allocate as many as
+needed throughout your program, and the addresses still work. There's some
+details that make his implementation nice, but I'll have to watch one of his
+archived streams (ugh) or wait until he releases the source code of his memory
+tools to see exactly what he did.
+
+Alright, break off from the program state / memory allocation tangent. One last
+note about strings. There's one bit of shittiness where the `Str` is for
+ownership and `StrSlice` is for views/references/borrows-for-rustaceans that
+doesn't really fit my needs.
+
+A couple of hashtables map `StrSlice` to a value, but in order to satisfy the
+lifetime requirement, those `StrSlice` values actually "own" their char
+data. It's irritating, but it's probably the only reasonable thing to do given
+how the hashtables are implemented as templates.
+
+Coincidentally, Casey Muratori posted this while I was working on this string
+stuff:
+
+https://twitter.com/cmuratori/status/736651441956257792
+
+> I don't think I've ever encountered a common practical programming situation
+> where I wanted null-termination as the convention for strings.
+
+This is a great thread. I wish I could just grab all of these tweets and arrange
+them into one mega tweet page, grabbing all of the Tweets that my out-of-date
+Twitter for Mac app shows. I guess that's what Storify is for, but that looks
+like a PITA to use.
+
+The key takeaway was this tweet by Per Vognsen
+
+https://twitter.com/pervognsen/status/736724036198137856
+
+> The pointer + descriptor idiom is one of the best ideas in programming, which
+> seems to be underappreciated and underused.
+
+He then linked to a snippet of code from his Xeno foreign function/data
+interface project, Xeno:
+
+https://gist.github.com/pervognsen/d6ef883708465bd8f2b58640477a6e85
+
+Tim Sweeney also chimed in, saying he wish the Unreal meta layer had followed
+that sort of model and suggested forming this into a C++ introspection
+proposal. 
+
+https://twitter.com/timsweeneyepic/status/736752990690942981
+
+Per elaborated on the difficulties of dealing with templates, and
+points out Unreal's meta system with UClass (todo: look that up!) as an inferior
+approach to plain-old-data descriptors. I'm guessing UClass implements some
+virtual interface to provide metadata, as is typical of various C++ meta systems
+I've seen people post on gamedev.net, /r/gamedev, et. al.
+
+That whole twitter thread is great, and made me start thinking about the `Type`
+and `Value` structures in this project. There's a similar thing going on in mine
+and his code (inevitable for any sort of generic data manipulation system, I
+guess), so I'm interested in seeing if there are any useful approaches I can
+crib.
+
+Something that I did see he does is sort of like Wren classes: fields in
+aggregates are more about the offsets than they are about the names. The field
+names are just their for the convenience of printing, it seems. I think for my
+project, I'll want to emphasize field names
+
+In a way it's slightly more like the recently introduced Clojure/spec library
+(of particular interest is the key set concept): https://clojure.org/guides/spec
+
+I think this is more in the right direction for this project, because I want to
+be able to do transformations based on field name (sort of like my Unity
+component clipboard).
+
+Anyway, the last few remaining yak shaving things are a `clear` command for
+clearing the console window (but not the list of log entries), and that
+`access_path` thing for my `load_json_dir` function.
+
 ## 2016-04-27-0215EST Memory system lookin' kind of okay
 
 After an embarassing memory corruption bug (and a journey to the land of linux

@@ -60,6 +60,7 @@ public:
 
     void flush_to_log();
 
+    void write(char c);
     void write(const char *string, size_t length);
     void write(const char *string) { this->writef("%s", string); }
     void write_indent(int indent, const char *string);

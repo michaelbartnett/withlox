@@ -26,7 +26,7 @@ StrLen STRLEN(TInteger i)
 struct StrSlice
 {
     const char *data;
-    StrLen length;
+    StrLen length; // length does not include null terminator
 };
 
 
@@ -35,8 +35,8 @@ struct StrSlice
 struct Str
 {
     char *data;
-    StrLen length;
-    StrLen capacity;
+    StrLen length;   // length does not include null terminator
+    StrLen capacity; // capacity includes null terminator (length + 1 if at min capacity)
 };
 
 
@@ -45,15 +45,13 @@ Str str(const char *cstr, StrLen len);
 Str str(const char *cstr);
 void str_free(Str *str);
 Str str_concated_v_impl(StrSlice first_slice...);
+Str str_make_copy(const Str &str);
+void str_copy(Str *dest, size_t dest_start, StrSlice src, size_t src_start, size_t count);
+void str_copy_truncate(Str *dest, size_t dest_start, StrSlice src, size_t src_start, size_t count);
+void str_overwrite(Str *dest, StrSlice src);
+void str_ensure_capacity(Str *str, StrLen capacity);
 
 StrSlice empty_str_slice();
-
-
-inline Str make_empty_str()
-{
-    return str("", 0);
-}
-
 
 inline Str str(StrSlice strslice)
 {
@@ -65,6 +63,20 @@ inline Str str(const Str &src)
 {
     return str(src.data, src.length);
 }
+
+
+inline Str str_make_empty()
+{
+    return str("", 0);
+}
+
+
+inline Str str_make_zeroed()
+{
+    Str result = {};
+    return result;
+}
+
 
 inline StrSlice str_slice(const char *cstr, size_t length)
 {
@@ -92,6 +104,51 @@ inline StrSlice str_slice(const Str &str)
     StrSlice result;
     result.data = str.data;
     result.length = str.length;
+    return result;
+}
+
+
+inline void str_append(Str *str, StrSlice strslice)
+{
+    str_copy(str, str->length, strslice, 0, strslice.length);
+}
+
+
+inline void str_append(Str *str, const Str appendstr)
+{
+    str_append(str, str_slice(appendstr));
+}
+
+
+inline void str_append(Str *str, char c)
+{
+    char tmp[2];
+    tmp[0] = c;
+    tmp[1] = '\0';
+    str_append(str, str_slice(tmp, 1));
+}
+
+
+inline void str_clear(Str *str)
+{
+    if (str->data)
+    {
+        str->length = 0;
+        str->data[0] = '\0';
+    }
+}
+
+
+inline char str_popchar(Str *str)
+{
+    if (!str->data || str->length == 0)
+    {
+        return '\0';
+    }
+
+    --str->length;
+    char result = str->data[str->length];
+    str->data[str->length] = '\0';
     return result;
 }
 
