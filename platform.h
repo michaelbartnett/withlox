@@ -20,6 +20,11 @@ struct PlatformError
         return code != 0;
     }
 
+    void release()
+    {
+        if (message.data) str_free(&message);
+    }
+
     static PlatformError from_code(ErrorCode code);
 };
 
@@ -37,7 +42,14 @@ struct FileReadResult
     };
 
     ErrorKind error_kind;
-    int error_code;
+    PlatformError platform_error;
+
+    void release()
+    {
+        platform_error.release();
+    }
+
+    static FileReadResult from_error_code(ErrorCode code);
 };
 
 
@@ -115,6 +127,8 @@ inline double seconds_since(u64 earlier)
 struct DirEntry
 {
     bool is_file;
+    bool is_directory;
+    size_t filesize;
     StrSlice name;
     Str access_path;
     // StrSlice name;

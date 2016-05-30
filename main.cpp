@@ -894,7 +894,7 @@ struct ParseResult
     };
 
     Status status;
-    const char *error_desc;
+    Str error_desc;
     size_t parse_offset;
     size_t error_offset;
     size_t error_line;
@@ -902,72 +902,128 @@ struct ParseResult
 };
 
 
-// // TODO(mike): Should probably be its own return type instead
-// // of piggybacking on the ParseResult
-// ParseResult load_json_dir(ProgramState *prgstate, StrSlice path)
-// {
-//     ParseResult result = {};
+ParseResult try_parse_json_as_value(OUTPARAM Value *output, ProgramState *prgstate, const StrSlice input)
+{
+    ParseResult result = {};
 
-//     platform::DirWalker dw = platformDirWalker::list(path.data); // non-recursive
-//     platform::DirLister dirlist(path.data);
-//         directory_entries(path.data);
+    if (input.length == 0)
+    {
+        result.status = ParseResult::Eof;
+        return result;
+    }
 
-//     assert(dw.is_valid);
+    size_t jsonflags = json_parse_flags_default
+        | json_parse_flags_allow_trailing_comma
+        | json_parse_flags_allow_c_style_comments
+        ;
 
-//     DynArray<Value> loaded_values;
-//     dynarray_init(&loaded_values, 64);
+    json_parse_result_s jp_result = {};
+    json_value_s *jv = json_parse_ex(input.data, input.length,
+                                     jsonflags, &jp_result);
 
-//     bool error = false;
+    result.parse_offset = jp_result.parse_offset;
 
-//     while (!error && dirlist.next())
-//     {
-//         if (dirlist.current.is_file && str_endswith(dirlist.current.filename, ".json"))
-//         {
-//             size_t filesize = dirlist.current.filesize;
+    if (jp_result.error != json_parse_error_none)
+    {
+        // json.h doesn't seem to be consistent in whether it point to
+        // errors before or after the relevant character
+        bool invalid_value = jp_result.error == json_parse_error_invalid_value;
+        bool invalid_number = jp_result.error == json_parse_error_invalid_number_format;
 
-//             Str filecontents = str_alloc(STRLEN(filesize + 1));
-//             FileReadResult read_result = read_text_file(&filecontents, dirlist.current.filename);
+        result.error_offset = jp_result.error_offset;
+        result.error_line = jp_result.error_line_no;
+        result.error_column = jp_result.error_row_no;
+        result.error_desc = str(json_error_code_string(jp_result.error));
 
-//             if (read_result.error_kind != FileReadResult::NoError)
-//             {
-//                 FormatBuffer errorfmt;
-//                 errorfmt.writef("Error reading json file '%s': ", dw.current.filename);
-//                 write_file_error(&errorfmt, errorfmt);
-//                 errorfmt.write('\c');
-//                 result.error_desc = str(errorfmt.buffer, errorfmt.cursor);
-//                 error = true;
-//                 break;
-//             }
+        // offset for json.h error reporting weirdness
+        result.error_column += (invalid_number ? 1 : 0);
+        result.error_offset += (invalid_value ? 1 : 0);
 
-//             Value parsed_value;
-//             ParseResult parse_result = try_parse_json_as_value(
-//                 OUTPARAM &parsed_value, prgstate, str_slice(filecontents));
+        result.status = ParseResult::Failed;
+    }
+    else if (! jv)
+    {
+        // if jv was null, that means end of input,
+        // but need to check for error first
+        result.status = ParseResult::Eof;
+    }
+    else
+    {
+        *output = create_value_from_json(prgstate, jv);
+        result.status = ParseResult::Succeeded;
+    }
 
-//             switch (parse_result.status)
-//             {
-//                 case ParseResult::Eof:
-//                     break;
-//                 case ParseResult::Failed:
-//                 {
-//                     result = parsed_result;
-//                     FormatBuffer errorfmt;
-//                     errorfmt.writef("error parsing json file %s: %s", dw.current.filename.data, result.error_desc.data);
-//                     result.error_desc = str(errorfmt.buffer, errorfmt.cursor);
-//                     error = true;
-//                     break;
-//                 }
-//                 case ParseResult::Succeeded:
-//                     dynarray_append(loaded_values, parsed_value);
-//                     break;
-//             }
-//         }
-//     }
+    return result;
+}
 
-//     if (error)
-//     {
-//         dynarray_(&loaded_values);
-//     }
-// }
+
+// TODO(mike): Should probably be its own return type instead
+// of piggybacking on the ParseResult
+ParseResult load_json_dir(OUTPARAM DynArray<Value> *destarray, ProgramState *prgstate, StrSlice path)
+{
+    assert(destarray);
+    ParseResult result = {};
+
+    DirLister dirlist(path);
+
+    bool error = false;
+
+    DynArrayCount num_values_read = 0;
+
+    while (dirlist.next())
+    {
+        if (dirlist.current.is_file && str_endswith_ignorecase(dirlist.current.name, ".json"))
+        {
+            Str filecontents = {};
+
+            FileReadResult read_result = read_text_file(&filecontents, dirlist.current.access_path.data);
+
+            if (read_result.error_kind != FileReadResult::NoError)
+            {
+                FormatBuffer errorfmt;
+                errorfmt.writef("Error reading json file '%s': ", dirlist.current.name.data);
+                errorfmt.writeln(read_result.platform_error.message.data);
+                result.error_desc = str(errorfmt.buffer, STRLEN(errorfmt.cursor));
+                error = true;
+            }
+
+            read_result.release();
+
+            if (error) break;
+
+            Value parsed_value;
+            ParseResult parse_result = try_parse_json_as_value(
+                OUTPARAM &parsed_value, prgstate, str_slice(filecontents));
+
+            switch (parse_result.status)
+            {
+                case ParseResult::Eof:
+                    break;
+                case ParseResult::Failed:
+                {
+                    result = parse_result;
+                    FormatBuffer errorfmt;
+                    errorfmt.writef("error parsing json file %s: %s", dirlist.current.name.data, result.error_desc.data);
+                    result.error_desc = str(errorfmt.buffer, STRLEN(errorfmt.cursor));
+                    error = true;
+                    break;
+                }
+                case ParseResult::Succeeded:
+                    dynarray_append(destarray, parsed_value);
+                    ++num_values_read;
+                    break;
+            }
+        }
+    }
+
+    if (error)
+    {
+        // expect caller to deallocate
+        dynarray_popnum(destarray, num_values_read);
+    }
+
+    return result;
+}
 
 
 void register_command(ProgramState *prgstate, StrSlice name, CliCommandFn *fnptr, void *userdata)
@@ -1413,6 +1469,8 @@ CLI_COMMAND_FN_SIG(curdir)
     {
         logf_ln("Current directory is %s", str.data);
     }
+
+    error.release();
 }
 
 
@@ -1422,6 +1480,44 @@ CLI_COMMAND_FN_SIG(cls)
     UNUSED(userdata);
     UNUSED(args);
     clear_concatenated_log();
+}
+
+
+
+CLI_COMMAND_FN_SIG(catfile)
+{
+    UNUSED(prgstate);
+    UNUSED(userdata);
+
+    if (args.count != 1 || get_typedesc(args[0].typeref)->type_id != TypeID::String)
+    {
+        logln("Usage: catfile \"<filename>\"");
+        return;
+    }
+
+    Str dest = {};
+    FileReadResult rr = read_text_file(&dest, args[0].str_val.data);
+
+    if (rr.error_kind != FileReadResult::NoError)
+    {
+        logf_ln("Failed to read file '%s': %s", args[0].str_val.data, rr.platform_error.message.data);
+    }
+    else
+    {
+        logln(dest.data);
+    }
+
+    rr.release();
+}
+
+
+CLI_COMMAND_FN_SIG(loadjson)
+{
+    UNUSED(prgstate);
+    UNUSED(userdata);
+    UNUSED(args);
+
+    // load_json_dir
 }
 
 
@@ -1501,62 +1597,7 @@ void init_cli_commands(ProgramState *prgstate)
     REGISTER_COMMAND(prgstate, changedir, nullptr);
     REGISTER_COMMAND(prgstate, curdir, nullptr);
     REGISTER_COMMAND(prgstate, cls, nullptr);
-}
-
-
-ParseResult try_parse_json_as_value(OUTPARAM Value *output, ProgramState *prgstate, const StrSlice input)
-{
-    ParseResult result = {};
-    result.error_desc = "";
-
-    if (input.length == 0)
-    {
-        result.status = ParseResult::Eof;
-        return result;
-    }
-
-    size_t jsonflags = json_parse_flags_default
-        | json_parse_flags_allow_trailing_comma
-        | json_parse_flags_allow_c_style_comments
-        ;
-
-    json_parse_result_s jp_result = {};
-    json_value_s *jv = json_parse_ex(input.data, input.length,
-                                     jsonflags, &jp_result);
-
-    result.parse_offset = jp_result.parse_offset;
-
-    if (jp_result.error != json_parse_error_none)
-    {
-        // json.h doesn't seem to be consistent in whether it point to
-        // errors before or after the relevant character
-        bool invalid_value = jp_result.error == json_parse_error_invalid_value;
-        bool invalid_number = jp_result.error == json_parse_error_invalid_number_format;
-
-        result.error_offset = jp_result.error_offset;
-        result.error_line = jp_result.error_line_no;
-        result.error_column = jp_result.error_row_no;
-        result.error_desc = json_error_code_string(jp_result.error);
-
-        // offset for json.h error reporting weirdness
-        result.error_column += (invalid_number ? 1 : 0);
-        result.error_offset += (invalid_value ? 1 : 0);
-
-        result.status = ParseResult::Failed;
-    }
-    else if (! jv)
-    {
-        // if jv was null, that means end of input,
-        // but need to check for error first
-        result.status = ParseResult::Eof;
-    }
-    else
-    {
-        *output = create_value_from_json(prgstate, jv);
-        result.status = ParseResult::Succeeded;
-    }
-
-    return result;
+    REGISTER_COMMAND(prgstate, catfile, nullptr);
 }
 
 
@@ -1566,7 +1607,7 @@ void log_parse_error(ParseResult pr, StrSlice input, size_t input_offset_from_sr
     fmt_buf.flush_on_destruct();
 
     fmt_buf.writef("Json parse error: %s\nAt %lu:%lu\n%s\n",
-                   pr.error_desc,
+                   pr.error_desc.data,
                    pr.error_line,
                    pr.error_column + (pr.error_line > 1 ? 0 : input_offset_from_src),
                    input.data);

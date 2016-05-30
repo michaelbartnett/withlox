@@ -22,7 +22,7 @@ Str str_alloc(StrLen str_size)
     result.data = MAKE_ARRAY(char, str_size + 1, mem::default_allocator());
     result.data[0] = 0;
     result.length = 0;
-    result.capacity = (StrLen)str_size;
+    result.capacity = (StrLen)str_size + 1;
     return result;
 }
 
@@ -50,7 +50,7 @@ Str str_make_copy(const Str &str)
 Str str(const char *cstr, StrLen len)
 {
     Str result = str_alloc(len);
-    result.length = result.capacity;
+    result.length = len;
 
     // careful: https://randomascii.wordpress.com/2013/04/03/stop-using-strncpy-already/
     std::strncpy(result.data, cstr, len + 1);
@@ -184,8 +184,8 @@ static char to_ascii_lower(char c)
 }
 
 
-bool str_equal_ignore_case(const StrSlice &a, const StrSlice &b)
-{    
+bool str_equal_ignorecase(const StrSlice &a, const StrSlice &b)
+{
     if (a.length != b.length)
     {
         return false;
@@ -226,4 +226,30 @@ bool str_equal(const StrSlice &a, const StrSlice &b)
     }
 
     return true;
+}
+
+
+bool str_endswith(StrSlice str, StrSlice suffix)
+{
+    if (suffix.length > str.length)
+    {
+        return false;
+    }
+
+    StrSlice compslice = str_slice(str.data + (str.length - suffix.length), suffix.length);
+
+    return str_equal(compslice, suffix);
+}
+
+
+bool str_endswith_ignorecase(StrSlice str, StrSlice suffix)
+{
+    if (suffix.length > str.length)
+    {
+        return false;
+    }
+
+    StrSlice compslice = str_slice(str.data + (str.length - suffix.length), suffix.length);
+
+    return str_equal_ignorecase(compslice, suffix);
 }

@@ -281,11 +281,11 @@ Token read_token(State *tokstate)
     }
 
     Token token_result = read_word(tokstate);
-    if (str_equal_ignore_case(token_result.text, "true"))
+    if (str_equal_ignorecase(token_result.text, "true"))
     {
         token_result.type = TokenType::True;
     }
-    else if (str_equal_ignore_case(token_result.text, "false"))
+    else if (str_equal_ignorecase(token_result.text, "false"))
     {
         token_result.type = TokenType::False;
     }

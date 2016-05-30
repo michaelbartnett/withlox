@@ -127,13 +127,21 @@ void dynarray_set(DynArray<T> *dynarray, u32 index, T value)
 
 
 template<typename T>
-u32 dynarray_pop(const DynArray<T> *dynarray)
+void dynarray_pop(DynArray<T> *dynarray)
 {
     if (dynarray->count > 0)
     {
         --dynarray->count;
     }
-    return dynarray->count;
+    // return dynarray->count;
+}
+
+
+template <typename T>
+void dynarray_popnum(DynArray<T> *dynarray, DynArrayCount num)
+{
+    dynarray->count -= min(num, dynarray->count);
+    // return dynarray->count;
 }
 
 

@@ -156,70 +156,126 @@ inline char str_popchar(Str *str)
 #define str_concated(...) str_concated_v_impl(__VA_ARGS__, 0);
 
 bool str_equal(const StrSlice &a, const StrSlice &b);
-bool str_equal_ignore_case(const StrSlice &a, const StrSlice &b);
+bool str_equal_ignorecase(const StrSlice &a, const StrSlice &b);
 
 inline bool str_equal(const char *const &a, const char *const &b)
 {
     return str_equal(str_slice(a), str_slice(b));
 }
-
-
 inline bool str_equal(const Str &a, const StrSlice &b)
 {
     return str_equal(str_slice(a), b);
 }
-
 inline bool str_equal(const StrSlice &a, const Str &b)
 {
     return str_equal(a, str_slice(b));
 }
-
 inline bool str_equal(const Str &a, const Str &b)
 {
     return str_equal(str_slice(a), str_slice(b));
 }
-
 inline bool str_equal(const StrSlice &a, const char *b)
 {
     return str_equal(a, str_slice(b));
 }
-
 inline bool str_equal(const char *a, const StrSlice &b)
 {
     return str_equal(b, str_slice(a));
 }
 
-
-
-inline bool str_equal_ignore_case(const char *const &a, const char *const &b)
+inline bool str_equal_ignorecase(const char *const &a, const char *const &b)
 {
-    return str_equal_ignore_case(str_slice(a), str_slice(b));
+    return str_equal_ignorecase(str_slice(a), str_slice(b));
+}
+inline bool str_equal_ignorecase(const Str &a, const StrSlice &b)
+{
+    return str_equal_ignorecase(str_slice(a), b);
+}
+inline bool str_equal_ignorecase(const StrSlice &a, const Str &b)
+{
+    return str_equal_ignorecase(a, str_slice(b));
+}
+inline bool str_equal_ignorecase(const Str &a, const Str &b)
+{
+    return str_equal_ignorecase(str_slice(a), str_slice(b));
+}
+inline bool str_equal_ignorecase(const StrSlice &a, const char *b)
+{
+    return str_equal_ignorecase(a, str_slice(b));
+}
+inline bool str_equal_ignorecase(const char *a, const StrSlice &b)
+{
+    return str_equal_ignorecase(b, str_slice(a));
 }
 
 
-inline bool str_equal_ignore_case(const Str &a, const StrSlice &b)
+bool str_endswith(StrSlice str, StrSlice suffix);
+bool str_endswith_ignorecase(StrSlice str, StrSlice suffix);
+
+inline bool str_endswith(Str str, Str suffix)
 {
-    return str_equal_ignore_case(str_slice(a), b);
+    return str_endswith(str_slice(str), str_slice(suffix));
+}
+inline bool str_endswith(Str str, StrSlice suffix)
+{
+    return str_endswith(str_slice(str), suffix);
+}
+inline bool str_endswith(Str str, const char *suffix)
+{
+    return str_endswith(str_slice(str), str_slice(suffix));
+}
+inline bool str_endswith(StrSlice str, Str suffix)
+{
+    return str_endswith(str, str_slice(suffix));
+}
+inline bool str_endswith(StrSlice str, const char *suffix)
+{
+    return str_endswith(str, str_slice(suffix));
+}
+inline bool str_endswith(const char *str, Str suffix)
+{
+    return str_endswith(str_slice(str), str_slice(suffix));
+}
+inline bool str_endswith(const char *str, StrSlice suffix)
+{
+    return str_endswith(str_slice(str), suffix);
+}
+inline bool str_endswith(const char *str, const char *suffix)
+{
+    return str_endswith(str_slice(str), str_slice(suffix));
 }
 
-inline bool str_equal_ignore_case(const StrSlice &a, const Str &b)
+inline bool str_endswith_ignorecase(Str str, Str suffix)
 {
-    return str_equal_ignore_case(a, str_slice(b));
+    return str_endswith_ignorecase(str_slice(str), str_slice(suffix));
 }
-
-inline bool str_equal_ignore_case(const Str &a, const Str &b)
+inline bool str_endswith_ignorecase(Str str, StrSlice suffix)
 {
-    return str_equal_ignore_case(str_slice(a), str_slice(b));
+    return str_endswith_ignorecase(str_slice(str), suffix);
 }
-
-inline bool str_equal_ignore_case(const StrSlice &a, const char *b)
+inline bool str_endswith_ignorecase(Str str, const char *suffix)
 {
-    return str_equal_ignore_case(a, str_slice(b));
+    return str_endswith_ignorecase(str_slice(str), str_slice(suffix));
 }
-
-inline bool str_equal_ignore_case(const char *a, const StrSlice &b)
+inline bool str_endswith_ignorecase(StrSlice str, Str suffix)
 {
-    return str_equal_ignore_case(b, str_slice(a));
+    return str_endswith_ignorecase(str, str_slice(suffix));
+}
+inline bool str_endswith_ignorecase(StrSlice str, const char *suffix)
+{
+    return str_endswith_ignorecase(str, str_slice(suffix));
+}
+inline bool str_endswith_ignorecase(const char *str, Str suffix)
+{
+    return str_endswith_ignorecase(str_slice(str), str_slice(suffix));
+}
+inline bool str_endswith_ignorecase(const char *str, StrSlice suffix)
+{
+    return str_endswith_ignorecase(str_slice(str), suffix);
+}
+inline bool str_endswith_ignorecase(const char *str, const char *suffix)
+{
+    return str_endswith_ignorecase(str_slice(str), str_slice(suffix));
 }
 
 

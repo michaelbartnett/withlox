@@ -48,22 +48,53 @@ void waitkey()
 }
 
 
-Str read_file(const char *filename)
+PlatformError read_filesize(OUTPARAM size_t *filesize, const char *filename)
 {
-    Str result = {};
+    assert(filesize);
     struct stat statbuf;
     int err = stat(filename, &statbuf);
+    PlatformError error_result = {};
 
     if (0 != err)
     {
-        std::printf("Failed to stat file: %s\nReason: %s\n", filename, std::strerror(err));
-        return result;
+        error_result = PlatformError::from_code(errno);
+        *filesize = 0;
+    }
+    else
+    {
+        *filesize = (size_t)max(statbuf.st_size, 0LL);
     }
 
-    assert(statbuf.st_size > 0);
-    u16 filesize = (u16)statbuf.st_size;
+    return error_result;
+}
+
+
+Str read_file(const char *filename)
+{
+    Str result = {};
+    // struct stat statbuf;
+    // int err = stat(filename, &statbuf);
+
+    // if (0 != err)
+    // {
+    //     std::printf("Failed to stat file: %s\nReason: %s\n", filename, std::strerror(err));
+    //     return result;
+    // }
+
+    // assert(statbuf.st_size > 0);
+    // u16 filesize = (u16)statbuf.st_size;
+
+    size_t read_filesize_result;
+    PlatformError err = read_filesize(&read_filesize_result, filename);
+    if (err.is_error())
+    {
+        logf("Failed to stat file: %s\nReason: %s", filename, err.message.data);
+    }
+
+    u16 filesize = STRLEN(read_filesize_result);
     result = str_alloc(filesize);
     std::FILE *f = std::fopen(filename, "r");
+    assert(f);
     size_t bytes_read = fread(result.data, 1, filesize, f);
     result.length = filesize;
     fclose(f);
@@ -79,7 +110,7 @@ FileReadResult::ErrorKind check_file_error(int err)
     switch (err)
     {
         case 0:
-            break;
+            return FileReadResult::NoError;
         case ENOENT:
         case ENOTDIR:
             return FileReadResult::NotFound;
@@ -94,12 +125,6 @@ FileReadResult::ErrorKind check_file_error(int err)
 }
 
 
-void write_file_error(FormatBuffer *fb, FileReadResult error)
-{
-    fb->write(std::strerror(error.error_code));
-}
-
-
 // void log_file_error(FileReadResult error, const char *prefix, const char *filename)
 // {
 //     FormatBuffer fb;
@@ -110,30 +135,41 @@ void write_file_error(FormatBuffer *fb, FileReadResult error)
 
 FileReadResult read_text_file(Str *dest, const char *filename)
 {
-    FileReadResult result;
+    // FileReadResult result;
 
-    struct stat statbuf;
-    result.error_code = stat(filename, &statbuf);
+    // struct stat statbuf;
+    // int err = stat(filename, &statbuf);
 
-    result.error_kind = check_file_error(result.error_code);
+    // if (err)
+    // {
+        // return FileReadResult::from_error_code(err);
+    // }
 
-    if (result.error_kind != FileReadResult::NoError)
+    // assert(statbuf.st_size > 0);
+    size_t filesize_outparam;
+    PlatformError readsize_error = read_filesize(&filesize_outparam, filename);
+
+    if (readsize_error.is_error())
     {
-        return result;
+        FileReadResult error_result = {check_file_error(readsize_error.code), readsize_error};
+        return error_result;
     }
 
-    assert(statbuf.st_size > 0);
-    StrLen filesize = STRLEN(statbuf.st_size);
-    *dest = str_alloc(filesize);
+    // NOTE(mike): read_filesize doesn't allocate anything in
+    // readsize_error if there is no error should probably make the
+    // other PlatformError instances do the same thing
+
+    StrLen filesize = STRLEN(filesize_outparam);
+    str_ensure_capacity(dest, filesize);
     std::FILE *f = std::fopen(filename, "r");
 
-    result.error_code = errno;
-
-    result.error_kind = check_file_error(result.error_code);
-
-    if (result.error_kind != FileReadResult::NoError)
+    if (!f)
     {
-        return result;
+        assert(errno);
+        // result.platform_error = PlatformError::from_code(errno);
+        // result.error_kind = check_file_error(result.platform_error.code);
+        // return result;
+        return FileReadResult::from_error_code(errno);
     }
 
     size_t bytes_read = fread(dest->data, 1, filesize, f);
@@ -144,10 +180,11 @@ FileReadResult read_text_file(Str *dest, const char *filename)
         assert(!feof(f));
 
         // so just try to return an error, assert that there is an error
-        result.error_code = ferror(f);
-        assert(result.error_code != 0);
-        result.error_kind = check_file_error(result.error_code);
-        return result;
+        // result.platform_error = PlatformError::from_code(ferror(f));
+        // result.error_kind = check_file_error(result.platform_error.code);
+        FileReadResult error_result = FileReadResult::from_error_code(ferror(f));
+        assert(error_result.platform_error.code != 0);
+        return error_result;
     }
 
     dest->length = filesize;
@@ -155,7 +192,9 @@ FileReadResult read_text_file(Str *dest, const char *filename)
     int fcloseerr = fclose(f);
     assert(fcloseerr == 0);
 
-    return result;
+    // result.platform_error = PlatformError::from_code(0);
+    // result.error_kind = FileReadResult::NoError;
+    return FileReadResult::from_error_code(0);
 }
 
 
@@ -182,14 +221,39 @@ u64 nanoseconds_since(u64 later, u64 earlier)
 
 PlatformError PlatformError::from_code(ErrorCode error_code)
 {
-    Str errormsg = str_alloc(MaxMessageLen);
-    int strerror_error = strerror_r(error_code, errormsg.data, errormsg.capacity);
-    assert(strerror_error == 0 || strerror_error == ERANGE);
-    if (strerror_error == ERANGE)
+    Str errormsg;
+    if (error_code == 0)
     {
-        logln("WARNING: error message truncated");
+        errormsg = str("");
     }
+    else
+    {
+        errormsg = str_alloc(MaxMessageLen);
+        int strerror_error = strerror_r(error_code, errormsg.data, errormsg.capacity);
+        if (strerror_error == ERANGE)
+        {
+            logln("WARNING: error message truncated");
+        }
+        else if (strerror_error != 0)
+        {
+            logf("Unexpected error reading strerror: %s", strerror(strerror_error));
+        }
+        else
+        {
+            assert(strerror_error == 0 || strerror_error == ERANGE);
+        }
+    }
+
     PlatformError result = {error_code, errormsg};
+    return result;
+}
+
+
+FileReadResult FileReadResult::from_error_code(ErrorCode code)
+{
+    FileReadResult result;
+    result.error_kind = check_file_error(code);
+    result.platform_error = PlatformError::from_code(code);
     return result;
 }
 
@@ -239,6 +303,8 @@ static void DirLister_deinit(DirLister *dl)
 
     str_clear(&dl->current.access_path);
     dl->current.is_file = false;
+    dl->current.is_directory = false;
+    dl->current.filesize = 0;
 
     DIR *dirp = (DIR *)dl->pimpl;
 
@@ -317,13 +383,18 @@ bool DirLister::next()
             return false;
         }
 
+        
+
         switch (entry.d_type)
         {
             case DT_REG:
                 this->current.is_file = true;
+                this->current.is_directory = false;
+
                 break;
 
             case DT_DIR:
+            {
                 // Skip dot directories
                 if ((entry.d_namlen == 1 && entry.d_name[0] == '.') ||
                     (entry.d_namlen == 2 && entry.d_name[0] == '.' && entry.d_name[1] == '.'))
@@ -332,7 +403,13 @@ bool DirLister::next()
                 }
 
                 this->current.is_file = false;
+                this->current.is_directory = true;
+
+                StrSlice nameslice = str_slice(entry.d_name);
+                str_copy_truncate(&this->current.access_path, this->path.length, nameslice, 0, nameslice.length);
+                this->current.name = str_slice(this->current.access_path.data + this->path.length);
                 break;
+            }
 
             default:
                 // Skip anything that's not a file or a directo ry (i.e. no symlinks)
@@ -340,10 +417,27 @@ bool DirLister::next()
         }
 
         this->stream_loc = telldir(dirp);
+
         StrSlice nameslice = str_slice(entry.d_name);
         str_copy_truncate(&this->current.access_path, this->path.length, nameslice, 0, nameslice.length);
         this->current.name = str_slice(this->current.access_path.data + this->path.length);
-        // str_overwrite(&this->current.name, str_slice(entry.d_name));
+
+        if (this->current.is_file)
+        {
+            size_t filesize_result;
+            PlatformError staterror = read_filesize(OUTPARAM &filesize_result, this->current.access_path.data);
+            if (staterror.is_error())
+            {
+                this->error = staterror;
+                return false;
+            }
+            this->current.filesize = filesize_result;
+        }
+        else
+        {
+            this->current.filesize = 0;
+        }
+
         break;
     }
 
