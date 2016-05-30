@@ -31,8 +31,13 @@ PlatformError current_dir(OUTPARAM Str *result)
 
 PlatformError change_dir(const char *path)
 {
-    int error = chdir(path);
-    return PlatformError::from_code(error);
+    PlatformError result = {};
+    int had_error = chdir(path);
+    if (had_error)
+    {
+        result = PlatformError::from_code(errno);
+    }
+    return result;
 }
 
 

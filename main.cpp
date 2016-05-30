@@ -963,6 +963,7 @@ ParseResult load_json_dir(OUTPARAM DynArray<Value> *destarray, ProgramState *prg
 {
     assert(destarray);
     ParseResult result = {};
+    result.status = ParseResult::Succeeded;
 
     DirLister dirlist(path);
 
@@ -999,6 +1000,7 @@ ParseResult load_json_dir(OUTPARAM DynArray<Value> *destarray, ProgramState *prg
             {
                 case ParseResult::Eof:
                     break;
+
                 case ParseResult::Failed:
                 {
                     result = parse_result;
@@ -1517,7 +1519,41 @@ CLI_COMMAND_FN_SIG(loadjson)
     UNUSED(userdata);
     UNUSED(args);
 
-    // load_json_dir
+    if (args.count != 1)
+    {
+        log("Usage: loadjson \"<path/to/directory/with/json/files>\"");
+    }
+
+    DynArray<Value> loaded_values = {};
+    ParseResult parse_result = load_json_dir(&loaded_values, prgstate, str_slice(args[0].str_val.data));
+
+    switch (parse_result.status)
+    {
+        case ParseResult::Eof:
+            log("File was empty");
+            break;
+
+        case ParseResult::Failed:
+            break;
+
+        case ParseResult::Succeeded:
+        {
+            FormatBuffer fmt_buf;
+            fmt_buf.flush_on_destruct();
+
+            for (u32 i = 0; i < loaded_values.count; ++i)
+            {
+                fmt_buf.writeln("");
+                Value *value = &loaded_values[i];
+                fmt_buf.write("Value: ");
+                pretty_print(value, &fmt_buf);
+                fmt_buf.writef("Parsed value's type: %i ", value->typeref.index);
+                pretty_print(value->typeref, &fmt_buf);
+                value_free(value);
+            }
+            break;
+        }
+    }
 }
 
 
@@ -1598,6 +1634,7 @@ void init_cli_commands(ProgramState *prgstate)
     REGISTER_COMMAND(prgstate, curdir, nullptr);
     REGISTER_COMMAND(prgstate, cls, nullptr);
     REGISTER_COMMAND(prgstate, catfile, nullptr);
+    REGISTER_COMMAND(prgstate, loadjson, nullptr);
 }
 
 
