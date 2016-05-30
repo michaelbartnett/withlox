@@ -59,6 +59,8 @@ PlatformError current_dir(OUTPARAM Str *path);
 
 PlatformError change_dir(const char *path);
 
+PlatformError resolve_path(OUTPARAM Str *dest, const char *path);
+
 
 inline PlatformError change_dir(const Str path)
 {

@@ -41,6 +41,22 @@ PlatformError change_dir(const char *path)
 }
 
 
+PlatformError resolve_path(Str *dest, const char *path)
+{
+    PlatformError error = {};
+    str_ensure_capacity(dest, MAXPATHLEN);
+
+    bool ok = realpath(path, dest->data);
+
+    if (!ok)
+    {
+        error = PlatformError::from_code(errno);
+    }
+
+    return error;
+}
+
+
 void end_of_program()
 {
     // noop

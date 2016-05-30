@@ -6,6 +6,7 @@
 #include "platform.h"
 #include "formatbuffer.h"
 #include "pretty.h"
+#include "types.h"
 
 
 void exec_command(ProgramState *prgstate, StrSlice name, DynArray<Value> args)
@@ -536,6 +537,46 @@ CLI_COMMAND_FN_SIG(catfile)
 }
 
 
+CLI_COMMAND_FN_SIG(abspath)
+{
+    UNUSED(prgstate);
+    UNUSED(userdata);
+    UNUSED(args);
+
+    for (DynArrayCount i = 0; i < args.count; ++i)
+    {
+        if (get_typedesc(args[i].typeref)->type_id != TypeID::String)
+        {
+            logf("Argument %i was a string\n Expected usage: abspath \"<path1\" [, \"<path2>\"]...", i);
+        }
+    }
+
+    Str dest = {};
+    for (DynArrayCount i = 0; i < args.count; ++i)
+    {
+        PlatformError err = resolve_path(OUTPARAM &dest, args[i].str_val.data);
+        if (err.is_error())
+        {
+            logf("Error resolving path %s: %s", args[i].str_val.data, err.message.data);
+        }
+        else
+        {
+            log(dest.data);
+        }
+        err.release();
+    }
+}
+
+
+// CLI_COMMAND_FN_SIG($newcommandname)
+// {
+//     UNUSED(prgstate);
+//     UNUSED(userdata);
+//     UNUSED(args);
+// }
+
+
+
 void init_cli_commands(ProgramState *prgstate)
 {
     REGISTER_COMMAND(prgstate, say_hello, nullptr);
@@ -555,4 +596,6 @@ void init_cli_commands(ProgramState *prgstate)
     REGISTER_COMMAND(prgstate, cls, nullptr);
     REGISTER_COMMAND(prgstate, catfile, nullptr);
     REGISTER_COMMAND(prgstate, loadjson, nullptr);
+    REGISTER_COMMAND(prgstate, abspath, nullptr);
+    // REGISTER_COMMAND(prgstate, $COMMAND, nullptr);
 }
