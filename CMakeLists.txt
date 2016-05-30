@@ -62,6 +62,11 @@ set(CXX_SOURCES
   memory.cpp
   formatbuffer.h
   formatbuffer.cpp
+  clicommands.h
+  clicommands.cpp
+  programstate.h
+  types.h
+  types.cpp
   ${IMGUI_SOURCES}  
   ${CXX_PLATFORM_SOURCES}
   )

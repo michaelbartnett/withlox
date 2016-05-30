@@ -186,6 +186,7 @@ void formatbuffer_v_writef(FormatBuffer *fmt_buf, const char *format, va_list va
     assert(printf_result >= 0);
     size_t byte_write_count = (size_t)printf_result;
 
+    // TODO(mike): Grow by factor of 2 or 1.5 or something better than minimum amount
     // format size should always be less than output size, otherwise we risk losing the null terminator
     if (byte_write_count >= bytes_remaining)
     {

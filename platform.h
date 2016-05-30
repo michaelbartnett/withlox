@@ -1,5 +1,7 @@
 // -*- c++ -*-
 
+#ifndef PLATFORM_H
+
 #include "str.h"
 #include "numeric_types.h"
 #include "common.h"
@@ -168,3 +170,5 @@ public:
     bool next();
 };
 
+#define PLATFORM_H
+#endif

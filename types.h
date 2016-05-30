@@ -213,10 +213,20 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
 }
 
 
+struct ProgramState;
+
+TypeRef make_typeref(ProgramState *prgstate, u32 index);
+
 inline TypeDescriptor *get_typedesc(TypeRef ref)
 {
     return ref.index && ref.owner ? &ref.owner->operator[](ref.index) : 0;
 }
+
+TypeRef find_typeref_by_name(ProgramState *prgstate, NameRef name);
+TypeRef find_typeref_by_name(ProgramState *prgstate, StrSlice name);
+TypeRef find_typeref_by_name(ProgramState *prgstate, Str name);
+
+
 
 
 enum TypeCheckResult
