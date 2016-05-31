@@ -44,6 +44,9 @@
         ImVec4(const MyVec4& f) { x = f.x; y = f.y; z = f.z; w = f.w; }     \
         operator MyVec4() const { return MyVec4(x,y,z,w); }
 */
+#define IM_VEC2_CLASS_EXTRA                                                 \
+    ImVec2 scaled(float s) { return ImVec2(x * s, y * s); }
+
 
 //---- Tip: You can add extra functions within the ImGui:: namespace, here or in your own headers files.
 //---- e.g. create variants of the ImGui::Value() helper for your low-level math types, or your own widgets/helpers.

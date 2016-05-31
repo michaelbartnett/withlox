@@ -146,7 +146,7 @@ void dynarray_popnum(DynArray<T> *dynarray, DynArrayCount num)
 
 
 template<typename T>
-void dynarray_clear(const DynArray<T> *dynarray)
+void dynarray_clear(DynArray<T> *dynarray)
 {
     dynarray->count = 0;
 }

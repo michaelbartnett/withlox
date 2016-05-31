@@ -466,50 +466,6 @@ CLI_COMMAND_FN_SIG(list_args)
 }
 
 
-CLI_COMMAND_FN_SIG(loadjson)
-{
-    UNUSED(prgstate);
-    UNUSED(userdata);
-    UNUSED(args);
-
-    if (args.count != 1)
-    {
-        log("Usage: loadjson \"<path/to/directory/with/json/files>\"");
-    }
-
-    DynArray<Value> loaded_values = {};
-    ParseResult parse_result = load_json_dir(&loaded_values, prgstate, str_slice(args[0].str_val.data));
-
-    switch (parse_result.status)
-    {
-        case ParseResult::Eof:
-            log("File was empty");
-            break;
-
-        case ParseResult::Failed:
-            break;
-
-        case ParseResult::Succeeded:
-        {
-            FormatBuffer fmt_buf;
-            fmt_buf.flush_on_destruct();
-
-            for (u32 i = 0; i < loaded_values.count; ++i)
-            {
-                fmt_buf.writeln("");
-                Value *value = &loaded_values[i];
-                fmt_buf.write("Value: ");
-                pretty_print(value, &fmt_buf);
-                fmt_buf.writef("Parsed value's type: %i ", value->typeref.index);
-                pretty_print(value->typeref, &fmt_buf);
-                value_free(value);
-            }
-            break;
-        }
-    }
-}
-
-
 CLI_COMMAND_FN_SIG(catfile)
 {
     UNUSED(prgstate);
@@ -568,6 +524,62 @@ CLI_COMMAND_FN_SIG(abspath)
 }
 
 
+CLI_COMMAND_FN_SIG(loadjson)
+{
+    UNUSED(prgstate);
+    UNUSED(userdata);
+    UNUSED(args);
+
+    if (args.count != 1)
+    {
+        log("Usage: loadjson \"<path/to/directory/with/json/files>\"");
+    }
+
+    DynArrayCount new_records_start_idx = prgstate->collection.count;
+    // DynArray<LoadedRecord> loaded_records = {};
+    ParseResult parse_result = load_json_dir(&prgstate->collection, prgstate, str_slice(args[0].str_val.data));
+
+    switch (parse_result.status)
+    {
+        case ParseResult::Eof:
+            log("Direcotry...empty?");
+            break;
+
+        case ParseResult::Failed:
+            break;
+
+        case ParseResult::Succeeded:
+        {
+            FormatBuffer fmt_buf;
+            fmt_buf.flush_on_destruct();
+
+            for (u32 i = new_records_start_idx; i < prgstate->collection.count; ++i)
+            {
+                fmt_buf.write('\n');
+                LoadedRecord *record = &prgstate->collection[i];
+                fmt_buf.write("Path: ");
+                fmt_buf.write(record->fullpath.data);
+                fmt_buf.write("\nValue: ");
+                pretty_print(&record->value, &fmt_buf);
+                fmt_buf.writef("Parsed value's type: %i ", record->value.typeref.index);
+                pretty_print(record->value.typeref, &fmt_buf);
+            }
+            break;
+        }
+    }
+}
+
+
+CLI_COMMAND_FN_SIG(flushjson)
+{
+    UNUSED(userdata);
+    UNUSED(args);
+
+    log("TODO: implement actual saving instead of just dropping");
+    drop_loaded_records(prgstate);
+}
+
+
 // CLI_COMMAND_FN_SIG($newcommandname)
 // {
 //     UNUSED(prgstate);
@@ -597,5 +609,5 @@ void init_cli_commands(ProgramState *prgstate)
     REGISTER_COMMAND(prgstate, catfile, nullptr);
     REGISTER_COMMAND(prgstate, loadjson, nullptr);
     REGISTER_COMMAND(prgstate, abspath, nullptr);
-    // REGISTER_COMMAND(prgstate, $COMMAND, nullptr);
+    REGISTER_COMMAND(prgstate, flushjson, nullptr);
 }

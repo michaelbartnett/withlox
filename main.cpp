@@ -173,9 +173,7 @@ void prgstate_init(ProgramState *prgstate)
     dynarray_append(&prgstate->type_descriptors);
     ht_init(&prgstate->typedesc_bindings);
 
-    prgstate->collection_loaded = false;
     dynarray_init(&prgstate->collection, 0);
-    prgstate->collection_directory = str_make_empty();
 
     TypeDescriptor *none_type;
     prgstate->prim_none = add_typedescriptor(prgstate, &none_type);
@@ -873,7 +871,7 @@ ParseResult try_parse_json_as_value(OUTPARAM Value *output, ProgramState *prgsta
 
 // TODO(mike): Should probably be its own return type instead
 // of piggybacking on the ParseResult
-ParseResult load_json_dir(OUTPARAM DynArray<Value> *destarray, ProgramState *prgstate, StrSlice path)
+ParseResult load_json_dir(OUTPARAM DynArray<LoadedRecord> *destarray, ProgramState *prgstate, StrSlice path)
 {
     assert(destarray);
     ParseResult result = {};
@@ -925,9 +923,25 @@ ParseResult load_json_dir(OUTPARAM DynArray<Value> *destarray, ProgramState *prg
                     break;
                 }
                 case ParseResult::Succeeded:
-                    dynarray_append(destarray, parsed_value);
-                    ++num_values_read;
+                {
+                    Str fullpath = {};
+                    PlatformError abspath_err = resolve_path(&fullpath, dirlist.current.access_path.data);
+                    if (abspath_err.is_error())
+                    {
+                        FormatBuffer errorfmt;
+                        errorfmt.writef("error resolving absolute path for '%s': %s",
+                                        dirlist.current.access_path.data, abspath_err.message.data);
+                        result.error_desc = str(errorfmt.buffer, STRLEN(errorfmt.cursor));
+                        error = true;
+                    }
+                    else
+                    {
+                        LoadedRecord lr = {fullpath, parsed_value};
+                        dynarray_append(destarray, lr);
+                        ++num_values_read;
+                    }
                     break;
+                }
             }
         }
     }
@@ -942,6 +956,15 @@ ParseResult load_json_dir(OUTPARAM DynArray<Value> *destarray, ProgramState *prg
 }
 
 
+void drop_loaded_records(ProgramState *prgstate)
+{
+    for (DynArrayCount i = 0; i < prgstate->collection.count; ++i)
+    {
+        value_free(&prgstate->collection[i].value);
+        str_free(&prgstate->collection[i].fullpath);
+    }
+    dynarray_clear(&prgstate->collection);
+}
 
 
 void test_json_import(ProgramState *prgstate, int filename_count, char **filenames)
@@ -1065,52 +1088,52 @@ AfterArgParseLoop:
 }
 
 
-void run_terminal_cli(ProgramState *prgstate)
-{
-    for (;;)
-    {
-        char *input = linenoise(">> ");
+// void run_terminal_cli(ProgramState *prgstate)
+// {
+//     for (;;)
+//     {
+//         char *input = linenoise(">> ");
 
-        if (!input)
-        {
-            break;
-        }
+//         if (!input)
+//         {
+//             break;
+//         }
 
-        append_log(input);
+//         append_log(input);
 
-        tokenizer::State tokstate;
-        tokenizer::init(&tokstate, input);
+//         tokenizer::State tokstate;
+//         tokenizer::init(&tokstate, input);
 
-        tokenizer::Token first_token = tokenizer::read_string(&tokstate);
+//         tokenizer::Token first_token = tokenizer::read_string(&tokstate);
 
-        if (first_token.type == tokenizer::TokenType::Eof)
-        {
-            std::free(input);
-            continue;
-        }
+//         if (first_token.type == tokenizer::TokenType::Eof)
+//         {
+//             std::free(input);
+//             continue;
+//         }
 
-        DynArray<Value> cmd_args;
-        dynarray_init(&cmd_args, 10);
+//         DynArray<Value> cmd_args;
+//         dynarray_init(&cmd_args, 10);
 
-        for (;;)
-        {
-            tokenizer::Token token = tokenizer::read_token(&tokstate);
-            if (token.type == tokenizer::TokenType::Eof)
-            {
-                break;
-            }
+//         for (;;)
+//         {
+//             tokenizer::Token token = tokenizer::read_token(&tokstate);
+//             if (token.type == tokenizer::TokenType::Eof)
+//             {
+//                 break;
+//             }
 
-            Value value = create_value_from_token(prgstate, token);
+//             Value value = create_value_from_token(prgstate, token);
 
-            dynarray_append(&cmd_args, value);
-        }
+//             dynarray_append(&cmd_args, value);
+//         }
 
-        exec_command(prgstate, first_token.text, cmd_args);
+//         exec_command(prgstate, first_token.text, cmd_args);
 
-        dynarray_deinit(&cmd_args);
-        std::free(input);
-    }
-}
+//         dynarray_deinit(&cmd_args);
+//         std::free(input);
+//     }
+// }
 
 
 void run_terminal_json_cli(ProgramState *prgstate)
@@ -1301,12 +1324,12 @@ void draw_imgui_json_cli(ProgramState *prgstate, SDL_Window *window)
 
     ImGuiWindowFlags console_wndflags = 0
         | ImGuiWindowFlags_NoSavedSettings
-        | ImGuiWindowFlags_NoTitleBar
+        // | ImGuiWindowFlags_NoTitleBar
         // | ImGuiWindowFlags_NoMove
-        | ImGuiWindowFlags_NoResize
+        // | ImGuiWindowFlags_NoResize
         ;
 
-    ImGui::SetNextWindowSize(ImGui_SDLWindowSize(window), ImGuiSetCond_Always);
+    ImGui::SetNextWindowSize(ImGui_SDLWindowSize(window).scaled(0.5), ImGuiSetCond_Once);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
     ImGui::Begin("ConsoleWindow###jsoneditor-console", nullptr, console_wndflags);
 
@@ -1375,6 +1398,86 @@ void draw_imgui_json_cli(ProgramState *prgstate, SDL_Window *window)
 }
 
 
+void draw_collection_editor(ProgramState *prgstate)
+{
+    UNUSED(prgstate);
+
+    ImGuiWindowFlags wndflags = 0
+        | ImGuiWindowFlags_NoSavedSettings
+        // | ImGuiWindowFlags_NoMove
+        // | ImGuiWindowFlags_NoResize
+        ;
+
+    ImGui::SetNextWindowSize(ImVec2(400, 400), ImGuiSetCond_Once);
+    // ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
+    ImGui::Begin("Collection Editor", nullptr, wndflags);
+
+    if (prgstate->collection.count > 0)
+    {
+        Value *value = &prgstate->collection[0].value;
+
+        DynArrayCount column_count = value->compound_value.members.count;
+
+        ImGui::Columns((int)column_count, "Data Yay");
+        ImGui::Separator();
+
+        Str col_label = {};
+        for (DynArrayCount i = 0; i < column_count; ++i)
+        {
+            str_overwrite(&col_label, str_slice(value->compound_value.members[i].name));
+            ImGui::Text("%s", col_label.data);
+            ImGui::NextColumn();
+        }
+        str_free(&col_label);
+
+        ImGui::Separator();
+
+        for (DynArrayCount i = 0; i < column_count; ++i)
+        {
+            ImGui::PushID((int)i);
+
+            Value *memval = &value->compound_value.members[i].value;
+            TypeDescriptor *memtype = get_typedesc(memval->typeref);
+            switch (memtype->type_id)
+            {
+                case TypeID::String:
+                    ImGui::InputText("##field", memval->str_val.data, memval->str_val.capacity);
+                    break;
+                case TypeID::Int:
+                case TypeID::Float:
+                case TypeID::Bool:
+                default:
+                    ImGui::Text("TODO: %s", TypeID::to_string(memtype->type_id));
+                    break;
+            }
+
+            ImGui::PopID();
+            ImGui::NextColumn();
+        }
+
+
+        // // get max columns
+        // for (DynArrayCount i = 0; i < prgstate->collection.count; ++i)
+        // {
+        //     Value *value = &prgstate->collection[i].value;
+        //     TypeDescriptor *typedesc = get_typedesc(value->typeref);
+
+        //     if (typedesc->type_id == TypeID::Compount)
+        //     {
+        //         column_count = max(column_count, value->compound_value.members.count);
+        //     }
+        // }
+
+        // ImGui::Columns(column_count);
+
+        ImGui::Columns(1);
+        ImGui::Separator();
+    }
+
+    ImGui::End();
+}
+
+
 int main(int argc, char **argv)
 {
     mem::memory_init(logf_with_userdata, nullptr);
@@ -1415,6 +1518,7 @@ int main(int argc, char **argv)
     ImVec4 clear_color = ImColor(114, 144, 154);
     ImGui_ImplSdl_Init(window);
 
+    bool show_imgui_testwindow = false;
     bool running = true;
     while (running)
     {
@@ -1450,7 +1554,9 @@ int main(int argc, char **argv)
 
         draw_imgui_json_cli(&prgstate, window);
 
-        ImGui::ShowTestWindow();
+        draw_collection_editor(&prgstate);
+
+        ImGui::ShowTestWindow(&show_imgui_testwindow);
 
 
         glViewport(0, 0,

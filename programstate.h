@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef PROGRAMSTATE_H
 
 #include "str.h"
@@ -10,6 +11,20 @@
 
 typedef OAHashtable<StrSlice, Value, StrSliceEqual, StrSliceHash> StrToValueMap;
 typedef OAHashtable<StrSlice, TypeRef, StrSliceEqual, StrSliceHash> StrToTypeMap;
+
+
+struct LoadedRecord
+{
+    Str fullpath;
+    Value value;
+};
+
+
+inline void loadedrecord_free(LoadedRecord *lr)
+{
+    value_free(&lr->value);
+    str_free(&lr->fullpath);
+}
 
 
 struct ProgramState
@@ -29,8 +44,12 @@ struct ProgramState
     StrToTypeMap type_map;
 
     Str collection_directory;
-    DynArray<Value> collection;
-    bool collection_loaded;
+    // DynArray<Value> collection;
+    // bool collection_loaded;
+
+    DynArray<LoadedRecord> collection;
+
+    bool colection_editor_active;
 };
 
 
@@ -52,7 +71,9 @@ struct ParseResult
 };
 
 
-ParseResult load_json_dir(OUTPARAM DynArray<Value> *destarray, ProgramState *prgstate, StrSlice path);
+// ParseResult load_json_dir(OUTPARAM DynArray<Value> *destarray, ProgramState *prgstate, StrSlice path);
+ParseResult load_json_dir(OUTPARAM DynArray<LoadedRecord> *destarray, ProgramState *prgstate, StrSlice path);
+void drop_loaded_records(ProgramState *prgstate);
 
 #define PROGRAMSTATE_H
 #endif

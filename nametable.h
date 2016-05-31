@@ -34,7 +34,12 @@ inline bool hashtable_keys_equal(const NameRef &lhs, const NameRef &rhs)
 }
 
 
-StrSlice str_slice(const NameRef &nameref);
+StrSlice str_slice(NameRef nameref);
+
+inline Str str(NameRef nameref)
+{
+    return str(str_slice(nameref));
+}
 
 void nametable_init(NameTable *nt, size_t storage_size, mem::IAllocator *allocator = nullptr);
 

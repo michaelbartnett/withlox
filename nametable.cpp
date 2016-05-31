@@ -8,7 +8,7 @@ bool nameref_identical(const NameRef &lhs, const NameRef &rhs)
 }
 
 
-StrSlice str_slice(const NameRef &nameref)
+StrSlice str_slice(NameRef nameref)
 {
     StrSlice result;
     assert((size_t)nameref.offset < nameref.table->storage_capacity);
