@@ -1,3 +1,4 @@
+
 [//]: # -*- fill-column: 80  -*-
 
 ## Current TODO
@@ -11,6 +12,116 @@ This will be maintained. Latest log entry will go below.
 - [ ] CLI command to show an editing window for the value collection
 
 - [ ] CLI command to save the DynArray<Value> back out to JSON files
+
+# 2016-06-02-0220EST The first row
+
+So I finally made a little grid editor window for the first JSON file
+loaded into memory.
+
+There are a couple of problems:
+
+## Text Input Length
+
+First, `ImGui::TextInput` will use only exactly as many characters as there is
+room for in your buffer.
+
+Ideally you should be able to make a text field arbitrarily large, expanding as
+you enter more characters, but there will have to be a practical limit. For
+handling resizing, I thought of four approaches.
+
+1. Whenver I run across a string field, expand its capacity to the maximum
+   length. Pretty wasteful, especially since I'd like to support very large
+   sizes if necessary (thousands of characters).
+  
+2. Ensure every string field has some extra room. This is like a more
+   conservative version of the above. It would work, but is also kind of lame in
+   that I'll do a bunch of allocations when I first display a bunch of
+   records. Seems like the simplest to get going with.
+   
+3. Keep a separate edit buffer, and when a field is being actively edited, fill
+   the edit buffer with that field's contents, writing back to the field if
+   there is a change. This is cleaner, but the extra copying is annoying,
+   considering that my Value struct is supposed to be all dynamic.
+  
+4. Ensure capacity like in 2, but only do it for the currently focused field
+   like in 3. This sounds like The Right Thing. I need to make sure I grok
+   dearimgui's focus/active semantics.
+   
+Since this is a project about "doing things right", I'm gonna try number 4.
+
+## Heterogeneous Record Types
+
+I'm sort of now confronted head-on with one of the problems I wanted to solve
+with this tool, which is handling heterogeneous record types.
+
+Here's me thinking through the problem:
+
+I could merge all types into one type. I have functions that do this, and it
+would work fine for cases where there the outermost type_id is always
+Compound. The downside, is that now information will be lost, and the types
+loosened.
+
+Also, now that I think about it, I haven't thought of a clear way to represent
+unions, so it feels like I haven't really solved any specific problems. What I'm
+dealing with right now is actually just rendering an editor for a union.
+
+The dumb way would be to divide it into N column sections, such that there may
+be multiple columns with the same name, but in different Union members.
+
+This seems kind of useless. I want flexibility.
+
+I want to think about this more like the Keyset concept from Clojure's Spec
+library, or at least what I understand to be keysets in that library. If a Union
+has two cases which are objects, and their keys overlap, you should be able to
+see that as one column.
+
+BUT! What if there are different keys with differently mapped types in each of
+the two Compound types? Should an individual cell be presented as sort of a
+Union cell, where either one value or the other is shown? Or should that be a
+separate cell? The right answer is probably be able to do both, because there
+are probably use cases for both.
+
+Another tricky thing is what to do when the top-level type is a Union consisting
+of a combination of scalar, compound, and array type cases.
+
+It's good to have some sort of systematic way of thinking about things, so here's some statements:
+
+A loaded collection, a *table*, should probably have a single type. The way you
+heterogeneous work is the collection is a Union type, and the individual records
+have their respective types.
+
+There will be rules for how to render a collection with TypeID of Union, and
+cell / column with TypeID of Union.
+
+You should be able to select a column and view it as a table, it's recursive
+like that. You won't be able to focus in more if the TypeID of the table is
+already a scalar. But, if it's a Union of scalar and compound, then you will be able
+to focus in on one of the compound fields, or the scalar.
+
+For rows which have no value for the current focus path, there should be a "no
+value" representation (different from null, I suppose), with the option to hide
+rows which have no meaningful value to show.
+
+This is a lot of thinking. In the next dev log I will write down a concrete plan
+of what to do next here.
+
+## A wild libui appears
+
+This library was posted on reddit a little while ago: https://github.com/andlabs/libui
+
+I had seen this *andlabs* person on the golang irc channel talking about doing a
+similar library for Go. Apparently he ended up splitting the platform-specific
+UI interaction into this C library so that it coudl just be used in Go via cgo.
+
+That makes me happy, because I'm concerned about making a polisehd versino of
+this tool in dearimgui and will want to evaluate if libui might be a better
+fit. I love this lib for prototyping right now, but people like their native
+widgets, and I haven't really tried to push daerimgui to do anything
+interesting.
+
+On the other hand, @paniq seems to be getting a lot of milage out of dearimgui,
+and I sort suspect that I'll have to do a bunch of custom rendering to make it
+feel *really* good, so maybe there's no sense switching away from dearimgui.
 
 # 2016-05-29-0048EST strings and Files and Directories Oh My
 

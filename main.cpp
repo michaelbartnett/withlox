@@ -1409,7 +1409,7 @@ void draw_collection_editor(ProgramState *prgstate)
         ;
 
     ImGui::SetNextWindowSize(ImVec2(400, 400), ImGuiSetCond_Once);
-    // ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
     ImGui::Begin("Collection Editor", nullptr, wndflags);
 
     if (prgstate->collection.count > 0)
@@ -1444,8 +1444,14 @@ void draw_collection_editor(ProgramState *prgstate)
                     ImGui::InputText("##field", memval->str_val.data, memval->str_val.capacity);
                     break;
                 case TypeID::Int:
+                    ImGui::InputInt("##field", &memval->s32_val);
+                    break;
                 case TypeID::Float:
+                    ImGui::InputFloat("##field", &memval->f32_val);
+                    break;
                 case TypeID::Bool:
+                    ImGui::Checkbox("##field", &memval->bool_val);
+                    break;
                 default:
                     ImGui::Text("TODO: %s", TypeID::to_string(memtype->type_id));
                     break;
@@ -1475,6 +1481,7 @@ void draw_collection_editor(ProgramState *prgstate)
     }
 
     ImGui::End();
+    ImGui::PopStyleVar();
 }
 
 
