@@ -50,7 +50,9 @@ FormatBuffer::~FormatBuffer()
         this->flush_to_log();
     }
     // mem::IAllocator *allocator = mem::default_allocator();
-    allocator->dealloc(this->buffer);
+    if (this->buffer) {
+        allocator->dealloc(this->buffer);
+    }
 }
 
 
@@ -107,20 +109,6 @@ void FormatBuffer::write(char c)
 
     ensure_formatbuffer_space(this, minlength);
 
-    // if (!this->buffer)
-    // {
-    //     // Just set to 5, because if we go hyper-unicode, at least we'll always have 4 bytes available plus null terminator
-    //     if (this->capacity < 5)
-    //     {
-    //         this->capacity = 5;
-    //     }
-    //     this->buffer = MAKE_ARRAY(char, this->capacity, this->allocator);
-    // }
-    // else if (bytes_remaining < 2)
-    // {
-    //     this->capacity
-    // }
-
     this->buffer[this->cursor] = c;
     ++this->cursor;
     this->buffer[this->cursor] = '\0';
@@ -130,27 +118,6 @@ void FormatBuffer::write(char c)
 void FormatBuffer::write(const char *string, size_t length)
 {
     ensure_formatbuffer_space(this, length);
-
-
-    // size_t bytes_remaining = this->capacity - this->cursor;
-
-
-    // if (!this->buffer)
-    // {
-    //     if (this->capacity < length)
-    //     {
-    //         this->capacity = length;
-    //     }
-    //     this->buffer = MAKE_ARRAY(char, this->capacity, allocator);
-
-    // }
-    // else if (bytes_remaining <= length)
-    // {
-    //     this->capacity = (this->capacity * 2 < this->capacity + length + 1
-    //                       ? this->capacity + length + 1
-    //                       : this->capacity * 2);
-    //     RESIZE_ARRAY(this->buffer, char, this->capacity, allocator);
-    // }
 
     std::memcpy(this->buffer + this->cursor, string, length);
     this->cursor += length;

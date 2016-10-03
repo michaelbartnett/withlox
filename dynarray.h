@@ -16,7 +16,8 @@ typedef u32 DynArrayCount;
 template<typename TInteger>
 DynArrayCount DYNARRAY_COUNT(TInteger i)
 {
-    assert(i < DYNARRAY_COUNT_MAX);
+    ASSERT(i >= 0);
+    ASSERT((DynArrayCount)(i) < DYNARRAY_COUNT_MAX);
     return (DynArrayCount)i;
 }
 
@@ -31,6 +32,12 @@ struct DynArray
 
     T &operator[](DynArrayCount index) const
     {
+        return at(index);
+    }
+
+    T &at(DynArrayCount index) const
+    {
+        ASSERT(index < count);
         return this->data[index];
     }
 };
@@ -78,7 +85,17 @@ void dynarray_deinit(DynArray<T> *dynarray)
     }
 }
 
- 
+
+template<typename T>
+void dynarray_ensure_capacity(DynArray<T> *dynarray, DynArrayCount min_capacity)
+{
+    if (dynarray->capacity < min_capacity)
+    {
+        dynarray->capacity = min_capacity;
+        RESIZE_ARRAY(dynarray->allocator, dynarray->data, dynarray->capacity, T);
+    }
+}
+
 
 template<typename T>
 T *dynarray_append(DynArray<T> *dynarray)
@@ -146,6 +163,17 @@ void dynarray_popnum(DynArray<T> *dynarray, DynArrayCount num)
 }
 
 
+template <typename T>
+void dynarray_swappop(DynArray<T> *da, DynArrayCount idx)
+{
+    if (da->count > 0)
+    {
+        da->data[idx] = da->data[da->count - 1];
+    }
+    --da->count;
+}
+
+
 template<typename T>
 void dynarray_clear(DynArray<T> *dynarray)
 {
@@ -154,42 +182,25 @@ void dynarray_clear(DynArray<T> *dynarray)
 
 
 template<typename T>
-void dynarray_copy(const DynArray<T> *src, DynArray<T> *dest, DynArrayCount start_index, DynArrayCount count)
+void dynarray_copy(DynArray<T> *dest, DynArrayCount dest_start, const DynArray<T> *src, DynArrayCount src_start, DynArrayCount count)
 {
-    assert(count <= src->count - start_index);
-    assert(count <= dest->capacity - start_index);
-    DynArrayCount idx = start_index;
-    for (DynArrayCount i = 0; i < count; ++i)
-    {
-        dest->data[idx] = src->data[idx];
-        ++idx;
-    }
-    dest->count += count - (dest->count - start_index);
+    assert(src_start + count <= src->count);
+
+    DynArrayCount final_count = max<DynArrayCount>(dest_start + count, dest->count);
+    assert(final_count > dest_start || count == 0);
+
+    DynArrayCount capacity_required = dest_start + count;
+    dynarray_ensure_capacity(dest, capacity_required);
+    std::memcpy(dest + dest_start, src + src_start, count * sizeof(T));
+    dest->count = final_count;
 }
 
 
 template<typename T>
-void dynarray_copy_at(const DynArray<T> *src, DynArray<T> *dest, DynArrayCount start_index)
-{
-    DynArrayCount count = (src->count < dest->capacity ? src->count : dest->capacity) - start_index;
-    dynarray_copy(src, dest, start_index, count);
-}
-
-
-template<typename T>
-void dynarray_copy(const DynArray<T> *src, DynArray<T> *dest)
+void dynarray_copy(DynArray<T> *dest, const DynArray<T> *src)
 {
     assert(src->count <= dest->capacity);
-    dynarray_copy_at(src, dest, 0);
-}
-
-
-template<typename T>
-void dynarray_copy_count(const DynArray<T> *src, DynArray<T> *dest, DynArrayCount count)
-{
-    assert(count <= src->count);
-    assert(count <= dest->capacity);
-    dynarray_copy(src, dest, 0, count);
+    dynarray_copy(dest, 0, src, 0, dest->count);
 }
 
 
@@ -198,7 +209,7 @@ DynArray<T> dynarray_clone(const DynArray<T> *src)
 {
     DynArray<T> result;
     dynarray_init(&result, src->count);
-    dynarray_copy(src, &result);
+    dynarray_copy(&result, src);
     return result;
 }
 

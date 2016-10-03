@@ -542,7 +542,7 @@ CLI_COMMAND_FN_SIG(loadjson)
     switch (parse_result.status)
     {
         case ParseResult::Eof:
-            log("Direcotry...empty?");
+            log("Directory...empty?");
             break;
 
         case ParseResult::Failed:
