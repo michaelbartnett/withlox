@@ -13,6 +13,116 @@ This will be maintained. Latest log entry will go below.
 
 - [ ] CLI command to save the DynArray<Value> back out to JSON files
 
+# 2016-10-01-0447EST Just malloc
+
+In order to make progress on getting rid of TypeRef, I've decided to
+forego custom storage for auxiliary TypeDescriptor data for the time
+being. CompoundType and UnionType will use the default DynAarray
+allocator as they do now, and then I'll figure out the right strategy
+for them later.
+
+In the meantime, I'm going to build a ChunkedArray<T> that will act
+sort of like a std::deque or a plf::colony (see CppCon 2016 talk).
+
+Maybe I'll name it ChunkChainArray, ArrayChain, ChainArray...idunno.
+
+# 2016-09-028-1237EST Storing auxiliary TypeDescriptor data
+
+To restate the problem from before:
+
+> UnionType has a DynArray<TypeDescriptor *> and CompoundType has a
+> DynArray<CompoundTypeMember>, where each CompoundTypeMember has two
+> pointers.
+
+It's pretty clear that I need to have a separate memory pool for auxiliary
+TypeDescriptor data that allocates up to an alignment of `sizeof(void *[2])`.
+
+This is a little annoying, because I want to build up these types
+iteratively in the JSON/type description parser, so the dynamic resize
+behavior of DynArray<T> is desirable. But I really don't want to be
+constantly allocating and deallocating from this memory pool, because
+that sounds prone to fragmentation.
+
+That can just be solved by having some scratchpad memory though, right?
+And when I've finished deciding all the types that go into a Union, I can
+do some sort of bake/cementing operation on a TypeDescriptor which copies
+its auxiliary data to permanent storage.
+
+The storage for auxiliary TypeDescriptor data needs to be able to
+handle arbitrary multiple of `sizeof(void *[2])`, which sort of makes
+it sound like I'm just reimplementing malloc. At this point it's
+sensible to ask: why am I even bothering?
+
+Maybe it's not worth bothering with, but the hope is that my allocator
+can go a bit faster than plain malloc because my allocator wouldn't
+need to be as generic. It's also good to be able to track allocator
+stats and debug leaks by going through my allocator infrastructure.
+
+If I continue to take inspiration for my allocator interfaces after
+Alexandrescu's talks, then I'll probably be in an okay place.
+
+The TypeDescriptors definitely need special storage, because I probably
+want to garbage collect them.
+
+Some notes on that, by the way. I probably want a sesion-scoped
+identifier for each TypeDescriptor because if they're sequential then
+I can use bitsets or nibble or byte arrays to track meta data (such as
+GC markers) and if I do ever want to compact memory, I could use this
+identifier for pointer patching.
+
+# 2016-09-28-0425EST Coming Back
+
+I'm looking at this again because I have to deal with more spreadsheet
+nonsense at work so now I'm pining for a finished version of this tool
+again.
+
+I watched Andrei Alexandrescu's allocator talk again, and started
+looking at his design for allocators in D, which mimics what he
+presented for C++.
+
+Looking at the code, I think the whole TypeRef strategy is probably a
+little misguided. There should be chunked array storage for
+TypeDefinitions, and there's not really a reason to use handles as far
+as I can see. When is a TypeDescriptor freed? It only ever makes sense
+to free it when it's no longer in use, but it's not a requirement to
+do so, especially since you want to be able to load and unload data
+multiple times and use the same type descriptors. No use recreating them
+all over again.
+
+Garbage collecting TypeDescriptors can happen when context severely
+changes (e.g. user closes a lot of open data files) or--if memory
+becomes an issue--I can actually do a mark-and-sweep GC pass on
+TypeDescriptors.
+
+I mean really, look at the definition of TypeRef:
+
+```
+struct TypeRef
+{
+    u32 index;
+    DynArray<TypeDescriptor> *owner;
+};
+```
+
+Pointer to a DynArray and an index. It's stupid, just don't deallocate
+slabs of TypeDescriptors. It should look like the chunked array data
+structure that Jonathan Blow demoed when he was showing off integral
+template parameters in Jai.
+
+For Values, the same thing should happen. These should be much easier
+to clean up though, since the data being edited in this tool is
+intended to be mostly hierarchical. I will probably want to add a
+referencing capability at some point, but I'll cross that bridge when
+I come to it.
+
+Now that I think about it more though, not everything perfectly fits
+into a chunk/pool heap like I was thinking of, because CompoundType
+and Union type have dynamic elements.
+
+UnionType has a DynArray<TypeDescriptor *> and CompoundType has a
+DynArray<CompoundTypeMember>, where each CompoundTypeMember has two
+pointers.
+
 # 2016-06-22-0208EST Set Phasers to Disjoint
 
 So I implemented `merge_types`, `compound_member_merge`, as well as a

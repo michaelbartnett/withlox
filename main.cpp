@@ -3,6 +3,7 @@
 #include "pretty.h"
 #include "types.h"
 #include "hashtable.h"
+#include "bucketarray.h"
 #include "nametable.h"
 #include "json_error.h"
 #include "str.h"
@@ -104,6 +105,8 @@ https://www.google.com/search?q=c%2B%2B+json&oq=c%2B%2B+json&aqs=chrome.0.0l2j69
 // https://en.wikipedia.org/wiki/Algebraic_data_type
 // https://en.wikipedia.org/wiki/Generalized_algebraic_data_type
 
+// GraphQL has a type system. Interesting?
+// https://facebook.github.io/graphql/
 
 // class MemStack
 // {
@@ -1423,6 +1426,21 @@ void draw_collection_editor(ProgramState *prgstate)
 }
 
 
+void log_display_info()
+{
+    int num_displays = SDL_GetNumVideoDisplays();
+    logf_ln("Num displays: %i", num_displays);
+
+    for (int i = 0; i < num_displays; ++i) {
+        SDL_DisplayMode display_mode;
+        SDL_GetCurrentDisplayMode(i, &display_mode);
+        const char *display_name = SDL_GetDisplayName(i);
+        logf_ln("Display[%i]: %s (%i x %i @ %i hz)",
+                i, display_name, display_mode.w, display_mode.h, display_mode.refresh_rate);
+    }
+}
+
+
 int main(int argc, char **argv)
 {
     mem::memory_init(logf_with_userdata, nullptr);
@@ -1450,6 +1468,8 @@ int main(int argc, char **argv)
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+
+    log_display_info();
     SDL_DisplayMode display_mode;
     SDL_GetCurrentDisplayMode(0, &display_mode);
     SDL_Window *window = SDL_CreateWindow("jsoneditor",

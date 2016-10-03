@@ -51,6 +51,7 @@ set(CXX_SOURCES
   test.cpp
   pretty.cpp
   dynarray.h
+  bucketarray.h
   hashtable.h
   common.h
   json.h
