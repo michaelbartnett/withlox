@@ -101,7 +101,7 @@ void Mallocator::log_allocations() OVERRIDE
         
     };
 
-    AllocLogInfo *allocinfo_list = MAKE_ARRAY(AllocLogInfo, alloc_count, this);
+    AllocLogInfo *allocinfo_list = MAKE_ARRAY(this, alloc_count, AllocLogInfo);
     size_t allocinfo_count = alloc_count - 1;
 
     logging_allocations = true;
@@ -258,8 +258,9 @@ void *Mallocator::realloc(void *ptr, size_t size, size_t align, AllocationMetada
 
 void Mallocator::dealloc(void *ptr) OVERRIDE
 {
-    assert(!logging_allocations);
-    assert(ptr);
+    ASSERT(!logging_allocations);
+
+    if (!ptr) return;
 
     MemBlockHeader *hdr = get_header(ptr);
     bytecount -= hdr->total_size;

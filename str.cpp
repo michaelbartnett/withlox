@@ -19,7 +19,7 @@ Str str_alloc(StrLen str_size)
 {
     assert(str_size < UINT16_MAX);
     Str result;
-    result.data = MAKE_ARRAY(char, str_size + 1, mem::default_allocator());
+    result.data = MAKE_ARRAY(mem::default_allocator(), str_size + 1, char);
     result.data[0] = 0;
     result.length = 0;
     result.capacity = (StrLen)str_size + 1;
@@ -32,7 +32,7 @@ void str_ensure_capacity(Str *str, StrLen capacity)
     if (str->capacity < capacity)
     {
         str->capacity = capacity;
-        RESIZE_ARRAY(str->data, char, str->capacity, mem::default_allocator());
+        RESIZE_ARRAY(mem::default_allocator(), str->data, str->capacity, char);
     }
 }
 

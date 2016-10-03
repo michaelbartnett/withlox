@@ -52,7 +52,7 @@ void dynarray_init(DynArray<T> *dynarr, DynArrayCount capacity,
         allocator = mem::default_allocator();
     }
     dynarr->allocator = allocator;
-    dynarr->data = capacity > 0 ? MAKE_ARRAY(T, capacity, dynarr->allocator) : 0;
+    dynarr->data = capacity > 0 ? MAKE_ARRAY(dynarr->allocator, capacity, T) : 0;
     dynarr->count = 0;
     dynarr->capacity = capacity;
 }
@@ -110,7 +110,7 @@ T *dynarray_append(DynArray<T> *dynarray)
     if (dynarray->count == dynarray->capacity)
     {
         DynArrayCount new_capacity = (dynarray->capacity + 1) * 2;
-        RESIZE_ARRAY(dynarray->data, T, new_capacity, dynarray->allocator);
+        RESIZE_ARRAY(dynarray->allocator, dynarray->data, new_capacity, T);
         dynarray->capacity = new_capacity;
     }
 

@@ -91,14 +91,14 @@ static void ensure_formatbuffer_space(FormatBuffer *fb, size_t length)
         {
             fb->capacity = length;
         }
-        fb->buffer = MAKE_ARRAY(char, fb->capacity, fb->allocator);
+        fb->buffer = MAKE_ARRAY(fb->allocator, fb->capacity, char);
     }
     else if (bytes_remaining <= length)
     {
         fb->capacity = (fb->capacity * 2 < fb->capacity + length + 1
                         ? fb->capacity + length + 1
                         : fb->capacity * 2);
-        RESIZE_ARRAY(fb->buffer, char, fb->capacity, fb->allocator);
+        RESIZE_ARRAY(fb->allocator, fb->buffer, fb->capacity, char);
     }
 }
 
@@ -135,7 +135,7 @@ void formatbuffer_v_writef(FormatBuffer *fmt_buf, const char *format, va_list va
 {
     if (!fmt_buf->buffer)
     {
-        fmt_buf->buffer = MAKE_ARRAY(char, fmt_buf->capacity, fmt_buf->allocator);
+        fmt_buf->buffer = MAKE_ARRAY(fmt_buf->allocator, fmt_buf->capacity, char);
     }
 
     size_t bytes_remaining = fmt_buf->capacity - fmt_buf->cursor;
@@ -164,7 +164,7 @@ void formatbuffer_v_writef(FormatBuffer *fmt_buf, const char *format, va_list va
         fmt_buf->capacity += new_bytes_remaining - bytes_remaining;
         assert(fmt_buf->capacity - fmt_buf->cursor > byte_write_count);
 
-        RESIZE_ARRAY(fmt_buf->buffer, char, fmt_buf->capacity, fmt_buf->allocator);
+        RESIZE_ARRAY(fmt_buf->allocator, fmt_buf->buffer, fmt_buf->capacity, char);
 
         int confirm_result = vsnprintf(fmt_buf->buffer + fmt_buf->cursor,
                                        new_bytes_remaining, format, vargs);

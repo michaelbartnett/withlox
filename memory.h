@@ -1,35 +1,39 @@
+// -*- c++ -*-
+
 #ifndef MEMORY_H
 
-// -*- c++ -*-
 #include "common.h"
 #include "numeric_types.h"
 #include <cstring>
 
-#define MAKE_OBJ(type, allocator) (type *)allocator->realloc(                       \
-        0, sizeof (type), 4,                                                        \
+#define DEFAULT_ALIGN 8
+
+#define MAKE_OBJ(allocator, ...) (__VA_ARGS__ *)allocator->realloc( \
+        0, sizeof (__VA_ARGS__), DEFAULT_ALIGN,                     \
         mem::AllocationMetadata(__FILE__ ":" S__LINE__))
-#define MAKE_ARRAY(type, count, allocator) (type *)allocator->realloc(              \
-        0, count * sizeof (type), 4,                                                \
+#define MAKE_ARRAY(allocator, count, ...) (__VA_ARGS__ *)allocator->realloc( \
+        0, count * sizeof (__VA_ARGS__), DEFAULT_ALIGN,                 \
         (mem::AllocationMetadata(__FILE__ ":" S__LINE__)))
-#define MAKE_ZEROED_ARRAY(type, count, allocator) (type *)allocator->calloc(        \
-        count * sizeof (type), 4,                                                   \
+#define MAKE_ZEROED_ARRAY(allocator, count, ...) (__VA_ARGS__ *)allocator->calloc( \
+        count * sizeof (__VA_ARGS__), DEFAULT_ALIGN,                    \
         mem::AllocationMetadata(__FILE__ ":" S__LINE__))
-#define RESIZE_ARRAY(ptr, type, count, allocator) ptr = (type *)allocator->realloc( \
-        ptr, count * sizeof (type), 4,                                              \
+#define RESIZE_ARRAY(allocator, ptr, count, ...) ptr = (__VA_ARGS__ *)allocator->realloc( \
+        ptr, count * sizeof (__VA_ARGS__), DEFAULT_ALIGN,               \
         mem::AllocationMetadata(__FILE__ ":" S__LINE__))
 
-#define MAKE_OBJ_CAT(type, allocator, category) (type *)allocator->realloc(                       \
-        0, sizeof (type), 4,                                                                      \
+#define MAKE_OBJ_CAT(allocator, category, ...) (__VA_ARGS__ *)allocator->realloc( \
+        0, sizeof (__VA_ARGS__), DEFAULT_ALIGN,                         \
         mem::AllocationMetadata(__FILE__ ":" S__LINE__, category))
-#define MAKE_ARRAY_CAT(type, count, allocator, category) (type *)allocator->realloc(              \
-        0, count * sizeof (type), 4,                                                              \
+#define MAKE_ARRAY_CAT(allocator, count, category, ...) (__VA_ARGS__ *)allocator->realloc( \
+        0, count * sizeof (__VA_ARGS__), DEFAULT_ALIGN,                 \
         mem::AllocationMetadata(__FILE__ ":" S__LINE__, category))
-#define MAKE_ZEROED_ARRAY_CAT(type, count, allocator, category) (type *)allocator->calloc(        \
-        count * sizeof (type), 4,                                                                 \
+#define MAKE_ZEROED_ARRAY_CAT(allocator, count, category, ...) (__VA_ARGS__ *)allocator->calloc( \
+        count * sizeof (__VA_ARGS__), DEFAULT_ALIGN,                    \
         mem::AllocationMetadata(__FILE__ ":" S__LINE__, category))
-#define RESIZE_ARRAY_CAT(ptr, type, count, allocator, category) ptr = (type *)allocator->realloc( \
-        ptr, count * sizeof (type), 4,                                                            \
+#define RESIZE_ARRAY_CAT(allocator, ptr, count, category, ...) ptr = (__VA_ARGS__ *)allocator->realloc( \
+        ptr, count * sizeof (__VA_ARGS__), DEFAULT_ALIGN,               \
         mem::AllocationMetadata(__FILE__ ":" S__LINE__, category))
+
 
 namespace mem
 {

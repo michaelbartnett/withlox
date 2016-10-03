@@ -61,8 +61,7 @@ static void vlogf(const char *format, va_list vargs)
     if (!output_buffer)
     {
         output_buffer_size = FormatBuffer::DefaultCapacity;
-        // output_buffer = MALLOC_ARRAY(char, output_buffer_size);
-        output_buffer = MAKE_ARRAY(char, output_buffer_size, allocator);
+        output_buffer = MAKE_ARRAY(allocator, output_buffer_size, char);
     }
 
     int format_size = vsnprintf(output_buffer, output_buffer_size, format, vargs);
@@ -73,7 +72,7 @@ static void vlogf(const char *format, va_list vargs)
     {
         output_buffer_size = (size_t)format_size + 1;
         // REALLOC_ARRAY(output_buffer, char, output_buffer_size);
-        RESIZE_ARRAY(output_buffer, char, output_buffer_size, allocator);
+        RESIZE_ARRAY(allocator, output_buffer, output_buffer_size, char);
         int confirm_format_size = vsnprintf(output_buffer, output_buffer_size, format, vargs);
         assert(confirm_format_size == format_size);
     }

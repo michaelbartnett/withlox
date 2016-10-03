@@ -239,8 +239,8 @@ void ht_init(OAHASH_TYPE *ht,
     }
     else
     {
-        ht->buckets = MAKE_ZEROED_ARRAY(Bucket, initial_bucket_count, ht->allocator);
-        ht->entries = MAKE_ZEROED_ARRAY(Entry, initial_bucket_count, ht->allocator);
+        ht->buckets = MAKE_ZEROED_ARRAY(ht->allocator, initial_bucket_count, Bucket);
+        ht->entries = MAKE_ZEROED_ARRAY(ht->allocator, initial_bucket_count, Entry);
     }
 }
 
@@ -259,8 +259,8 @@ void ht_rehash(OAHASH_TYPE *ht, u32 new_bucket_count)
     // Bucket *new_buckets = CALLOC_ARRAY(Bucket, new_bucket_count);
     // Entry *new_entries = CALLOC_ARRAY(Entry, new_bucket_count);
 
-    Bucket *new_buckets = MAKE_ZEROED_ARRAY(Bucket, new_bucket_count, ht->allocator);
-    Entry *new_entries = MAKE_ZEROED_ARRAY(Entry, new_bucket_count, ht->allocator);
+    Bucket *new_buckets = MAKE_ZEROED_ARRAY(ht->allocator, new_bucket_count, Bucket);
+    Entry *new_entries = MAKE_ZEROED_ARRAY(ht->allocator, new_bucket_count, Entry);
 
     for (u32 i = 0; i < ht->bucket_count; ++i)
     {

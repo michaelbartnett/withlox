@@ -44,7 +44,7 @@ void nametable_init(NameTable *nt, size_t storage_size, mem::IAllocator *allocat
         allocator = mem::default_allocator();
     }
 
-    nt->storage = MAKE_ZEROED_ARRAY(char, capacity, allocator);
+    nt->storage = MAKE_ZEROED_ARRAY(allocator, capacity, char);
 
     // had to use reinterpret_cast because -Wcast-align
     *reinterpret_cast<u64 *>(nt->storage) = 0xdeadbeefdeadbeef;
