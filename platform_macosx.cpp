@@ -12,6 +12,11 @@
 #include <unistd.h>
 
 
+#include <execinfo.h>
+#include <dlfcn.h>
+#include <cxxabi.h>
+
+
 #define MAX_OP_TRIES 10
 
 
@@ -276,6 +281,57 @@ FileReadResult FileReadResult::from_error_code(ErrorCode code)
     result.error_kind = check_file_error(code);
     result.platform_error = PlatformError::from_code(code);
     return result;
+}
+
+
+
+void print_stacktrace(int skip_frames)
+{
+    void* callstack[128];
+    int n_frames = backtrace(callstack, 128);
+
+    // std::fprintf(stream, "...................................\n");
+
+    // char **btsymbols = backtrace_symbols(callstack + skip_frames, n_frames - skip_frames);
+    // for (int i = 1; i < n_frames - skip_frames; ++i) {
+    //     std::fprintf(stream, "%s\n", btsymbols[i]);
+    // }
+
+    // std::fprintf(stream, "...................................\n");
+
+    // for (int i = skip_frames + 1; i < n_frames; ++i) {
+    //     Dl_info dlinfo;
+    //     std::fprintf(stream, "\n");
+    //     if (dladdr(callstack[i], &dlinfo)) {
+
+    //         std::fprintf(stream, "addr -> %p\nfname -> %s, fbase -> %p\nsname -> %s, sbase -> %p\n",
+    //                      callstack[i], dlinfo.dli_fname, dlinfo.dli_fbase, dlinfo.dli_sname, dlinfo.dli_saddr);
+
+    //         char demangled[256];
+    //         int status = 0;
+    //         size_t bufsize = sizeof(demangled);
+    //         abi::__cxa_demangle(dlinfo.dli_sname, demangled, &bufsize, &status);
+    //         if (status == 0) {
+    //             std::fprintf(stream, "%s\n", demangled);
+    //         } else {
+    //             std::fprintf(stream, "(mangled): %s\n", dlinfo.dli_sname);
+    //         }
+
+    //     } else {
+    //         std::fprintf(stream, "failed to get dl info for call frame\n");
+    //     }
+    // }
+
+    // std::fprintf(stream, "\n...................................\n\n");
+
+    {
+        char cmdbuf[512];
+        pid_t pid = getpid();
+        for (int i = 1 + skip_frames; i < n_frames; ++i) {
+            std::sprintf(cmdbuf, "xcrun atos -d -p %i %p", pid, callstack[i]);
+            std::system(cmdbuf);
+        }
+    }
 }
 
 

@@ -8,6 +8,11 @@
 #include "memory.h"
 
 
+#define ASSERT_MSG(msg) ASSERT(!(bool)(msg))
+
+#define ASSERT(cond) assert((platform_assert(cond)))
+
+
 typedef s32 ErrorCode;
 
 struct PlatformError
@@ -53,6 +58,22 @@ struct FileReadResult
 
     static FileReadResult from_error_code(ErrorCode code);
 };
+
+
+// TODO(mike): get_stacktrace which writes to a char buffer
+void print_stacktrace(int skip_frames=0);
+
+inline bool platform_assert(bool condition)
+{
+    if (condition) return true;
+    std::printf(
+        "ASSERTION FAILED\n\n"
+        "---------------------------------------\n\n");
+    print_stacktrace(1);
+    std::printf(
+        "\n---------------------------------------\n");
+    return false;
+}
 
 
 PlatformError current_dir(OUTPARAM Str *path);

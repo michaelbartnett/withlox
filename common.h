@@ -1,6 +1,12 @@
 // -*- c++ -*-
 #ifndef COMMON_H
 
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+
+#define SANITY_CHECK 1
+
 #define OUTPARAM
 
 #define XSTRFY(s) #s
@@ -11,8 +17,6 @@
 #define HEADERFN inline
 
 #define STATIC_ASSERT(label, expr) typedef int static_assertion__##label[(expr) ? 1 : -1]
-
-#define ASSERT_MSG(msg) assert(!(bool)(msg))
 
 #define COUNTOF(arr) ( \
    0 * sizeof(reinterpret_cast<const ::Bad_arg_to_COUNTOF*>(arr)) + \
@@ -40,9 +44,6 @@ inline T min(T a, T b)
 {
     return (a <= b) ? a : b;
 }
-
-#include <cstdlib>
-#include <cstdio>
 
 using std::printf;
 using std::size_t;
@@ -76,10 +77,38 @@ using std::size_t;
 #define ZERO_ARRAY(ptr, type, count) std::memset((ptr), 0, sizeof (type) * (count))
 #define ZERO_PTR(ptr) std::memset((ptr), 0, sizeof(*(ptr)))
 
+
+inline void zeromem(void *ptr, size_t size)
+{
+    std::memset(ptr, 0, size);
+}
+
+template<typename T>
+void zero_obj(T &obj)
+{
+    zeromem(&obj, sizeof(T));
+}
+
+template<typename T>
+void zero_array(T *obj, size_t count)
+{
+    zeromem(obj, sizeof(T) * count);
+}
+
+
+// TODO(mike): Maybe move into platform header?
 #if __cplusplus < 201103L
-#define OVERRIDE
+    #define OVERRIDE
+    #if defined(__clang__) || defined(__GNUC__)
+        // #define THREAD_LOCAL __threadd
+    #elif defined(_MSC_VER)
+        // #define THREAD_LOCAL __declspec(thread)
+    #else
+        #error Need definitions for compiler
+    #endif
 #else
-#define OVERRIDE override
+    #define OVERRIDE override
+    // #define THREAD_LOCAL thread_local
 #endif
 
 // Clang/Xcode defines nullptr even with -std=C++03, so
@@ -87,11 +116,11 @@ using std::size_t;
 // but you do need to still check for __cplusplus
 // because linux is stupid.
 #if !defined(nullptr) && (!defined(__cplusplus) || (__cplusplus < 201103L))
-#define nullptr NULL
+    #define nullptr NULL
 #endif
 
 #if !defined(va_copy)
-#define va_copy(d,s) __builtin_va_copy(d,s)
+    #define va_copy(d,s) __builtin_va_copy(d,s)
 #endif
 
 #define COMMON_H

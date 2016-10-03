@@ -13,6 +13,131 @@ This will be maintained. Latest log entry will go below.
 
 - [ ] CLI command to save the DynArray<Value> back out to JSON files
 
+# 2016-06-12-1516EST Type Merging is Incompatible with Capitalism
+
+I've really been wanting to make the editing UI for loaded JSON files, and
+it's very nearly there, except I realized I should probably finish one of the
+fundamental operations in my type system: type merging.
+
+The reason is because I want to load multiple JSON records into a
+collection with disparate types, and then create a type for the
+overall collection that I can use to help render the editor. So I went
+through and thought out a bunch of the cases and wrote them all down:
+
+A type merge takes two types, and creates a new type that both types
+are compatible with.
+
+`TYPE MERGE a, b` where at least one of `a` and `b` is a Union
+should create a new Union whose cases are:
+
+- For all Unions in `a`, `b`, include the cases of that Union in the
+  result Union's cases
+
+- For any non-Union in `a`, `b`, include that type in the result
+  Union's cases
+
+`TYPE MERGE a, b` where `a` and `b` are both not Compounds and both
+not Unions should create a `Union(a, b)`. Array element types do not get
+merged, i.e. `MERGE [Int], [String]` creates `Union([Int],
+[String])`, and not `[Union(Int, String)]`.
+
+The Array element type restriction seems like the right thing, but
+might be too restrictive. Maybe it could do the restrictive merge if
+both element types are primitive, since I know that at least *I* am
+unlikely to want an array containing any of Int, String, or Compound.
+
+Where it would make sense for me is for multiple Compound types in
+order to support collections of supertypes. It could be a special case
+that two Arrays whose element types are Compound result in an Array
+with the two element types type-merged. It might also make sense to do
+this for Union element types.
+
+Whatever choice is made for default behavior, the end-user should be
+able to redefine a collection's type so they can get the exact
+behavior they want. A good initial UI for this might be to just pop up
+a big text field with the type spec printed out in it, then allowing
+them to edit that, type checking as they change it (continuous
+feedback, like flycheck). I'll maintain a list of the set of unique
+types for each top-level record in a collection, so that way this
+feedback is given by just calling `check_type_compatible` for each of
+the types in that set against the parsed type spec in the
+text field.
+
+`TYPE MERGE a, b` where exactly one of `a` and `b` is a Compound
+should create a Union containing cases `a` and `b`
+
+`TYPE MERGE a, b` where both `a` and `b` are both Compounds should
+do a member merge
+
+A member merge is partially defined by what `merge_compound_types` did
+at the time this was written.
+
+`merge_compound_types` will clone `typedesc_a`, and then for each
+member of `typedesc_b`, will add it to the clone's members if names
+and types do not match. Things get dicey here when members with the
+same name have different types.
+
+A new MEMBER MERGE operation will be defined to create unions when
+member types do not match. An alternative would have been to just make
+a Union of the two Compound types, but that would probably be annoying
+in most cases, or at least for the top-level case. Maybe depth affects
+which merging strategy is used.
+
+`MEMBER MERGE a, b` clones `a` creating new type `m`.
+
+For each member in `b` labeling it as `y`, try to find member in
+`a` with a matching name labeling it as `x`
+
+If a member `x` with name matching `y` is NOT found, then just add
+`y` as a member to `m`.
+
+If a member `x` with name matching `y` IS found and the types
+match, then consider those members already merged.
+
+If a member `x` with name matching `y` IS found and the types do
+NOT match, then replace the type of member `x` with `TYPE MERGE
+x.type_descriptor, y.type_descriptor`.
+
+# 2016-06-05-2326EST How to render an editor
+
+I don't really have a plan yet, but my last entry outlined some rough
+pans and desirable properties that I want to try to explore further
+and maybe even develop some concrete implementation ideas to
+accomodate all that.
+
+Last time, I wrote about wanting to switch between different ways of
+rendering types. For Compound types with matching keys but mismatched
+types for those keys, should I render different kinds of cell editors
+for each row, or separate them? There are probably cases to be made
+for both.
+
+If you are viewing a Compound, or a Union with one or more Compound
+cases, then you should be able to select a field in the Compound and
+treat it as the new table type, "drilling own". Some records won't
+have anything useful to render and edit here, so should they be marked
+as UNDEFINED or just omitted? I assume there are good arguments for both.
+
+The optional modes will be easy to do, but the drilling-down will be
+interesting.
+
+A simple thing would be to extract pointers to all the appropriate
+records and put those in an list and walk through that list with a row
+renderer.
+
+That sounds annoying though, and that's really more of a cache. I
+think the "proper" way is to have some sort of breadcrumb structure
+that can point to what nested object in each structure you should be
+rendering and editing.
+
+To make things run faster, that breadcrumb can pull out the list of
+pointers and treat it as a cache. Able to be recalculated at any time
+should some new records be dynamically loaded.
+
+Should I be allocating values in a general value store, so that I can
+then sort a list of pointers however needed?
+
+Or should I just assume I'll always point into a DynArray<Value>?
+
 # 2016-06-02-0220EST The first row
 
 So I finally made a little grid editor window for the first JSON file

@@ -2,6 +2,7 @@
 
 #ifndef DYNARRAY_H
 
+#include "platform.h"
 #include "common.h"
 #include "numeric_types.h"
 #include "memory.h"

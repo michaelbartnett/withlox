@@ -1,6 +1,7 @@
 #include "memory.h"
 #include "numeric_types.h"
 #include "common.h"
+#include "platform.h"
 #include <cstdlib>
 #include <new>
 #include <cstring>
