@@ -93,9 +93,8 @@ CLI_COMMAND_FN_SIG(listdir)
 {
     UNUSED(prgstate);
     UNUSED(userdata);
-    // UNUSED(args);
 
-    if (args.count == 0 || get_typedesc(args[0].typeref)->type_id != TypeID::String)
+    if (args.count == 0 || (args[0].typedesc)->type_id != TypeID::String)
     {
         logln("Usage: listdir \"path/to/directory\"");
         return;
@@ -125,7 +124,7 @@ CLI_COMMAND_FN_SIG(changedir)
     UNUSED(prgstate);
     UNUSED(userdata);
 
-    if (args.count == 0 || get_typedesc(args[0].typeref)->type_id != TypeID::String)
+    if (args.count == 0 || (args[0].typedesc)->type_id != TypeID::String)
     {
         logln("Usage: listdir \"path/to/directory\"");
         return;
@@ -176,7 +175,7 @@ CLI_COMMAND_FN_SIG(checktype)
     }
 
     Value *name_arg = &args[0];
-    TypeDescriptor *type_desc = get_typedesc(name_arg->typeref);
+    TypeDescriptor *type_desc = name_arg->typedesc;
     if (type_desc->type_id != TypeID::String)
     {
         logf_ln("Error: first argument must be a string, got a %s instead",
@@ -184,13 +183,12 @@ CLI_COMMAND_FN_SIG(checktype)
         return;
     }
 
-    TypeRef *ptr_typeref = ht_find(&prgstate->type_map, str_slice(name_arg->str_val));
-    if (!ptr_typeref)
+    TypeDescriptor *typedesc = find_typedesc_by_name(prgstate, name_arg->str_val);
+    if (!typedesc)
     {
         logf_ln("No value bound to name: '%s'", name_arg->str_val.data);
         return;
     }
-    TypeRef typeref = *ptr_typeref;
 
     // fmt_buf.writeln("");
     Value *value = &args[1];
@@ -199,7 +197,7 @@ CLI_COMMAND_FN_SIG(checktype)
     // fmt_buf.writef("Parsed value's type: %i ", value->typeref.index);
     // pretty_print(value->typeref, &fmt_buf);
 
-    TypeCheckInfo check = check_type_compatible(value->typeref, typeref);
+    TypeCheckInfo check = check_type_compatible(value->typedesc, typedesc);
 
     if (check.passed)
     {
@@ -213,9 +211,9 @@ CLI_COMMAND_FN_SIG(checktype)
         fmtbuf.writef_ln("failed: %s", to_string(check.result));
 
         fmtbuf.write("Named type: ");
-        pretty_print(typeref, &fmtbuf, 0);
+        pretty_print(typedesc, &fmtbuf, 0);
         fmtbuf.write("\nInput value's type: ");
-        pretty_print(value->typeref, &fmtbuf, 0);
+        pretty_print(value->typedesc, &fmtbuf, 0);
     }
 }
 
@@ -231,7 +229,7 @@ CLI_COMMAND_FN_SIG(print_type)
     }
 
     Value *name_arg = &args[0];
-    TypeDescriptor *type_desc = get_typedesc(name_arg->typeref);
+    TypeDescriptor *type_desc = (name_arg->typedesc);
     if (type_desc->type_id != TypeID::String)
     {
         logf_ln("Error: first argument must be a string, got a %s instead",
@@ -239,10 +237,10 @@ CLI_COMMAND_FN_SIG(print_type)
         return;
     }
 
-    TypeRef *typeref = ht_find(&prgstate->type_map, str_slice(name_arg->str_val));
-    if (typeref)
+    TypeDescriptor **typedesc = ht_find(&prgstate->type_map, str_slice(name_arg->str_val));
+    if (typedesc)
     {
-        pretty_print(*typeref);
+        pretty_print(*typedesc);
     }
     else
     {
@@ -263,30 +261,21 @@ CLI_COMMAND_FN_SIG(bindinfer)
 
     Value *name_arg = &args[0];
 
-    TypeDescriptor *type_desc = get_typedesc(name_arg->typeref);
-    if (type_desc->type_id != TypeID::String)
+    TypeDescriptor *namearg_type_desc = (name_arg->typedesc);
+    if (namearg_type_desc->type_id != TypeID::String)
     {
         logf_ln("Error: first argument must be a string, got a %s instead",
-                  TypeID::to_string(type_desc->type_id));
+                  TypeID::to_string(namearg_type_desc->type_id));
         return;
     }
 
-    // This is maybe a bit too manual, but I want everything to be POD, no destructors
-    StrToTypeMap::Entry *entry;
-    bool was_occupied = ht_find_or_add_entry(&entry, &prgstate->type_map, str_slice(name_arg->str_val));
-    if (!was_occupied)
-    {
-        // allocate dedicated space
-        Str allocated = str(entry->key);
-        entry->key = str_slice(allocated);
-    }
-
-    entry->value = args[1].typeref;
+    TypeDescriptor *type_desc = args[1].typedesc;
+    bind_typedesc_name(prgstate, name_arg->str_val.data, type_desc);
 
     FormatBuffer fbuf;
     fbuf.flush_on_destruct();
-    fbuf.writef("Bound '%s' to type: ", entry->key.data);
-    pretty_print(entry->value, &fbuf);
+    fbuf.writef("Bound '%s' to type: ", name_arg->str_val.data);
+    pretty_print( type_desc, &fbuf);
 }
 
 
@@ -310,8 +299,8 @@ CLI_COMMAND_FN_SIG(print_values)
         Value *value = &args[i];
         fmt_buf.write("Value: ");
         pretty_print(value, &fmt_buf);
-        fmt_buf.writef("Parsed value's type: %i ", value->typeref.index);
-        pretty_print(value->typeref, &fmt_buf);
+        fmt_buf.writef("Parsed value's type: %p ", value->typedesc);
+        pretty_print(value->typedesc, &fmt_buf);
     }
 }
 
@@ -327,7 +316,7 @@ CLI_COMMAND_FN_SIG(get_value_type)
     }
 
     Value *name_arg = &args[0];
-    TypeDescriptor *type_desc = get_typedesc(name_arg->typeref);
+    TypeDescriptor *type_desc = (name_arg->typedesc);
     if (type_desc->type_id != TypeID::String)
     {
         logf_ln("Error: first argument must be a string, got a %s instead",
@@ -338,7 +327,7 @@ CLI_COMMAND_FN_SIG(get_value_type)
     Value *value = ht_find(&prgstate->value_map, str_slice(name_arg->str_val));
     if (value)
     {
-        pretty_print(value->typeref);
+        pretty_print(value->typedesc);
     }
     else
     {
@@ -360,7 +349,7 @@ CLI_COMMAND_FN_SIG(get_value)
     }
 
     Value *name_arg = &args[0];
-    TypeDescriptor *type_desc = get_typedesc(name_arg->typeref);
+    TypeDescriptor *type_desc = (name_arg->typedesc);
     if (type_desc->type_id != TypeID::String)
     {
         logf_ln("Error: first argument must be a string, got a %s instead",
@@ -392,7 +381,7 @@ CLI_COMMAND_FN_SIG(set_value)
 
     Value *name_arg = &args[0];
 
-    TypeDescriptor *type_desc = get_typedesc(name_arg->typeref);
+    TypeDescriptor *type_desc = (name_arg->typedesc);
     if (type_desc->type_id != TypeID::String)
     {
         logf_ln("Error: first argument must be a string, got a %s instead",
@@ -431,18 +420,18 @@ CLI_COMMAND_FN_SIG(find_type)
 
     Value *arg = &args[0];
 
-    if (! typeref_identical(arg->typeref, prgstate->prim_string))
+    if (arg->typedesc != prgstate->prim_string)
     {
-        TypeDescriptor *argtype = get_typedesc(arg->typeref);
+        TypeDescriptor *argtype = (arg->typedesc);
         logf_ln("Argument must be a string, got a %s intead",
                   TypeID::to_string(argtype->type_id));
         return;
     }
 
-    TypeRef typeref = find_typeref_by_name(prgstate, arg->str_val);
-    if (typeref.index)
+    TypeDescriptor *typedesc = find_typedesc_by_name(prgstate, arg->str_val);
+    if (typedesc)
     {
-        pretty_print(typeref);
+        pretty_print(typedesc);
     }
     else
     {
@@ -460,7 +449,7 @@ CLI_COMMAND_FN_SIG(list_args)
     for (u32 i = 0; i < args.count; ++i)
     {
         Value *val = &args[i];
-        pretty_print(val->typeref);
+        pretty_print(val->typedesc);
         pretty_print(val);
     }
 }
@@ -471,7 +460,7 @@ CLI_COMMAND_FN_SIG(catfile)
     UNUSED(prgstate);
     UNUSED(userdata);
 
-    if (args.count != 1 || get_typedesc(args[0].typeref)->type_id != TypeID::String)
+    if (args.count != 1 || (args[0].typedesc)->type_id != TypeID::String)
     {
         logln("Usage: catfile \"<filename>\"");
         return;
@@ -501,7 +490,7 @@ CLI_COMMAND_FN_SIG(abspath)
 
     for (DynArrayCount i = 0; i < args.count; ++i)
     {
-        if (get_typedesc(args[i].typeref)->type_id != TypeID::String)
+        if ((args[i].typedesc)->type_id != TypeID::String)
         {
             logf("Argument %i was a string\n Expected usage: abspath \"<path1\" [, \"<path2>\"]...", i);
         }
@@ -561,8 +550,8 @@ CLI_COMMAND_FN_SIG(loadjson)
                 fmt_buf.write(record->fullpath.data);
                 fmt_buf.write("\nValue: ");
                 pretty_print(&record->value, &fmt_buf);
-                fmt_buf.writef("Parsed value's type: %i ", record->value.typeref.index);
-                pretty_print(record->value.typeref, &fmt_buf);
+                fmt_buf.writef("Parsed value's type: %p ", record->value.typedesc);
+                pretty_print(record->value.typedesc, &fmt_buf);
             }
             break;
         }

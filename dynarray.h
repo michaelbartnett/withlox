@@ -124,7 +124,7 @@ template<typename T>
 T *dynarray_append(DynArray<T> *dynarray, T item)
 {
     T *result = dynarray_append(dynarray);
-    *result = item;
+    *result = T(item);
     return result;
 }
 

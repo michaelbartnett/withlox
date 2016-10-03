@@ -150,58 +150,45 @@ https://www.google.com/search?q=c%2B%2B+json&oq=c%2B%2B+json&aqs=chrome.0.0l2j69
 // }
 
 
-
-void bind_typeref(ProgramState *prgstate, NameRef name, TypeRef typeref)
-{
-    ht_set(&prgstate->typedesc_bindings, name, typeref);
-}
-
-
-void bind_typeref(ProgramState *prgstate, const char *name, TypeRef typeref)
-{
-    NameRef nameref = nametable_find_or_add(&prgstate->names, str_slice(name));
-    bind_typeref(prgstate, nameref, typeref);
-}
-
-
 void prgstate_init(ProgramState *prgstate)
 {
     nametable_init(&prgstate->names, MEGABYTES(2));
-    dynarray_init(&prgstate->type_descriptors, 0);
-    dynarray_append(&prgstate->type_descriptors);
+    bucketarray_init(&prgstate->type_descriptors);
+    // dynarray_init(&prgstate->type_descriptors, 0);
+    // dynarray_append(&prgstate->type_descriptors);
     ht_init(&prgstate->typedesc_bindings);
 
     dynarray_init(&prgstate->collection, 0);
 
-    TypeDescriptor *none_type;
-    prgstate->prim_none = add_typedescriptor(prgstate, &none_type);
+    TypeDescriptor *none_type = add_typedescriptor(prgstate);
     none_type->type_id = TypeID::None;
-    bind_typeref(prgstate, TypeID::to_string(none_type->type_id),
-                 prgstate->prim_none);
+    bind_typedesc_name(prgstate, TypeID::to_string(none_type->type_id),
+                       none_type);
+    prgstate->prim_none = none_type;
 
-    TypeDescriptor *string_type;
-    prgstate->prim_string = add_typedescriptor(prgstate, &string_type);
+    TypeDescriptor *string_type = add_typedescriptor(prgstate);
     string_type->type_id = TypeID::String;
-    bind_typeref(prgstate, TypeID::to_string(string_type->type_id),
-                 prgstate->prim_string);
+    bind_typedesc_name(prgstate, TypeID::to_string(string_type->type_id),
+                       string_type);
+    prgstate->prim_string = string_type;
 
-    TypeDescriptor *int_type;
-    prgstate->prim_int = add_typedescriptor(prgstate, &int_type);
+    TypeDescriptor *int_type = add_typedescriptor(prgstate);
     int_type->type_id = TypeID::Int;
-    bind_typeref(prgstate, TypeID::to_string(int_type->type_id),
-                 prgstate->prim_int);
+    bind_typedesc_name(prgstate, TypeID::to_string(int_type->type_id),
+                       int_type);
+    prgstate->prim_int = int_type;
 
-    TypeDescriptor *float_type;
-    prgstate->prim_float = add_typedescriptor(prgstate, &float_type);
+    TypeDescriptor *float_type = add_typedescriptor(prgstate);
     float_type->type_id = TypeID::Float;
-    bind_typeref(prgstate, TypeID::to_string(float_type->type_id),
-                 prgstate->prim_float);
+    bind_typedesc_name(prgstate, TypeID::to_string(float_type->type_id),
+                       float_type);
+    prgstate->prim_float = float_type;
 
-    TypeDescriptor *bool_type;
-    prgstate->prim_bool = add_typedescriptor(prgstate, &bool_type);
+    TypeDescriptor *bool_type = add_typedescriptor(prgstate);
     bool_type->type_id = TypeID::Bool;
-    bind_typeref(prgstate, TypeID::to_string(bool_type->type_id),
-                 prgstate->prim_bool);
+    bind_typedesc_name(prgstate, TypeID::to_string(bool_type->type_id),
+                       bool_type);
+    prgstate->prim_bool = bool_type;
 
     ht_init(&prgstate->command_map);
     ht_init(&prgstate->value_map);
@@ -209,104 +196,31 @@ void prgstate_init(ProgramState *prgstate)
 }
 
 
-// // TODO(mike): Guarantee no structural duplicates, and do it fast. Hashtable.
-// TypeRef find_equiv_typedescriptor(ProgramState *prgstate, TypeDescriptor *type_desc)
-// {
-//     TypeRef result = {};
-
-//     TYPESWITCH (type_desc->type_id)
-//     {
-//         // Builtins/primitives
-//         case TypeID::None:   result =  prgstate->prim_none;   break;
-//         case TypeID::String: result =  prgstate->prim_string; break;
-//         case TypeID::Int:    result =  prgstate->prim_int;    break;
-//         case TypeID::Float:  result =  prgstate->prim_float;  break;
-//         case TypeID::Bool:   result =  prgstate->prim_bool;   break;
+TypeDescriptor *typedesc_from_json(ProgramState *prgstate, json_value_s *jv);
 
 
-//         // Unique / user-defined
-//         case TypeID::Array:
-//         case TypeID::Compound:
-//             for (DynArrayCount i = 0,
-//                      count = prgstate->type_descriptors.count;
-//                  i < count;
-//                  ++i)
-//             {
-//                 TypeRef ref = make_typeref(prgstate, i);
-//                 TypeDescriptor *predefined = get_typedesc(ref);
-//                 if (predefined && equal(type_desc, predefined))
-//                 {
-//                     result = ref;
-//                     break;
-//                 }
-//             }
-//             break;
-
-//         case TypeID::Union:
-//             for (DynArrayCount i = 0, count = prgstate->type_descriptors.count;
-//                  i < count;
-//                  ++i)
-//             {
-//                 TypeRef ref = make_typeref(prgstate, i);
-//                 TypeDescriptor *predefined = get_typedesc(ref);
-//                 if (predefined && equal(type_desc, predefined))
-//                 {
-//                     result = ref;
-//                     break;
-//                 }
-//             }
-//             break;
-//     }
-
-//     return result;
-// }
-
-// TypeRef find_equiv_type_or_add(ProgramState *prgstate, TypeDescriptor *type_desc, TypeDescriptor **ptr)
-// {
-//     TypeRef preexisting = find_equiv_typedescriptor(prgstate, type_desc);
-//     if (preexisting.index)
-//     {
-//         if (ptr)
-//         {
-//             *ptr = get_typedesc(preexisting);
-//         }
-//         return preexisting;
-//     }
-
-//     return add_typedescriptor(prgstate, *type_desc, ptr);
-// }
-
-TypeDescriptor *find_typedesc_by_name(ProgramState *prgstate, NameRef name)
+TypeDescriptor *typedesc_from_json_array(ProgramState *prgstate, json_value_s *jv)
 {
-    return get_typedesc(find_typeref_by_name(prgstate, name));
-}
-
-
-TypeRef type_desc_from_json(ProgramState *prgstate, json_value_s *jv);
-
-
-TypeRef type_desc_from_json_array(ProgramState *prgstate, json_value_s *jv)
-{
-    TypeRef result;
+    TypeDescriptor *result;
 
     assert(jv->type == json_type_array);
     json_array_s *jarray = (json_array_s *)jv->payload;
 
-    DynArray<TypeRef> element_types;
+    DynArray<TypeDescriptor *> element_types;
     dynarray_init(&element_types, DYNARRAY_COUNT(jarray->length));
 
     for (json_array_element_s *elem = jarray->start;
          elem;
          elem = elem->next)
     {
-        TypeRef typeref = type_desc_from_json(prgstate, elem->value);
+        TypeDescriptor *typedesc = typedesc_from_json(prgstate, elem->value);
 
         // This is a set insertion
         bool found = false;
         for (DynArrayCount i = 0; i < element_types.count; ++i)
         {
-            TypeRef *existing = &element_types[i];
-            if (typeref_identical(typeref, *existing))
+            TypeDescriptor *existing = element_types[i];
+            if (typedesc == existing)
             {
                 found = true;
                 break;
@@ -315,7 +229,7 @@ TypeRef type_desc_from_json_array(ProgramState *prgstate, json_value_s *jv)
 
         if (! found)
         {
-            dynarray_append(&element_types, typeref);
+            dynarray_append(&element_types, typedesc);
         }
     }
 
@@ -329,8 +243,11 @@ TypeRef type_desc_from_json_array(ProgramState *prgstate, json_value_s *jv)
         // logln("Ecountered a heterogeneous json array. "
         //       "It will be reported as an Array of None type since this is not yet supported");
 
-        // Sort the typeref array so that equality checks for union types can be linear
-        dynarray_sort_unstable<SortTypeRef>(&element_types);
+
+
+// WARNING(mike): DID NOT SORTING BREAK THIS???
+        // // Sort the typeref array so that equality checks for union types can be linear
+        // dynarray_sort_unstable<SortTypeRef>(&element_types);
 
 
         UnionType union_type;
@@ -342,8 +259,8 @@ TypeRef type_desc_from_json_array(ProgramState *prgstate, json_value_s *jv)
 
         bool new_type_added;
 
-        constructed_typedesc.array_type.elem_typeref =
-            find_equiv_type_or_add(prgstate, &element_union_type, &new_type_added);
+        constructed_typedesc.array_type.elem_type =
+            find_equiv_typedesc_or_add(prgstate, &element_union_type, &new_type_added);
         if (! new_type_added)
         {
             free_typedescriptor_components(&element_union_type);
@@ -359,18 +276,18 @@ TypeRef type_desc_from_json_array(ProgramState *prgstate, json_value_s *jv)
             // empty,  untyped array...?
             // maybe use an Any type here, if that ever becomes a thing.
             logln("Got an empty json array. This defaults to type [None], but I don't like it!");
-            array_type.elem_typeref = prgstate->prim_none;
+            array_type.elem_type = prgstate->prim_none;
             constructed_typedesc.array_type = array_type;
         }
         else
         {
-            constructed_typedesc.array_type.elem_typeref = element_types[0];
+            constructed_typedesc.array_type.elem_type = element_types[0];
         }
     }
 
     // If it's the empty array, bound to find a preexisting. Will that be common?
     bool new_type_added;
-    result = find_equiv_type_or_add(prgstate, &constructed_typedesc, &new_type_added);
+    result = find_equiv_typedesc_or_add(prgstate, &constructed_typedesc, &new_type_added);
     if (! new_type_added)
     {
         free_typedescriptor_components(&constructed_typedesc);
@@ -382,9 +299,9 @@ TypeRef type_desc_from_json_array(ProgramState *prgstate, json_value_s *jv)
 }
 
 
-TypeRef type_desc_from_json_object(ProgramState *prgstate, json_value_s *jv)
+TypeDescriptor *typedesc_from_json_object(ProgramState *prgstate, json_value_s *jv)
 {
-    TypeRef result;
+    TypeDescriptor *result;
 
     assert(jv->type == json_type_object);
     json_object_s *jobj = (json_object_s *)jv->payload;
@@ -399,30 +316,30 @@ TypeRef type_desc_from_json_object(ProgramState *prgstate, json_value_s *jv)
         CompoundTypeMember *member = dynarray_append(&members);
         member->name = nametable_find_or_add(&prgstate->names,
                                              elem->name->string, elem->name->string_size);
-        member->typeref = type_desc_from_json(prgstate, elem->value);
+        member->typedesc = typedesc_from_json(prgstate, elem->value);
     }
 
     TypeDescriptor constructed_typedesc;
     constructed_typedesc.type_id = TypeID::Compound;
     constructed_typedesc.compound_type.members = members;
 
-    TypeRef preexisting = find_equiv_typedescriptor(prgstate, &constructed_typedesc);
-    if (preexisting.index)
+    TypeDescriptor *preexisting = find_equiv_typedesc(prgstate, &constructed_typedesc);
+    if (preexisting)
     {
         result = preexisting;
     }
     else
     {
-        result = add_typedescriptor(prgstate, constructed_typedesc, 0);
+        result = add_typedescriptor(prgstate, constructed_typedesc);
     }
 
     return result;
 }
 
 
-TypeRef type_desc_from_json(ProgramState *prgstate, json_value_s *jv)
+TypeDescriptor *typedesc_from_json(ProgramState *prgstate, json_value_s *jv)
 {
-    TypeRef result;
+    TypeDescriptor *result;
 
     json_type_e jvtype = (json_type_e)jv->type;
     switch (jvtype)
@@ -440,11 +357,11 @@ TypeRef type_desc_from_json(ProgramState *prgstate, json_value_s *jv)
         }
 
         case json_type_object:
-            result = type_desc_from_json_object(prgstate, jv);
+            result = typedesc_from_json_object(prgstate, jv);
             break;
 
         case json_type_array:
-            result = type_desc_from_json_array(prgstate, jv);
+            result = typedesc_from_json_array(prgstate, jv);
             break;
 
         case json_type_true:
@@ -472,54 +389,18 @@ DynArray<CompoundTypeMember> clone(const DynArray<CompoundTypeMember> &memberset
         ZERO_PTR(dest_member);
         NameRef newname = src_member->name;
         dest_member->name = newname;
-        dest_member->typeref = src_member->typeref;
+        dest_member->typedesc = src_member->typedesc;
     }
 
     return result;
 }
 
 
-TypeRef clone(ProgramState *prgstate, const TypeDescriptor *src_typedesc, TypeDescriptor **ptr)
-{
-    return add_typedescriptor(prgstate, copy_typedesc(src_typedesc), ptr);
-}
-
-
-TypeRef merge_compound_types(ProgramState *prgstate,
-                                       const TypeDescriptor *typedesc_a,
-                                       const TypeDescriptor *typedesc_b,
-                                       TypeDescriptor **ptr)
-{
-    assert(typedesc_a);
-    assert(typedesc_b);
-    assert(typedesc_a->type_id == TypeID::Compound);
-    assert(typedesc_b->type_id == TypeID::Compound);
-
-    TypeDescriptor *result_ptr;
-    TypeRef result_ref = clone(prgstate, typedesc_a, &result_ptr);
-
-    for (DynArrayCount ib = 0; ib < typedesc_b->compound_type.members.count; ++ib)
-    {
-        CompoundTypeMember *b_member = &typedesc_b->compound_type.members[ib];
-        CompoundTypeMember *a_member = find_member(typedesc_a, b_member->name);
-
-        if (! (a_member && typeref_identical(a_member->typeref, b_member->typeref)))
-        {
-            add_member(result_ptr, *b_member);
-        }
-    }
-
-    if (ptr)
-    {
-        *ptr = result_ptr;
-    }
-    return result_ref;
-}
-
-
 Value create_value_from_token(ProgramState *prgstate, tokenizer::Token token)
 {
     // good test: {"tulsi": "gabbard", "julienne": { "fries": 42.2, "asponge": {}, "hillarymoney": 9001}}
+    // bindinfer "Candidate" {"tulsi": "gabbard", "julienne": { "fries": 42.2, "asponge": {}, "hillarymoney": 9001}}
+    // checktype "Candidate" {"tulsi":"poopoo","julienne":{"fries":9999999.0,"asponge":{},"hillarymoney":250000}}
     Str token_copy = str(token.text);
     Value result = {};
 
@@ -527,33 +408,33 @@ Value create_value_from_token(ProgramState *prgstate, tokenizer::Token token)
     {
         case tokenizer::TokenType::Eof:
         case tokenizer::TokenType::Unknown:
-            result.typeref = prgstate->prim_none;
+            result.typedesc = prgstate->prim_none;
             break;
 
         case tokenizer::TokenType::String:
             result.str_val = token_copy;
-            result.typeref = prgstate->prim_string;
+            result.typedesc = prgstate->prim_string;
             // indicate no need to free
             token_copy.data = 0;
             break;
 
         case tokenizer::TokenType::Int:
             result.s32_val = atoi(token_copy.data);
-            result.typeref = prgstate->prim_int;
+            result.typedesc = prgstate->prim_int;
             break;
 
         case tokenizer::TokenType::Float:
             result.f32_val = (float)atof(token_copy.data);
-            result.typeref = prgstate->prim_float;
+            result.typedesc = prgstate->prim_float;
             break;
 
         case tokenizer::TokenType::True:
-            result.typeref = prgstate->prim_bool;
+            result.typedesc = prgstate->prim_bool;
             result.bool_val = true;
             break;
 
         case tokenizer::TokenType::False:
-            result.typeref = prgstate->prim_bool;
+            result.typedesc = prgstate->prim_bool;
             result.bool_val = false;
             break;
     }
@@ -568,18 +449,17 @@ Value create_value_from_token(ProgramState *prgstate, tokenizer::Token token)
 
 Value create_value_from_json(ProgramState *prgstate, json_value_s *jv);
 
-Value create_object_with_type_from_json(ProgramState *prgstate, json_object_s *jobj, TypeRef typeref);
+// Value create_object_with_type_from_json(ProgramState *prgstate, json_object_s *jobj, TypeRef typeref);
+Value create_object_with_type_from_json(ProgramState *prgstate, json_object_s *jobj, TypeDescriptor *typedesc);
 
 
-Value create_array_with_type_from_json(ProgramState *prgstate, json_array_s *jarray, TypeRef typeref)
+Value create_array_with_type_from_json(ProgramState *prgstate, json_array_s *jarray, TypeDescriptor *typedesc)
 {
     Value result;
-    result.typeref = typeref;
+    result.typedesc = typedesc;
 
-    TypeDescriptor *type_desc = get_typedesc(typeref);
     dynarray_init(&result.array_value.elements, DYNARRAY_COUNT(jarray->length));
-    TypeRef elem_typeref = type_desc->array_type.elem_typeref;
-    TypeDescriptor *elem_typedesc = get_typedesc(elem_typeref);
+    TypeDescriptor *elem_typedesc = typedesc->array_type.elem_type;
 
     DynArrayCount member_idx = 0;
     for (json_array_element_s *jelem = jarray->start;
@@ -604,7 +484,7 @@ Value create_array_with_type_from_json(ProgramState *prgstate, json_array_s *jar
                 *value_element =
                     create_array_with_type_from_json(prgstate,
                                                      (json_array_s *)jelem->value->payload,
-                                                     elem_typeref);
+                                                     elem_typedesc);
                 break;
 
             case TypeID::Compound:
@@ -612,7 +492,7 @@ Value create_array_with_type_from_json(ProgramState *prgstate, json_array_s *jar
                 *value_element =
                     create_object_with_type_from_json(prgstate,
                                                       (json_object_s *)jelem->value->payload,
-                                                      elem_typeref);
+                                                      elem_typedesc);
                 break;
         }
 
@@ -623,24 +503,23 @@ Value create_array_with_type_from_json(ProgramState *prgstate, json_array_s *jar
 }
 
 
-Value create_object_with_type_from_json(ProgramState *prgstate, json_object_s *jobj, TypeRef typeref)
+Value create_object_with_type_from_json(ProgramState *prgstate, json_object_s *jobj, TypeDescriptor *typedesc)
 {
     Value result;
 
-    result.typeref = typeref;
-    TypeDescriptor *type_desc = get_typedesc(typeref);
-    dynarray_init(&result.compound_value.members, type_desc->compound_type.members.count);
+    result.typedesc = typedesc;
+    dynarray_init(&result.compound_value.members, typedesc->compound_type.members.count);
 
     DynArrayCount member_idx = 0;
     for (json_object_element_s *jelem = jobj->start;
          jelem;
          jelem = jelem->next)
     {
-        CompoundTypeMember *type_member = &type_desc->compound_type.members[member_idx];
+        CompoundTypeMember *type_member = &typedesc->compound_type.members[member_idx];
         CompoundValueMember *value_member = dynarray_append(&result.compound_value.members);
         value_member->name = type_member->name;
 
-        TypeDescriptor *type_member_desc = get_typedesc(type_member->typeref);
+        TypeDescriptor *type_member_desc = type_member->typedesc;
 
         TYPESWITCH (type_member_desc->type_id)
         {
@@ -656,7 +535,7 @@ Value create_object_with_type_from_json(ProgramState *prgstate, json_object_s *j
                 value_member->value =
                     create_array_with_type_from_json(prgstate,
                                                      (json_array_s *)jelem->value->payload,
-                                                     type_member->typeref);
+                                                     type_member->typedesc);
                 break;
 
             case TypeID::Compound:
@@ -664,7 +543,7 @@ Value create_object_with_type_from_json(ProgramState *prgstate, json_object_s *j
                 value_member->value =
                     create_object_with_type_from_json(prgstate,
                                                       (json_object_s *)jelem->value->payload,
-                                                      type_member->typeref);
+                                                      type_member->typedesc);
                 break;
 
             case TypeID::Union:
@@ -688,7 +567,7 @@ Value create_value_from_json(ProgramState *prgstate, json_value_s *jv)
         case json_type_string:
         {
             json_string_s *jstr = (json_string_s *)jv->payload;
-            result.typeref = prgstate->prim_string;
+            result.typedesc = prgstate->prim_string;
             StrLen length = STRLEN(jstr->string_size);
             result.str_val = str(jstr->string, length);
             break;
@@ -705,33 +584,33 @@ Value create_value_from_json(ProgramState *prgstate, json_value_s *jv)
 
         case json_type_object:
         {
-            TypeRef typeref = type_desc_from_json_object(prgstate, jv);
+            TypeDescriptor *typedesc = typedesc_from_json_object(prgstate, jv);
             json_object_s *jobj = (json_object_s *)jv->payload;
-            result = create_object_with_type_from_json(prgstate, jobj, typeref);
+            result = create_object_with_type_from_json(prgstate, jobj, typedesc);
             break;
         }
 
         case json_type_array:
         {
-            TypeRef typeref = type_desc_from_json_array(prgstate, jv);
-            assert(get_typedesc(typeref)->type_id == TypeID::Array);
+            TypeDescriptor *typedesc = typedesc_from_json_array(prgstate, jv);
+            assert(typedesc->type_id == TypeID::Array);
             json_array_s *jarray = (json_array_s *)jv->payload;
-            result = create_array_with_type_from_json(prgstate, jarray, typeref);
+            result = create_array_with_type_from_json(prgstate, jarray, typedesc);
             break;
         }
 
         case json_type_true:
-            result.typeref = prgstate->prim_bool;
+            result.typedesc = prgstate->prim_bool;
             result.bool_val = true;
             break;
 
         case json_type_false:
-            result.typeref = prgstate->prim_bool;
+            result.typedesc = prgstate->prim_bool;
             result.bool_val = false;
             break;
 
         case json_type_null:
-            result.typeref = prgstate->prim_none;
+            result.typedesc = prgstate->prim_none;
             break;
     }
 
@@ -906,7 +785,7 @@ void test_json_import(ProgramState *prgstate, int filename_count, char **filenam
         | json_parse_flags_allow_c_style_comments
         ;
 
-    TypeRef result_ref = {};
+    TypeDescriptor *result = nullptr;
 
     for (int i = 0; i < filename_count; ++i) {
         const char *filename = filenames[i];
@@ -926,28 +805,26 @@ void test_json_import(ProgramState *prgstate, int filename_count, char **filenam
             return;
         }
 
-        TypeRef typeref = type_desc_from_json(prgstate, jv);
+        TypeDescriptor *typedesc = typedesc_from_json(prgstate, jv);
         NameRef bound_name = nametable_find_or_add(&prgstate->names, filename);
-        bind_typeref(prgstate, bound_name, typeref);
+        bind_typedesc_name(prgstate, bound_name, typedesc);
 
         logln("New type desciptor:");
-        pretty_print(typeref);
+        pretty_print(typedesc);
 
-        if (!result_ref.index)
+        if (!result)
         {
-            result_ref = typeref;
+            result = typedesc;
         }
         else
         {
-            TypeDescriptor *result_ptr = get_typedesc(result_ref);
-            TypeDescriptor *type_desc = get_typedesc(typeref);
-            result_ref = merge_compound_types(prgstate, result_ptr, type_desc, 0);
+            result = merge_types(prgstate, result, typedesc);
         }
     }
 
     logln("completed without errors");
 
-    pretty_print(result_ref);
+    pretty_print(result);
 }
 
 
@@ -1011,54 +888,6 @@ AfterArgParseLoop:
 
     dynarray_deinit(&cmd_args);
 }
-
-
-// void run_terminal_cli(ProgramState *prgstate)
-// {
-//     for (;;)
-//     {
-//         char *input = linenoise(">> ");
-
-//         if (!input)
-//         {
-//             break;
-//         }
-
-//         append_log(input);
-
-//         tokenizer::State tokstate;
-//         tokenizer::init(&tokstate, input);
-
-//         tokenizer::Token first_token = tokenizer::read_string(&tokstate);
-
-//         if (first_token.type == tokenizer::TokenType::Eof)
-//         {
-//             std::free(input);
-//             continue;
-//         }
-
-//         DynArray<Value> cmd_args;
-//         dynarray_init(&cmd_args, 10);
-
-//         for (;;)
-//         {
-//             tokenizer::Token token = tokenizer::read_token(&tokstate);
-//             if (token.type == tokenizer::TokenType::Eof)
-//             {
-//                 break;
-//             }
-
-//             Value value = create_value_from_token(prgstate, token);
-
-//             dynarray_append(&cmd_args, value);
-//         }
-
-//         exec_command(prgstate, first_token.text, cmd_args);
-
-//         dynarray_deinit(&cmd_args);
-//         std::free(input);
-//     }
-// }
 
 
 void run_terminal_json_cli(ProgramState *prgstate)
@@ -1365,7 +1194,7 @@ void draw_collection_editor(ProgramState *prgstate)
             ImGui::PushID((int)i);
 
             Value *value = &prgstate->collection[i].value;
-            TypeDescriptor *value_type = get_typedesc(value->typeref);
+            TypeDescriptor *value_type = value->typedesc;
             assert(value_type->type_id == TypeID::Compound);
 
             for (DynArrayCount j = 0, memcount = value_type->compound_type.members.count;
@@ -1375,7 +1204,7 @@ void draw_collection_editor(ProgramState *prgstate)
                 ImGui::PushID((int)j);
 
                 Value *memval = &value->compound_value.members[j].value;
-                TypeDescriptor *memtype = get_typedesc(memval->typeref);
+                TypeDescriptor *memtype = memval->typedesc;
                 TYPESWITCH (memtype->type_id)
                 {
                     case TypeID::String:
@@ -1454,7 +1283,7 @@ int main(int argc, char **argv)
 
     // TTY console
     // run_terminal_cli(&prgstate);
-    // run_terminal_json_cli(&prgstate);
+    run_terminal_json_cli(&prgstate);
 
     if (0 != SDL_Init(SDL_INIT_VIDEO))
     {

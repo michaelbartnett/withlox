@@ -27,7 +27,7 @@ void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
 
         case TypeID::Array:
         {
-            TypeDescriptor *elem_typedesc = get_typedesc(type_desc->array_type.elem_typeref);
+            TypeDescriptor *elem_typedesc = type_desc->array_type.elem_type;
             TypeID::Tag elem_type_id = (TypeID::Tag)elem_typedesc->type_id;
             TYPESWITCH (elem_typedesc->type_id)
             {
@@ -49,7 +49,7 @@ void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
 
                     fmt_buf->write_indent(indent, "");
 
-                    pretty_print(type_desc->array_type.elem_typeref, fmt_buf, indent);
+                    pretty_print(type_desc->array_type.elem_type, fmt_buf, indent);
 
                     indent -= 2;
 
@@ -76,7 +76,7 @@ void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
                 {
                     CompoundTypeMember *member = &type_desc->compound_type.members[i];
                     fmt_buf->writef_indent(indent, "%s: ", str_slice(member->name).data);
-                    pretty_print(member->typeref, fmt_buf, indent);
+                    pretty_print(member->typedesc, fmt_buf, indent);
                 }
 
                 indent -= 2;
@@ -118,7 +118,7 @@ void pretty_print(TypeDescriptor *type_desc, int indent)
 
 void pretty_print(Value *value, FormatBuffer *fmt_buf, int indent)
 {
-    TypeDescriptor *type_desc = get_typedesc(value->typeref);
+    TypeDescriptor *type_desc = value->typedesc;
 
     TYPESWITCH (type_desc->type_id)
     {

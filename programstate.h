@@ -2,6 +2,7 @@
 #ifndef PROGRAMSTATE_H
 
 #include "str.h"
+#include "bucketarray.h"
 #include "hashtable.h"
 #include "dynarray.h"
 #include "nametable.h"
@@ -10,7 +11,7 @@
 
 
 typedef OAHashtable<StrSlice, Value, StrSliceEqual, StrSliceHash> StrToValueMap;
-typedef OAHashtable<StrSlice, TypeRef, StrSliceEqual, StrSliceHash> StrToTypeMap;
+typedef OAHashtable<StrSlice, TypeDescriptor *, StrSliceEqual, StrSliceHash> StrToTypeMap;
 
 
 struct LoadedRecord
@@ -30,14 +31,15 @@ inline void loadedrecord_free(LoadedRecord *lr)
 struct ProgramState
 {
     NameTable names;
-    DynArray<TypeDescriptor> type_descriptors;
-    OAHashtable<NameRef, TypeRef> typedesc_bindings;
+    BucketArray<TypeDescriptor> type_descriptors;
+    OAHashtable<NameRef, TypeDescriptor *> typedesc_bindings;
 
-    TypeRef prim_string;
-    TypeRef prim_int;
-    TypeRef prim_float;
-    TypeRef prim_bool;
-    TypeRef prim_none;
+    TypeDescriptor *prim_string;
+    TypeDescriptor *prim_int;
+    TypeDescriptor *prim_float;
+    TypeDescriptor *prim_bool;
+    TypeDescriptor *prim_none;
+
 
     OAHashtable<StrSlice, CliCommand, StrSliceEqual, StrSliceHash> command_map;
     StrToValueMap value_map;

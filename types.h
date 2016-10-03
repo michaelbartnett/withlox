@@ -69,52 +69,43 @@ inline const char *to_string(u32 type_id)
 
 struct TypeDescriptor;
 
-struct TypeRef
-{
-    u32 index;
-    DynArray<TypeDescriptor> *owner;
-};
+// struct TypeRef
+// {
+//     u32 index;
+//     DynArray<TypeDescriptor> *owner;
+// };
 
-struct SortTypeRef
-{
-    bool operator() (const TypeRef &a, const TypeRef &b)
-    {
-        return (a.owner == b.owner && a.index < b.index)
-            || (intptr_t)a.owner < (intptr_t)b.owner;
-    }
-};
+// struct SortTypeRef
+// {
+//     bool operator() (const TypeRef &a, const TypeRef &b)
+//     {
+//         return (a.owner == b.owner && a.index < b.index)
+//             || (intptr_t)a.owner < (intptr_t)b.owner;
+//     }
+// };
 
-inline bool typeref_identical(const TypeRef &lhs, const TypeRef &rhs)
-{
-    return lhs.index == rhs.index
-        && lhs.owner == rhs.owner;
-}
+// inline bool typeref_identical(const TypeRef &lhs, const TypeRef &rhs)
+// {
+//     return lhs.index == rhs.index
+//         && lhs.owner == rhs.owner;
+// }
 
 
 struct CompoundTypeMember
 {
     NameRef name;
-    TypeRef typeref;
-    // TypeDescriptor *type_desc;
+    TypeDescriptor *typedesc;
 };
-
-// TODO(mike): Wrap the compound members array in a struct
-// struct CompountType
-// {
-//     DynArray<CompoundTypeMember> members;
-// };
-
 
 struct ArrayType
 {
-    TypeRef elem_typeref;
-    // TypeRef element_type;
+    TypeDescriptor *elem_type;
 };
 
 
 struct UnionType
 {
-    DynArray<TypeRef> type_cases;
+    DynArray<TypeDescriptor *> type_cases;
 };
 
 
@@ -147,14 +138,14 @@ inline DynArrayCount union_num_cases(TypeDescriptor *typedesc)
 }
 
 
-inline TypeRef union_getcase(TypeDescriptor *typedesc, DynArrayCount i)
+inline TypeDescriptor *union_getcase(TypeDescriptor *typedesc, DynArrayCount i)
 {
     ASSERT_UNION(typedesc);
     return typedesc->union_type.type_cases[i];
 }
 
 
-bool are_typerefs_unique(const DynArray<TypeRef> *types);
+bool are_typedescs_unique(const DynArray<TypeDescriptor *> *types);
 
 CompoundTypeMember *find_member(const TypeDescriptor *type_desc, NameRef name);
 
@@ -163,8 +154,7 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b);
 
 HEADERFN bool equal(const CompoundTypeMember *a, const CompoundTypeMember *b)
 {
-    return nameref_identical(a->name, b->name)
-        && typeref_identical(a->typeref, b->typeref);
+    return nameref_identical(a->name, b->name) && (a->typedesc == b->typedesc);
 }
 
 
@@ -188,8 +178,7 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
             return true;
 
         case TypeID::Array:
-            return typeref_identical(a->array_type.elem_typeref,
-                                          b->array_type.elem_typeref);
+            return a->array_type.elem_type == b->array_type.elem_type;
 
         case TypeID::Compound:
         {
@@ -209,16 +198,6 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
                 }
             }
 
-            // for (u32 i = 0; i < a_mem_count; ++i)
-            // {
-            //     if (! equal(&a->compound_type.members[i],
-            //                 &b->compound_type.members[i]))
-            //     // if (! equal(dynarray_get(a->compound_type.members, i),
-            //                 // dynarray_get(b->compound_type.members, i)))
-            //     {
-            //         return false;
-            //     }
-            // }
             return true;
         }
 
@@ -229,15 +208,15 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
             }
 
             #if SANITY_CHECK
-            assert(are_typerefs_unique(&a->union_type.type_cases));
-            assert(are_typerefs_unique(&b->union_type.type_cases));
+            assert(are_typedescs_unique(&a->union_type.type_cases));
+            assert(are_typedescs_unique(&b->union_type.type_cases));
             #endif
 
             for (DynArrayCount ia = 0, count = a->union_type.type_cases.count;
                  ia < count;
                  ++ia)
             {
-                TypeRef a_case = a->union_type.type_cases[ia];
+                TypeDescriptor *a_case = a->union_type.type_cases[ia];
 
                 bool found = false;
 
@@ -245,7 +224,7 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
                      ib < count;
                      ++ib)
                 {
-                    if (typeref_identical(a_case, b->union_type.type_cases[ib]))
+                    if (a_case == b->union_type.type_cases[ib])
                     {
                         found = true;
                         break;
@@ -256,11 +235,6 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
                 {
                     return false;
                 }
-
-                // if (!typeref_identical(*a_case, *b_case))
-                // {
-                //     return false;
-                // }
             }
             return true;
     }
@@ -269,34 +243,35 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
 
 struct ProgramState;
 
-TypeRef make_typeref(ProgramState *prgstate, u32 index);
+TypeDescriptor *add_typedescriptor(ProgramState *prgstate);
+TypeDescriptor *add_typedescriptor(ProgramState *prgstate, TypeDescriptor type_desc);
 
-inline TypeDescriptor *get_typedesc(TypeRef ref)
-{
-    return ref.index && ref.owner ? &ref.owner->operator[](ref.index) : 0;
-}
+TypeDescriptor *find_equiv_typedesc(ProgramState *prgstate, TypeDescriptor *type_desc);
+TypeDescriptor *find_equiv_typedesc_or_add(ProgramState *prgstate, TypeDescriptor *type_desc, bool *new_type_added);
 
+void bind_typedesc_name(ProgramState *prgstate, NameRef name, TypeDescriptor *typedesc);
+void bind_typedesc_name(ProgramState *prgstate, const char *name, TypeDescriptor *typedesc);
 
-TypeRef add_typedescriptor(ProgramState *prgstate, TypeDescriptor type_desc, TypeDescriptor **ptr);
-TypeRef add_typedescriptor(ProgramState *prgstate, TypeDescriptor **ptr);
-TypeRef find_equiv_typedescriptor(ProgramState *prgstate, TypeDescriptor *type_desc);
-TypeRef find_equiv_type_or_add(ProgramState *prgstate, TypeDescriptor *type_desc, bool *new_type_added);
+TypeDescriptor *find_typedesc_by_name(ProgramState *prgstate, NameRef name);
+TypeDescriptor *find_typedesc_by_name(ProgramState *prgstate, StrSlice name);
+TypeDescriptor *find_typedesc_by_name(ProgramState *prgstate, Str name);
 
-TypeRef find_typeref_by_name(ProgramState *prgstate, NameRef name);
-TypeRef find_typeref_by_name(ProgramState *prgstate, StrSlice name);
-TypeRef find_typeref_by_name(ProgramState *prgstate, Str name);
 CompoundTypeMember *find_member(const TypeDescriptor &type_desc, NameRef name);
+
 TypeDescriptor copy_typedesc(const TypeDescriptor *src_typedesc);
-TypeRef compound_member_merge(ProgramState *prgstate, TypeRef a, TypeRef b);
+
+TypeDescriptor *compound_member_merge(ProgramState *prgstate, TypeDescriptor *a_desc, TypeDescriptor *b_desc);
+
+TypeDescriptor *merge_types(ProgramState *prgstate, /*const*/ TypeDescriptor *a_desc, /*const*/ TypeDescriptor *b_desc);
 
 void free_typedescriptor_components(TypeDescriptor *typedesc);
 
 
-HEADERFN void add_member(TypeDescriptor *type_desc, const CompoundTypeMember &member)
+HEADERFN void add_member(TypeDescriptor *typedesc, const CompoundTypeMember &member)
 {
-    CompoundTypeMember *new_member = dynarray_append(&type_desc->compound_type.members);
+    CompoundTypeMember *new_member = dynarray_append(&typedesc->compound_type.members);
     new_member->name = member.name;
-    new_member->typeref = member.typeref;
+    new_member->typedesc = member.typedesc;
 }
 
 
@@ -348,175 +323,7 @@ bindinfer "TestType" {"test":[1, "two", 3.0], "test2":["hello", "goodbye", []]}
  */
 
 // TODO(mike): Better failure-reason reporting
-HEADERFN TypeCheckInfo check_type_compatible(TypeRef input_typeref, TypeRef validator_typeref)
-{
-    TypeCheckInfo result = {};
-    if (typeref_identical(input_typeref, validator_typeref))
-    {
-        result.result = TypeCheckResult_Ok;
-        result.passed = true;
-        return result;
-    }
-
-    TypeDescriptor *input = get_typedesc(input_typeref);
-    TypeDescriptor *validator = get_typedesc(validator_typeref);
-
-    if (validator->type_id != TypeID::Union && input->type_id != validator->type_id)
-    {
-        result.result = TypeCheckResult_MismatchedTypeID;
-        result.passed = false;
-        return result;
-    }
-
-    TYPESWITCH (validator->type_id)
-    {
-        case TypeID::None:
-        case TypeID::String:
-        case TypeID::Int:
-        case TypeID::Float:
-        case TypeID::Bool:
-            assert(!(bool)"Should have early'd out by now");
-            break;
-
-        case TypeID::Array:
-        {
-            TypeCheckInfo elemcheck = check_type_compatible(input->array_type.elem_typeref,
-                                                            validator->array_type.elem_typeref);
-
-            result.passed = elemcheck.passed;
-            if (!result.passed)
-            {
-                result.result = TypeCheckResult_ArrayElementTypeMismatch;
-            }
-            break;
-        }
-
-        case TypeID::Compound:
-        {
-            if (input->compound_type.members.count != validator->compound_type.members.count)
-            {
-                result.passed = false;
-                result.result = TypeCheckResult_MemberCountMismatch;
-            }
-            else
-            {
-                for (DynArrayCount i = 0,
-                                   icount = validator->compound_type.members.count;
-                     i < icount;
-                    ++i)
-                {
-                    CompoundTypeMember *validator_member = &validator->compound_type.members[i];
-                    CompoundTypeMember *input_member = nullptr;
-                    for (DynArrayCount j = 0,
-                                       jcount = input->compound_type.members.count;
-                         j < jcount;
-                         ++j)
-                    {
-                        CompoundTypeMember *mem = &input->compound_type.members[j];
-                        if (nameref_identical(mem->name, validator_member->name))
-                        {
-                            input_member = mem;
-                            break;
-                        }
-                    }
-                    if (!input_member)
-                    {
-                        result.result = TypeCheckResult_MissingMember;
-                        result.passed = false;
-                        goto CompoundCheckExit;
-                    }
-
-                    TypeCheckInfo membercheck = check_type_compatible(input_member->typeref,
-                                                                      validator_member->typeref);
-                    if (!membercheck.passed)
-                    {
-                        result.result = TypeCheckResult_MemberMismatch;
-                        result.passed = false;
-                        goto CompoundCheckExit;
-                    }
-                }
-
-                { // Check pased
-                    result.result = TypeCheckResult_Ok;
-                    result.passed = true;
-                }
-            CompoundCheckExit:
-                {}
-            }
-            break;
-        }
-
-        case TypeID::Union:
-            if (input->type_id != TypeID::Union)
-            {
-                // If input is not a union, just need to find if input
-                // type matches any of the union's type cases
-                bool match_found = false;
-                for (DynArrayCount i = 0,
-                                   count = validator->union_type.type_cases.count;
-                     i < count && !match_found;
-                    ++i)
-                {
-                    TypeRef typeref = validator->union_type.type_cases[i];
-                    TypeCheckInfo check = check_type_compatible(input_typeref, typeref);
-                    if (check.passed)
-                    {
-                        match_found = true;
-                        break;
-                    }
-                }
-
-                result.passed = match_found;
-                result.result = match_found
-                    ? TypeCheckResult_Ok
-                    : TypeCheckResult_NoMatchForUnionCase;
-            }
-            else
-            {
-                // Need to see if the input union's type cases are
-                // compatible with a subset of the validator union's
-                // type cases
-
-                for (DynArrayCount i = 0,
-                                   icount = input->union_type.type_cases.count;
-                     i < icount;
-                     ++i)
-                {
-                    TypeRef input_case_typeref = input->union_type.type_cases[i];
-                    bool found_match = false;
-                    for (DynArrayCount j = 0,
-                             jcount = validator->union_type.type_cases.count;
-                         j < jcount;
-                         ++j)
-                    {
-                        TypeRef validator_case_typeref = validator->union_type.type_cases[j];
-                        TypeCheckInfo check = check_type_compatible(input_case_typeref, validator_case_typeref);
-                        if (check.passed)
-                        {
-                            found_match = true;
-                            break;
-                        }
-                    }
-
-                    if (!found_match)
-                    {
-                        result.result = TypeCheckResult_MismatchedUnions;
-                        result.passed = false;
-                        goto UnionSubsetCheckExit;
-                    }
-                }
-
-                result.result = TypeCheckResult_Ok;
-                result.passed= true;
-
-            UnionSubsetCheckExit:
-                {}
-            }
-            break;
-    }
-
-    return result;
-}
+TypeCheckInfo check_type_compatible(TypeDescriptor *input, TypeDescriptor *validator);
 
 
 struct CompoundValueMember;
@@ -525,7 +332,6 @@ struct Value;
 
 struct ArrayValue
 {
-    // TypeRef elem_typeref;
     DynArray<Value> elements;
 };
 
@@ -536,14 +342,13 @@ struct CompoundValue
 
 struct Value
 {
-    TypeRef typeref;
+    TypeDescriptor *typedesc;
     union
     {
         Str str_val;
         f32 f32_val;
         s32 s32_val;
         bool bool_val;
-        // DynArray<CompoundValueMember> members;
         CompoundValue compound_value;
         ArrayValue array_value;
     };
@@ -551,7 +356,7 @@ struct Value
 
 HEADERFN void value_assertions(const Value &value)
 {
-    assert(get_typedesc(value.typeref)->type_id != TypeID::Union);
+    assert(value.typedesc->type_id != TypeID::Union);
 }
 HEADERFN void value_assertions(const Value *value)
 {
@@ -596,10 +401,10 @@ HEADERFN Value clone(const Value *src)
     value_assertions(src);
 
     Value result;
-    result.typeref = src->typeref;
+    result.typedesc = src->typedesc;
 
-    TypeDescriptor *type_desc = get_typedesc(src->typeref);
-    
+    TypeDescriptor *type_desc = src->typedesc;
+
     TYPESWITCH (type_desc->type_id)
     {
         case TypeID::None:
@@ -656,12 +461,12 @@ HEADERFN bool value_equal(const Value &lhs, const Value &rhs)
     value_assertions(lhs);
     value_assertions(rhs);
 
-    if (!typeref_identical(lhs.typeref, rhs.typeref))
+    if (lhs.typedesc != rhs.typedesc)
     {
         return false;
     }
 
-    TypeDescriptor *type_desc = get_typedesc(lhs.typeref);
+    TypeDescriptor *type_desc = lhs.typedesc;
 
     TYPESWITCH (type_desc->type_id)
     {
@@ -715,8 +520,8 @@ HEADERFN bool value_equal(const Value &lhs, const Value &rhs)
 HEADERFN void value_free(Value *value)
 {
     value_assertions(value);
-    TypeDescriptor *type_desc = get_typedesc(value->typeref);
-    
+    TypeDescriptor *type_desc = value->typedesc;
+
     TYPESWITCH (type_desc->type_id)
     {
         case TypeID::None:

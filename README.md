@@ -13,6 +13,39 @@ This will be maintained. Latest log entry will go below.
 
 - [ ] CLI command to save the DynArray<Value> back out to JSON files
 
+# 2016-10-03-0256EST BucketArray
+
+I called it BucketArray, because instead of doing a fancy slot map or
+plf::colony thing I just reimplemented what Jonathan Blow showed off
+in his polymorphic struct demo (polymorphic struct means class
+template in C++ish).
+
+It's not total amazeballs, but it does what I wanted, which it to
+be a pretty okay container for all my TypeDescriptor objects and
+does not relocate anything.
+
+Now I should go and get rid of TypeRef and favor TypeDescriptor
+pointers everywhere.
+
+While I'm doing this, it's a good opportunity to take stock of the
+type manipulation code. I improved it slightly when I added the type
+merging functions, but it's still not super well organized, in large
+part because `main()` has these big functions that infer types from
+imported JSON. Seems like that should probably be a separate
+module/header.
+
+After that I should really get back to trying to make UI (this is
+supposed to be a visual data editor, RIGHT??). The major outstanding
+problem from last time was that I was not allocating enough scratch
+space for dearimgui's text editing widget.
+
+I recall that before I was trying to think about expanding data fields
+inline or something but that's obviously wrong.
+
+So I should upgrade dearimgui (lots of upstream changes for the
+better, including my OSX input changes!
+https://github.com/ocornut/imgui/pull/650 :D).
+
 # 2016-10-01-0447EST Just malloc
 
 In order to make progress on getting rid of TypeRef, I've decided to

@@ -67,7 +67,10 @@ TODO(mike): unit test with doctest or something
  */
 
 
-template<typename T, size_t ItemCount>
+typedef u32 BucketItemCount;
+#define BUCKEITEMCOUNT(n) U32(n)
+
+template<typename T, BucketItemCount ItemCount>
 struct Bucket
 {
     u8 occupied[ItemCount];
@@ -92,12 +95,14 @@ struct IndexElemPair
 };
 
 
-template <typename T, size_t ItemCount = 64>
+
+template <typename T, BucketItemCount ItemCount = 64>
 struct BucketArray
 {
     DynArray<Bucket<T, ItemCount> *> all_buckets;
     DynArray<Bucket<T, ItemCount> *> vacancy_buckets;
-    size_t count;
+    BucketItemCount count;
+    BucketItemCount capacity;
 
     mem::IAllocator *allocator;
 
@@ -107,18 +112,18 @@ struct BucketArray
         return all_buckets[bidx.bucket_index].items[bidx.item_index];
     }
 
-    T &operator[](s32 index) const
+    T &operator[](BucketItemCount index) const
     {
         return at(index);
     }
 
-    T &at(s32 index) const;
+    T &at(BucketItemCount index) const;
 };
 
 
 
-template<typename T, size_t ItemCount>
-BucketIndex bucketarray_translate_index(const BucketArray<T, ItemCount> *ba, s32 index)
+template<typename T, BucketItemCount ItemCount>
+BucketIndex bucketarray_translate_index(const BucketArray<T, ItemCount> *ba, BucketItemCount index)
 {
     ASSERT(index >= 0);
     BucketIndex result;
@@ -131,28 +136,34 @@ BucketIndex bucketarray_translate_index(const BucketArray<T, ItemCount> *ba, s32
 }
 
 
-template<typename T, size_t ItemCount>
-s32 bucketarray_indexify(const BucketArray<T, ItemCount> *ba, BucketIndex bucket_idx)
+template<typename T, BucketItemCount ItemCount>
+BucketItemCount bucketarray_indexify(const BucketArray<T, ItemCount> *ba, BucketIndex bucket_idx)
 {
     UNUSED(ba);
     return bucket_idx.bucket_index * S32(ItemCount) + bucket_idx.item_index;
 }
 
 
-template <typename T, size_t ItemCount>
-bool bucketarray_get_if_not_empty(const BucketArray<T, ItemCount> *ba, s32 index, T **output)
+template <typename T, BucketItemCount ItemCount>
+bool bucketarray_get_if_not_empty(const BucketArray<T, ItemCount> *ba, BucketItemCount index, T **output)
 {
-    BucketIndex idx = bucketarray_translate_index(ba, index);
-    Bucket<T, ItemCount> *b = ba->all_buckets[DYNARRAY_COUNT(idx.bucket_index)];
+    BucketIndex bidx = bucketarray_translate_index(ba, index);
+    return bucketarray_get_if_not_empty(ba, bidx, output);
+}
 
-    bool found = b->occupied[idx.item_index];
-    *output = found ? &b->items[idx.item_index] : nullptr;
+
+template <typename T, BucketItemCount ItemCount>
+bool bucketarray_get_if_not_empty(const BucketArray<T, ItemCount> *ba, BucketIndex bidx, T **output)
+{
+    Bucket<T, ItemCount> *b = ba->all_buckets[DYNARRAY_COUNT(bidx.bucket_index)];
+    bool found = b->occupied[bidx.item_index];
+    *output = found ? &b->items[bidx.item_index] : nullptr;
     return found;
 }
 
 
-template <typename T, size_t ItemCount>
-T &BucketArray<T, ItemCount>::at(s32 index) const
+template <typename T, BucketItemCount ItemCount>
+T &BucketArray<T, ItemCount>::at(BucketItemCount index) const
 {
     BucketIndex idx = bucketarray_translate_index(this, index);
     Bucket<T, ItemCount> *b = all_buckets[DYNARRAY_COUNT(idx.bucket_index)];
@@ -160,7 +171,7 @@ T &BucketArray<T, ItemCount>::at(s32 index) const
 }
 
 
-template<typename T, size_t ItemCount>
+template<typename T, BucketItemCount ItemCount>
 BucketIndex bucketarray_bucketindex_of_ptr(BucketArray<T, ItemCount> *ba, T *elem)
 {
     BucketIndex result;
@@ -168,14 +179,14 @@ BucketIndex bucketarray_bucketindex_of_ptr(BucketArray<T, ItemCount> *ba, T *ele
     result.item_index = -1;
 
     intptr_t ptr = reinterpret_cast<intptr_t>(elem);
-    for (s32 i = 0, e = S32(ba->all_buckets.count); i < e; ++i)
+    for (BucketItemCount i = 0, e = u32(ba->all_buckets.count); i < e; ++i)
     {
         intptr_t bucket_items = reinterpret_cast<intptr_t>(ba->all_buckets[DYNARRAY_COUNT(i)]->items);
         intptr_t past_bucketitems_end = bucket_items + static_cast<intptr_t>(ItemCount * sizeof(T));
         if ((ptr >= bucket_items) && (ptr < past_bucketitems_end))
         {
             intptr_t diff = ptr - bucket_items;
-            result.bucket_index = i;
+            result.bucket_index = S32(i);
             intptr_t itemidx = diff / INTPTR_T(sizeof(T));
             result.item_index = S32(itemidx);
             break;
@@ -186,7 +197,7 @@ BucketIndex bucketarray_bucketindex_of_ptr(BucketArray<T, ItemCount> *ba, T *ele
 }
 
 
-template<typename T, size_t ItemCount>
+template<typename T, BucketItemCount ItemCount>
 void bucketarray_init(BucketArray<T, ItemCount> *ba,
                       mem::IAllocator *allocator = nullptr,
                       DynArrayCount    initial_bucket_capacity = 0)
@@ -197,24 +208,27 @@ void bucketarray_init(BucketArray<T, ItemCount> *ba,
     }
 
     ba->allocator = allocator;
+    ba->count = 0;
+    ba->capacity = 0;
     dynarray_init(&ba->all_buckets, initial_bucket_capacity, allocator);
     dynarray_init(&ba->vacancy_buckets, initial_bucket_capacity, allocator);
 }
 
 
-template<typename T, size_t ItemCount>
+template<typename T, BucketItemCount ItemCount>
 Bucket<T, ItemCount> *bucketarray_addbucket(BucketArray<T, ItemCount> *ba)
 {
     Bucket<T, ItemCount> *bucket = MAKE_OBJ(ba->allocator, Bucket<T, ItemCount>);
     bucket->index = ba->all_buckets.count;
     bucket->count = 0;
+    ba->capacity += ItemCount;
     zero_obj(bucket->occupied);
     dynarray_append(&ba->all_buckets, bucket);
     return *dynarray_append(&ba->vacancy_buckets, bucket);
 }
 
 
-template<typename T, size_t ItemCount>
+template<typename T, BucketItemCount ItemCount>
 IndexElemPair<T> bucketarray_add(BucketArray<T, ItemCount> *ba)
 {
     DynArrayCount vacant_bucket_count = ba->vacancy_buckets.count;
@@ -259,7 +273,7 @@ IndexElemPair<T> bucketarray_add(BucketArray<T, ItemCount> *ba)
 }
 
 
-template<typename T, size_t ItemCount>
+template<typename T, BucketItemCount ItemCount>
 void bucketarray_remove(BucketArray<T, ItemCount> *ba, s32 index)
 {
     BucketIndex idx = bucketarray_translate_index(ba, index);
