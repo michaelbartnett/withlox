@@ -24,6 +24,8 @@ parse_type <type descriptor syntax>
 #include "nametable.h"
 #include "common.h"
 
+#define TYPESWITCH(type_id) switch ((TypeID::Tag)(type_id))
+
 namespace TypeID
 {
 
@@ -43,7 +45,7 @@ enum Tag
 
 inline const char *to_string(TypeID::Tag type_id)
 {
-    switch (type_id)
+    TYPESWITCH (type_id)
     {
         case TypeID::None:     return "None";
         case TypeID::String:   return "String";
@@ -63,7 +65,6 @@ inline const char *to_string(u32 type_id)
 }
 
 }
-
 
 
 struct TypeDescriptor;
@@ -116,6 +117,7 @@ struct UnionType
     DynArray<TypeRef> type_cases;
 };
 
+
 struct CompoundType
 {
     DynArray<CompoundTypeMember> members;
@@ -134,6 +136,27 @@ struct TypeDescriptor
     };
 };
 
+
+#define ASSERT_UNION(typedesc) assert((typedesc)->type_id == TypeID::Union)
+
+
+inline DynArrayCount union_num_cases(TypeDescriptor *typedesc)
+{
+    ASSERT_UNION(typedesc);
+    return typedesc->union_type.type_cases.count;
+}
+
+
+inline TypeRef union_getcase(TypeDescriptor *typedesc, DynArrayCount i)
+{
+    ASSERT_UNION(typedesc);
+    return typedesc->union_type.type_cases[i];
+}
+
+
+bool are_typerefs_unique(const DynArray<TypeRef> *types);
+
+CompoundTypeMember *find_member(const TypeDescriptor *type_desc, NameRef name);
 
 HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b);
 
@@ -155,7 +178,7 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
         return false;
     }
 
-    switch ((TypeID::Tag)a->type_id)
+    TYPESWITCH (a->type_id)
     {
         case TypeID::None:
         case TypeID::String:
@@ -170,22 +193,32 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
 
         case TypeID::Compound:
         {
-            size_t a_mem_count = a->compound_type.members.count;
+            DynArrayCount a_mem_count = a->compound_type.members.count;
             if (a_mem_count != b->compound_type.members.count)
             {
                 return false;
             }
 
-            for (u32 i = 0; i < a_mem_count; ++i)
+            for (DynArrayCount ia = 0; ia < a_mem_count; ++ia)
             {
-                if (! equal(&a->compound_type.members[i],
-                            &b->compound_type.members[i]))
-                // if (! equal(dynarray_get(a->compound_type.members, i),
-                            // dynarray_get(b->compound_type.members, i)))
+                CompoundTypeMember *a_member = &a->compound_type.members[ia];
+                CompoundTypeMember *b_member = find_member(b, a->compound_type.members[ia].name);
+                if (!b_member || !equal(a_member, b_member))
                 {
                     return false;
                 }
             }
+
+            // for (u32 i = 0; i < a_mem_count; ++i)
+            // {
+            //     if (! equal(&a->compound_type.members[i],
+            //                 &b->compound_type.members[i]))
+            //     // if (! equal(dynarray_get(a->compound_type.members, i),
+            //                 // dynarray_get(b->compound_type.members, i)))
+            //     {
+            //         return false;
+            //     }
+            // }
             return true;
         }
 
@@ -195,18 +228,39 @@ HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
                 return false;
             }
 
-            for (DynArrayCount i = 0,
-                     count = a->union_type.type_cases.count;
-                 i < count;
-                 ++i)
-            {
-                TypeRef *a_case = &a->union_type.type_cases[i];
-                TypeRef *b_case = &b->union_type.type_cases[i];
+            #if SANITY_CHECK
+            assert(are_typerefs_unique(&a->union_type.type_cases));
+            assert(are_typerefs_unique(&b->union_type.type_cases));
+            #endif
 
-                if (!typeref_identical(*a_case, *b_case))
+            for (DynArrayCount ia = 0, count = a->union_type.type_cases.count;
+                 ia < count;
+                 ++ia)
+            {
+                TypeRef a_case = a->union_type.type_cases[ia];
+
+                bool found = false;
+
+                for (DynArrayCount ib = 0;
+                     ib < count;
+                     ++ib)
+                {
+                    if (typeref_identical(a_case, b->union_type.type_cases[ib]))
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found)
                 {
                     return false;
                 }
+
+                // if (!typeref_identical(*a_case, *b_case))
+                // {
+                //     return false;
+                // }
             }
             return true;
     }
@@ -222,11 +276,28 @@ inline TypeDescriptor *get_typedesc(TypeRef ref)
     return ref.index && ref.owner ? &ref.owner->operator[](ref.index) : 0;
 }
 
+
+TypeRef add_typedescriptor(ProgramState *prgstate, TypeDescriptor type_desc, TypeDescriptor **ptr);
+TypeRef add_typedescriptor(ProgramState *prgstate, TypeDescriptor **ptr);
+TypeRef find_equiv_typedescriptor(ProgramState *prgstate, TypeDescriptor *type_desc);
+TypeRef find_equiv_type_or_add(ProgramState *prgstate, TypeDescriptor *type_desc, bool *new_type_added);
+
 TypeRef find_typeref_by_name(ProgramState *prgstate, NameRef name);
 TypeRef find_typeref_by_name(ProgramState *prgstate, StrSlice name);
 TypeRef find_typeref_by_name(ProgramState *prgstate, Str name);
+CompoundTypeMember *find_member(const TypeDescriptor &type_desc, NameRef name);
+TypeDescriptor copy_typedesc(const TypeDescriptor *src_typedesc);
+TypeRef compound_member_merge(ProgramState *prgstate, TypeRef a, TypeRef b);
+
+void free_typedescriptor_components(TypeDescriptor *typedesc);
 
 
+HEADERFN void add_member(TypeDescriptor *type_desc, const CompoundTypeMember &member)
+{
+    CompoundTypeMember *new_member = dynarray_append(&type_desc->compound_type.members);
+    new_member->name = member.name;
+    new_member->typeref = member.typeref;
+}
 
 
 enum TypeCheckResult
@@ -297,7 +368,7 @@ HEADERFN TypeCheckInfo check_type_compatible(TypeRef input_typeref, TypeRef vali
         return result;
     }
 
-    switch ((TypeID::Tag)validator->type_id)
+    TYPESWITCH (validator->type_id)
     {
         case TypeID::None:
         case TypeID::String:
@@ -529,7 +600,7 @@ HEADERFN Value clone(const Value *src)
 
     TypeDescriptor *type_desc = get_typedesc(src->typeref);
     
-    switch ((TypeID::Tag)type_desc->type_id)
+    TYPESWITCH (type_desc->type_id)
     {
         case TypeID::None:
             break;
@@ -592,7 +663,7 @@ HEADERFN bool value_equal(const Value &lhs, const Value &rhs)
 
     TypeDescriptor *type_desc = get_typedesc(lhs.typeref);
 
-    switch ((TypeID::Tag)type_desc->type_id)
+    TYPESWITCH (type_desc->type_id)
     {
         case TypeID::None:     return true;
         case TypeID::String:   return str_equal(lhs.str_val, rhs.str_val);
@@ -646,7 +717,7 @@ HEADERFN void value_free(Value *value)
     value_assertions(value);
     TypeDescriptor *type_desc = get_typedesc(value->typeref);
     
-    switch ((TypeID::Tag)type_desc->type_id)
+    TYPESWITCH (type_desc->type_id)
     {
         case TypeID::None:
         case TypeID::Int:

@@ -148,11 +148,6 @@ https://www.google.com/search?q=c%2B%2B+json&oq=c%2B%2B+json&aqs=chrome.0.0l2j69
 
 
 
-
-
-TypeRef add_typedescriptor(ProgramState *prgstate, TypeDescriptor **ptr);
-
-
 void bind_typeref(ProgramState *prgstate, NameRef name, TypeRef typeref)
 {
     ht_set(&prgstate->typedesc_bindings, name, typeref);
@@ -211,94 +206,72 @@ void prgstate_init(ProgramState *prgstate)
 }
 
 
-TypeRef add_typedescriptor(ProgramState *prgstate, TypeDescriptor type_desc, TypeDescriptor **ptr)
-{
-    TypeDescriptor *td = dynarray_append(&prgstate->type_descriptors, type_desc);
+// // TODO(mike): Guarantee no structural duplicates, and do it fast. Hashtable.
+// TypeRef find_equiv_typedescriptor(ProgramState *prgstate, TypeDescriptor *type_desc)
+// {
+//     TypeRef result = {};
 
-    if (ptr)
-    {
-        *ptr = td;
-    }
-
-    TypeRef result = make_typeref(prgstate,
-                                            prgstate->type_descriptors.count - 1);
-    return result;
-}
-
-
-TypeRef add_typedescriptor(ProgramState *prgstate, TypeDescriptor **ptr)
-{
-    TypeDescriptor td = {};
-    return add_typedescriptor(prgstate, td, ptr);
-}
+//     TYPESWITCH (type_desc->type_id)
+//     {
+//         // Builtins/primitives
+//         case TypeID::None:   result =  prgstate->prim_none;   break;
+//         case TypeID::String: result =  prgstate->prim_string; break;
+//         case TypeID::Int:    result =  prgstate->prim_int;    break;
+//         case TypeID::Float:  result =  prgstate->prim_float;  break;
+//         case TypeID::Bool:   result =  prgstate->prim_bool;   break;
 
 
-// TODO(mike): Guarantee no structural duplicates, and do it fast. Hashtable.
-TypeRef find_equiv_typedescriptor(ProgramState *prgstate, TypeDescriptor *type_desc)
-{
-    TypeRef result = {};
+//         // Unique / user-defined
+//         case TypeID::Array:
+//         case TypeID::Compound:
+//             for (DynArrayCount i = 0,
+//                      count = prgstate->type_descriptors.count;
+//                  i < count;
+//                  ++i)
+//             {
+//                 TypeRef ref = make_typeref(prgstate, i);
+//                 TypeDescriptor *predefined = get_typedesc(ref);
+//                 if (predefined && equal(type_desc, predefined))
+//                 {
+//                     result = ref;
+//                     break;
+//                 }
+//             }
+//             break;
 
-    switch ((TypeID::Tag)type_desc->type_id)
-    {
-        // Builtins/primitives
-        case TypeID::None:   result =  prgstate->prim_none;   break;
-        case TypeID::String: result =  prgstate->prim_string; break;
-        case TypeID::Int:    result =  prgstate->prim_int;    break;
-        case TypeID::Float:  result =  prgstate->prim_float;  break;
-        case TypeID::Bool:   result =  prgstate->prim_bool;   break;
+//         case TypeID::Union:
+//             for (DynArrayCount i = 0, count = prgstate->type_descriptors.count;
+//                  i < count;
+//                  ++i)
+//             {
+//                 TypeRef ref = make_typeref(prgstate, i);
+//                 TypeDescriptor *predefined = get_typedesc(ref);
+//                 if (predefined && equal(type_desc, predefined))
+//                 {
+//                     result = ref;
+//                     break;
+//                 }
+//             }
+//             break;
+//     }
 
+//     return result;
+// }
 
-        // Unique / user-defined
-        case TypeID::Array:
-        case TypeID::Compound:
-            for (DynArrayCount i = 0,
-                     count = prgstate->type_descriptors.count;
-                 i < count;
-                 ++i)
-            {
-                TypeRef ref = make_typeref(prgstate, i);
-                TypeDescriptor *predefined = get_typedesc(ref);
-                if (predefined && equal(type_desc, predefined))
-                {
-                    result = ref;
-                    break;
-                }
-            }
-            break;
+// TypeRef find_equiv_type_or_add(ProgramState *prgstate, TypeDescriptor *type_desc, TypeDescriptor **ptr)
+// {
+//     TypeRef preexisting = find_equiv_typedescriptor(prgstate, type_desc);
+//     if (preexisting.index)
+//     {
+//         if (ptr)
+//         {
+//             *ptr = get_typedesc(preexisting);
+//         }
+//         return preexisting;
+//     }
 
-        case TypeID::Union:
-            for (DynArrayCount i = 0, count = prgstate->type_descriptors.count;
-                 i < count;
-                 ++i)
-            {
-                TypeRef ref = make_typeref(prgstate, i);
-                TypeDescriptor *predefined = get_typedesc(ref);
-                if (predefined && equal(type_desc, predefined))
-                {
-                    result = ref;
-                    break;
-                }
-            }
-            break;
-    }
-
-    return result;
-}
-
-TypeRef find_equiv_type_or_add(ProgramState *prgstate, TypeDescriptor *type_desc, TypeDescriptor **ptr)
-{
-    TypeRef preexisting = find_equiv_typedescriptor(prgstate, type_desc);
-    if (preexisting.index)
-    {
-        if (ptr)
-        {
-            *ptr = get_typedesc(preexisting);
-        }
-        return preexisting;
-    }
-
-    return add_typedescriptor(prgstate, *type_desc, ptr);
-}
+//     return add_typedescriptor(prgstate, *type_desc, ptr);
+// }
 
 TypeDescriptor *find_typedesc_by_name(ProgramState *prgstate, NameRef name)
 {
@@ -364,7 +337,14 @@ TypeRef type_desc_from_json_array(ProgramState *prgstate, json_value_s *jv)
         element_union_type.type_id = TypeID::Union;
         element_union_type.union_type = union_type;
 
-        constructed_typedesc.array_type.elem_typeref = find_equiv_type_or_add(prgstate, &element_union_type, nullptr);
+        bool new_type_added;
+
+        constructed_typedesc.array_type.elem_typeref =
+            find_equiv_type_or_add(prgstate, &element_union_type, &new_type_added);
+        if (! new_type_added)
+        {
+            free_typedescriptor_components(&element_union_type);
+        }
     }
     else
     {
@@ -386,7 +366,12 @@ TypeRef type_desc_from_json_array(ProgramState *prgstate, json_value_s *jv)
     }
 
     // If it's the empty array, bound to find a preexisting. Will that be common?
-    result = find_equiv_type_or_add(prgstate, &constructed_typedesc, nullptr);
+    bool new_type_added;
+    result = find_equiv_type_or_add(prgstate, &constructed_typedesc, &new_type_added);
+    if (! new_type_added)
+    {
+        free_typedescriptor_components(&constructed_typedesc);
+    }
 
     dynarray_deinit(&element_types);
 
@@ -473,9 +458,6 @@ TypeRef type_desc_from_json(ProgramState *prgstate, json_value_s *jv)
 }
 
 
-TypeDescriptor *clone(const TypeDescriptor *type_desc);
-
-
 DynArray<CompoundTypeMember> clone(const DynArray<CompoundTypeMember> &memberset)
 {
     DynArray<CompoundTypeMember> result = dynarray_init<CompoundTypeMember>(memberset.count);
@@ -496,69 +478,9 @@ DynArray<CompoundTypeMember> clone(const DynArray<CompoundTypeMember> &memberset
 
 TypeRef clone(ProgramState *prgstate, const TypeDescriptor *src_typedesc, TypeDescriptor **ptr)
 {
-    TypeDescriptor *dest_typedesc;
-    TypeRef result = add_typedescriptor(prgstate, &dest_typedesc);
-    if (ptr)
-    {
-        *ptr = dest_typedesc;
-    }
-
-    dest_typedesc->type_id = src_typedesc->type_id;
-    switch ((TypeID::Tag)dest_typedesc->type_id)
-    {
-        case TypeID::None:
-        case TypeID::String:
-        case TypeID::Int:
-        case TypeID::Float:
-        case TypeID::Bool:
-            // nothing to do for non-compound types
-            break;
-
-        case TypeID::Array:
-            dest_typedesc->array_type = src_typedesc->array_type;
-            break;
-
-        case TypeID::Compound:
-            dest_typedesc->compound_type.members = clone(src_typedesc->compound_type.members);
-            break;
-
-        case TypeID::Union:
-            dest_typedesc->union_type.type_cases = dynarray_clone(&src_typedesc->union_type.type_cases);
-            break;
-    }
-
-    return result;
+    return add_typedescriptor(prgstate, copy_typedesc(src_typedesc), ptr);
 }
 
-
-CompoundTypeMember *find_member(const TypeDescriptor &type_desc, NameRef name)
-{
-    size_t count = type_desc.compound_type.members.count;
-    for (u32 i = 0; i < count; ++i)
-    {
-        CompoundTypeMember *mem = &type_desc.compound_type.members[i];
-
-        if (nameref_identical(mem->name, name))
-        {
-            return mem;
-        }
-    }
-
-    return nullptr;
-}
-
-
-void add_member(TypeDescriptor *type_desc, const CompoundTypeMember &member)
-{
-    CompoundTypeMember *new_member = dynarray_append(&type_desc->compound_type.members);
-    new_member->name = member.name;
-    new_member->typeref = member.typeref;
-}
-
-
-// NOTE(mike): Merging *any* type descriptor only makes sense if we have sum types
-// That would be cool, but might be a bit much. We'll see.
-// TypeDescriptor *merge_type_descriptors(TypeDescriptor *typedesc_a, TypeDescriptor *typedesc_b)
 
 TypeRef merge_compound_types(ProgramState *prgstate,
                                        const TypeDescriptor *typedesc_a,
@@ -576,7 +498,7 @@ TypeRef merge_compound_types(ProgramState *prgstate,
     for (DynArrayCount ib = 0; ib < typedesc_b->compound_type.members.count; ++ib)
     {
         CompoundTypeMember *b_member = &typedesc_b->compound_type.members[ib];
-        CompoundTypeMember *a_member = find_member(*typedesc_a, b_member->name);
+        CompoundTypeMember *a_member = find_member(typedesc_a, b_member->name);
 
         if (! (a_member && typeref_identical(a_member->typeref, b_member->typeref)))
         {
@@ -663,7 +585,7 @@ Value create_array_with_type_from_json(ProgramState *prgstate, json_array_s *jar
     {
         Value *value_element = dynarray_append(&result.array_value.elements);
 
-        switch ((TypeID::Tag)elem_typedesc->type_id)
+        TYPESWITCH (elem_typedesc->type_id)
         {
             case TypeID::None:
             case TypeID::String:
@@ -717,7 +639,7 @@ Value create_object_with_type_from_json(ProgramState *prgstate, json_object_s *j
 
         TypeDescriptor *type_member_desc = get_typedesc(type_member->typeref);
 
-        switch ((TypeID::Tag)type_member_desc->type_id)
+        TYPESWITCH (type_member_desc->type_id)
         {
             case TypeID::None:
             case TypeID::String:
@@ -1414,56 +1336,72 @@ void draw_collection_editor(ProgramState *prgstate)
 
     if (prgstate->collection.count > 0)
     {
-        Value *value = &prgstate->collection[0].value;
-
-        DynArrayCount column_count = value->compound_value.members.count;
-
-        ImGui::Columns((int)column_count, "Data Yay");
-        ImGui::Separator();
-
-        Str col_label = {};
-        for (DynArrayCount i = 0; i < column_count; ++i)
+        // collect and render column names
+        DynArrayCount column_count = 0;
         {
-            str_overwrite(&col_label, str_slice(value->compound_value.members[i].name));
-            ImGui::Text("%s", col_label.data);
-            ImGui::NextColumn();
+            Value *value = &prgstate->collection[0].value;
+
+            column_count = value->compound_value.members.count;
+
+            ImGui::Columns((int)column_count, "Data Yay");
+            ImGui::Separator();
+
+            Str col_label = {};
+            for (DynArrayCount i = 0; i < column_count; ++i)
+            {
+                str_overwrite(&col_label, str_slice(value->compound_value.members[i].name));
+                ImGui::Text("%s", col_label.data);
+                ImGui::NextColumn();
+            }
+            str_free(&col_label);
+            ImGui::Separator();
         }
-        str_free(&col_label);
 
-        ImGui::Separator();
-
-        for (DynArrayCount i = 0; i < column_count; ++i)
+        for (DynArrayCount i = 0; i < prgstate->collection.count; ++i)
         {
             ImGui::PushID((int)i);
 
-            Value *memval = &value->compound_value.members[i].value;
-            TypeDescriptor *memtype = get_typedesc(memval->typeref);
-            switch (memtype->type_id)
+            Value *value = &prgstate->collection[i].value;
+            TypeDescriptor *value_type = get_typedesc(value->typeref);
+            assert(value_type->type_id == TypeID::Compound);
+
+            for (DynArrayCount j = 0, memcount = value_type->compound_type.members.count;
+                 j < memcount;
+                 ++j)
             {
-                case TypeID::String:
-                    ImGui::InputText("##field", memval->str_val.data, memval->str_val.capacity);
-                    break;
-                case TypeID::Int:
-                    ImGui::InputInt("##field", &memval->s32_val);
-                    break;
-                case TypeID::Float:
-                    ImGui::InputFloat("##field", &memval->f32_val);
-                    break;
-                case TypeID::Bool:
-                    ImGui::Checkbox("##field", &memval->bool_val);
-                    break;
-                default:
-                    ImGui::Text("TODO: %s", TypeID::to_string(memtype->type_id));
-                    break;
+                ImGui::PushID((int)j);
+
+                Value *memval = &value->compound_value.members[j].value;
+                TypeDescriptor *memtype = get_typedesc(memval->typeref);
+                TYPESWITCH (memtype->type_id)
+                {
+                    case TypeID::String:
+                        ImGui::InputText("##field", memval->str_val.data, memval->str_val.capacity);
+                        break;
+                    case TypeID::Int:
+                        ImGui::InputInt("##field", &memval->s32_val);
+                        break;
+                    case TypeID::Float:
+                        ImGui::InputFloat("##field", &memval->f32_val);
+                        break;
+                    case TypeID::Bool:
+                        ImGui::Checkbox("##field", &memval->bool_val);
+                        break;
+                    default:
+                        ImGui::Text("TODO: %s", TypeID::to_string(memtype->type_id));
+                        break;
+                }
+
+                ImGui::PopID();
+                ImGui::NextColumn();
             }
 
             ImGui::PopID();
-            ImGui::NextColumn();
         }
 
 
         // // get max columns
-        // for (DynArrayCount i = 0; i < prgstate->collection.count; ++i)
+        // for (DynArrayCount j = 0; i < prgstate->collection.count; ++i)
         // {
         //     Value *value = &prgstate->collection[i].value;
         //     TypeDescriptor *typedesc = get_typedesc(value->typeref);

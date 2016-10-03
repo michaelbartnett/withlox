@@ -13,6 +13,32 @@ This will be maintained. Latest log entry will go below.
 
 - [ ] CLI command to save the DynArray<Value> back out to JSON files
 
+# 2016-06-22-0208EST Set Phasers to Disjoint
+
+So I implemented `merge_types`, `compound_member_merge`, as well as a
+`make_union` support function I used to write `merge_types` and holy
+cow `make_union` is the longest and most horrible.
+
+I threw a few comments in the code amounting to "wow a Set container
+would be nice" and "at least give me `dynarray_add_to_set`". It's
+really pretty rough not having set operations for when dealing with
+merging unions.
+
+It would also probably make `compound_member_merge` cleaner too, if I
+template it correctly.
+
+I ended up writing a `free_typedescriptor_components` function because
+it was bothering me that I would speculatively create all these type
+descriptors with member and type case arrays, only to let those arrays
+leak. This isn't *that* great (memory management of core types needs
+work in general), but at least now it leaks less.
+
+Something I didn't cleanup was `NameRef` values. I might never clean
+those up. DotNet and the JVM never GC their interned string pools,
+right? If I were to clean it up, it would amount to writing a garbage
+collection or reference counting system, so I'll revisit GC'ing
+NameRefs when I have to look at GC'ing values.
+
 # 2016-06-12-1516EST Type Merging is Incompatible with Capitalism
 
 I've really been wanting to make the editing UI for loaded JSON files, and

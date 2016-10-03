@@ -15,7 +15,7 @@ good print tests
 void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
 {
     TypeID::Tag type_id = (TypeID::Tag)type_desc->type_id;
-    switch (type_id)
+    TYPESWITCH (type_id)
     {
         case TypeID::None:
         case TypeID::String:
@@ -29,7 +29,7 @@ void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
         {
             TypeDescriptor *elem_typedesc = get_typedesc(type_desc->array_type.elem_typeref);
             TypeID::Tag elem_type_id = (TypeID::Tag)elem_typedesc->type_id;
-            switch ((TypeID::Tag)elem_typedesc->type_id)
+            TYPESWITCH (elem_typedesc->type_id)
             {
                 case TypeID::None:
                 case TypeID::String:
@@ -120,7 +120,7 @@ void pretty_print(Value *value, FormatBuffer *fmt_buf, int indent)
 {
     TypeDescriptor *type_desc = get_typedesc(value->typeref);
 
-    switch ((TypeID::Tag)type_desc->type_id)
+    TYPESWITCH (type_desc->type_id)
     {
         case TypeID::None:
             fmt_buf->writef_ln("%s", "null");
