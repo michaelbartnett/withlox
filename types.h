@@ -354,6 +354,20 @@ struct Value
     };
 };
 
+#define tIS_INT(typedesc)      ((typedesc)->type_id == TypeID::Int)
+#define tIS_STRING(typedesc)   ((typedesc)->type_id == TypeID::String)
+#define tIS_BOOL(typedesc)     ((typedesc)->type_id == TypeID::Bool)
+#define tIS_ARRAY(typedesc)    ((typedesc)->type_id == TypeID::Array)
+#define tIS_COMPOUND(typedesc) ((typedesc)->type_id == TypeID::Compound)
+#define tIS_UNION(typedesc)    ((typedesc)->type_id == TypeID::Union)
+
+#define vIS_INT(val)           tIS_INT((val)->typedesc)
+#define vIS_STRING(val)        tIS_STRING((val)->typedesc)
+#define vIS_BOOL(val)          tIS_BOOL((val)->typedesc)
+#define vIS_ARRAY(val)         tIS_ARRAY((val)->typedesc)
+#define vIS_COMPOUND(val)      tIS_COMPOUND((val)->typedesc)
+#define vIS_UNION(val)         tIS_UNION((val)->typedesc)
+
 HEADERFN void value_assertions(const Value &value)
 {
     assert(value.typedesc->type_id != TypeID::Union);

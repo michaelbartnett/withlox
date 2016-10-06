@@ -1,4 +1,5 @@
 #include "dynarray.h"
+#include "bucketarray.h"
 #include "hashtable.h"
 #include "clicommands.h"
 #include "programstate.h"
@@ -237,15 +238,14 @@ CLI_COMMAND_FN_SIG(print_type)
         return;
     }
 
-    TypeDescriptor **typedesc = ht_find(&prgstate->type_map, str_slice(name_arg->str_val));
-    if (typedesc)
-    {
-        pretty_print(*typedesc);
-    }
-    else
+    TypeDescriptor *typedesc = find_typedesc_by_name(prgstate, name_arg->str_val);
+    if (!typedesc)
     {
         logf_ln("No value bound to name: '%s'", name_arg->str_val.data);
+        return;
     }
+
+    pretty_print(typedesc);
 }
 
 
@@ -524,9 +524,8 @@ CLI_COMMAND_FN_SIG(loadjson)
         log("Usage: loadjson \"<path/to/directory/with/json/files>\"");
     }
 
-    DynArrayCount new_records_start_idx = prgstate->collection.count;
-    // DynArray<LoadedRecord> loaded_records = {};
-    ParseResult parse_result = load_json_dir(&prgstate->collection, prgstate, str_slice(args[0].str_val.data));
+    Collection *collection;
+    ParseResult parse_result = load_json_dir(&collection, prgstate, str_slice(args[0].str_val.data));
 
     switch (parse_result.status)
     {
@@ -542,16 +541,17 @@ CLI_COMMAND_FN_SIG(loadjson)
             FormatBuffer fmt_buf;
             fmt_buf.flush_on_destruct();
 
-            for (u32 i = new_records_start_idx; i < prgstate->collection.count; ++i)
+            for (DynArrayCount i = 0; i < collection->records.count; ++i)
             {
                 fmt_buf.write('\n');
-                LoadedRecord *record = &prgstate->collection[i];
+                LoadedRecord *record = collection->records[i];
                 fmt_buf.write("Path: ");
                 fmt_buf.write(record->fullpath.data);
                 fmt_buf.write("\nValue: ");
                 pretty_print(&record->value, &fmt_buf);
                 fmt_buf.writef("Parsed value's type: %p ", record->value.typedesc);
                 pretty_print(record->value.typedesc, &fmt_buf);
+                fmt_buf.flush_to_log();
             }
             break;
         }
@@ -559,13 +559,67 @@ CLI_COMMAND_FN_SIG(loadjson)
 }
 
 
-CLI_COMMAND_FN_SIG(flushjson)
+CLI_COMMAND_FN_SIG(dropjson)
 {
+    UNUSED(prgstate);
     UNUSED(userdata);
     UNUSED(args);
 
-    log("TODO: implement actual saving instead of just dropping");
-    drop_loaded_records(prgstate);
+    logln("TODO: implement dropjson");
+}
+
+
+CLI_COMMAND_FN_SIG(lscollections)
+{
+    UNUSED(args);
+    UNUSED(userdata);
+
+    logf_ln("%i loaded collections", prgstate->collections.count);
+
+    for (BucketItemCount i = 0; i < prgstate->collections.capacity; ++i)
+    {
+        Collection *collection;
+        if (bucketarray_get_if_not_empty(&prgstate->collections, i, &collection))
+        {
+            logf_ln("[%i] %s", i, collection->load_path.data);
+        }
+    }
+}
+
+
+CLI_COMMAND_FN_SIG(edit)
+{
+    UNUSED(prgstate);
+    UNUSED(userdata);
+    UNUSED(args);
+
+    if (args.count != 1 || ! vIS_INT(&args[0]))
+    {
+        logln("usage: edit <collection index>");
+        logln("Run lscollections to see collection indexes");
+        return;
+    }
+
+    s32 coll_idx = args[0].s32_val;
+
+    if (!bucketarray::exists(&prgstate->collections, coll_idx))
+    {
+        logf_ln("Index %i out of range [0, %i] or slot empty",
+                coll_idx, prgstate->collections.count);
+        return;
+    }
+
+    Collection *coll = &prgstate->collections[coll_idx];
+    Collection **already_editing = dynarray::find(&prgstate->editing_collections, coll);
+    if (already_editing)
+    {
+        logf_ln("Already editing '%s'", coll->load_path.data);
+    }
+    else
+    {
+        dynarray::append(&prgstate->editing_collections, coll);
+        logf_ln("Now editing '%s'", coll->load_path.data);
+    }
 }
 
 
@@ -598,5 +652,7 @@ void init_cli_commands(ProgramState *prgstate)
     REGISTER_COMMAND(prgstate, catfile, nullptr);
     REGISTER_COMMAND(prgstate, loadjson, nullptr);
     REGISTER_COMMAND(prgstate, abspath, nullptr);
-    REGISTER_COMMAND(prgstate, flushjson, nullptr);
+    REGISTER_COMMAND(prgstate, dropjson, nullptr);
+    REGISTER_COMMAND(prgstate, lscollections, nullptr);
+    REGISTER_COMMAND(prgstate, edit, nullptr);
 }

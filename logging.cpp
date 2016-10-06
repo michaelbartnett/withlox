@@ -182,9 +182,11 @@ Str *concatenated_log()
     if (concatenated_dirty)
     {
         StrLen min_capacity = concatenated.capacity;
-        for (u32 i = next_log_entry_to_concat; i < log_entries.count; ++i)
+        DynArrayCount start_cat_from = 0;
+        for (DynArrayCount i = next_log_entry_to_concat; i < log_entries.count; ++i)
         {
-            min_capacity = STRLEN(min_capacity + log_entries[i].length + 1);
+            size_t new_min_capacity = min_capacity + log_entries[i].length + 1;
+            min_capacity = STRLEN(new_min_capacity);
         }
 
         str_ensure_capacity(&concatenated, min_capacity);

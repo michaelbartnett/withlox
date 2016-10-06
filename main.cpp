@@ -150,15 +150,9 @@ https://www.google.com/search?q=c%2B%2B+json&oq=c%2B%2B+json&aqs=chrome.0.0l2j69
 // }
 
 
-void prgstate_init(ProgramState *prgstate)
+void load_base_type_descriptors(ProgramState *prgstate)
 {
-    nametable_init(&prgstate->names, MEGABYTES(2));
-    bucketarray_init(&prgstate->type_descriptors);
-    // dynarray_init(&prgstate->type_descriptors, 0);
-    // dynarray_append(&prgstate->type_descriptors);
-    ht_init(&prgstate->typedesc_bindings);
-
-    dynarray_init(&prgstate->collection, 0);
+    ASSERT(prgstate);
 
     TypeDescriptor *none_type = add_typedescriptor(prgstate);
     none_type->type_id = TypeID::None;
@@ -189,10 +183,6 @@ void prgstate_init(ProgramState *prgstate)
     bind_typedesc_name(prgstate, TypeID::to_string(bool_type->type_id),
                        bool_type);
     prgstate->prim_bool = bool_type;
-
-    ht_init(&prgstate->command_map);
-    ht_init(&prgstate->value_map);
-    ht_init(&prgstate->type_map);
 }
 
 
@@ -288,7 +278,7 @@ TypeDescriptor *typedesc_from_json_array(ProgramState *prgstate, json_value_s *j
     // If it's the empty array, bound to find a preexisting. Will that be common?
     bool new_type_added;
     result = find_equiv_typedesc_or_add(prgstate, &constructed_typedesc, &new_type_added);
-    if (! new_type_added)
+    if (!new_type_added)
     {
         free_typedescriptor_components(&constructed_typedesc);
     }
@@ -449,9 +439,7 @@ Value create_value_from_token(ProgramState *prgstate, tokenizer::Token token)
 
 Value create_value_from_json(ProgramState *prgstate, json_value_s *jv);
 
-// Value create_object_with_type_from_json(ProgramState *prgstate, json_object_s *jobj, TypeRef typeref);
 Value create_object_with_type_from_json(ProgramState *prgstate, json_object_s *jobj, TypeDescriptor *typedesc);
-
 
 Value create_array_with_type_from_json(ProgramState *prgstate, json_array_s *jarray, TypeDescriptor *typedesc)
 {
@@ -675,17 +663,20 @@ ParseResult try_parse_json_as_value(OUTPARAM Value *output, ProgramState *prgsta
 
 // TODO(mike): Should probably be its own return type instead
 // of piggybacking on the ParseResult
-ParseResult load_json_dir(OUTPARAM DynArray<LoadedRecord> *destarray, ProgramState *prgstate, StrSlice path)
+ParseResult load_json_dir(OUTPARAM Collection **pcollection, ProgramState *prgstate, StrSlice path)
 {
-    assert(destarray);
+    ASSERT(pcollection);
     ParseResult result = {};
     result.status = ParseResult::Succeeded;
+
+    Collection *collection = bucketarray_add(&prgstate->collections).elem;
+    collection->load_path = str(path);
+    dynarray_init(&collection->records, 0);
+    *pcollection = collection;
 
     DirLister dirlist(path);
 
     bool error = false;
-
-    DynArrayCount num_values_read = 0;
 
     while (dirlist.next())
     {
@@ -740,9 +731,10 @@ ParseResult load_json_dir(OUTPARAM DynArray<LoadedRecord> *destarray, ProgramSta
                     }
                     else
                     {
-                        LoadedRecord lr = {fullpath, parsed_value};
-                        dynarray_append(destarray, lr);
-                        ++num_values_read;
+                        LoadedRecord *lr = bucketarray_add(&prgstate->loaded_records).elem;
+                        lr->fullpath = fullpath;
+                        lr->value = parsed_value;
+                        dynarray_append(&collection->records, lr);
                     }
                     break;
                 }
@@ -750,24 +742,7 @@ ParseResult load_json_dir(OUTPARAM DynArray<LoadedRecord> *destarray, ProgramSta
         }
     }
 
-    if (error)
-    {
-        // expect caller to deallocate
-        dynarray_popnum(destarray, num_values_read);
-    }
-
     return result;
-}
-
-
-void drop_loaded_records(ProgramState *prgstate)
-{
-    for (DynArrayCount i = 0; i < prgstate->collection.count; ++i)
-    {
-        value_free(&prgstate->collection[i].value);
-        str_free(&prgstate->collection[i].fullpath);
-    }
-    dynarray_clear(&prgstate->collection);
 }
 
 
@@ -1152,10 +1127,8 @@ void draw_imgui_json_cli(ProgramState *prgstate, SDL_Window *window)
 }
 
 
-void draw_collection_editor(ProgramState *prgstate)
+void draw_collection_editor(Collection *collection)
 {
-    UNUSED(prgstate);
-
     ImGuiWindowFlags wndflags = 0
         | ImGuiWindowFlags_NoSavedSettings
         // | ImGuiWindowFlags_NoMove
@@ -1164,91 +1137,93 @@ void draw_collection_editor(ProgramState *prgstate)
 
     ImGui::SetNextWindowSize(ImVec2(400, 400), ImGuiSetCond_Once);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
-    ImGui::Begin("Collection Editor", nullptr, wndflags);
+    // ImGui::Begin("Collection Editor", nullptr, wndflags);
+    ImGui::Begin(collection->load_path.data, nullptr, wndflags);
 
-    if (prgstate->collection.count > 0)
+    // collect and render column names
+    DynArrayCount column_count = 0;
     {
-        // collect and render column names
-        DynArrayCount column_count = 0;
+        Value *value = &collection->records[0]->value;
+
+        column_count = value->compound_value.members.count;
+
+        ImGui::Columns((int)column_count, "Data Yay");
+        ImGui::Separator();
+
+        Str col_label = {};
+        for (DynArrayCount i = 0; i < column_count; ++i)
         {
-            Value *value = &prgstate->collection[0].value;
-
-            column_count = value->compound_value.members.count;
-
-            ImGui::Columns((int)column_count, "Data Yay");
-            ImGui::Separator();
-
-            Str col_label = {};
-            for (DynArrayCount i = 0; i < column_count; ++i)
-            {
-                str_overwrite(&col_label, str_slice(value->compound_value.members[i].name));
-                ImGui::Text("%s", col_label.data);
-                ImGui::NextColumn();
-            }
-            str_free(&col_label);
-            ImGui::Separator();
+            str_overwrite(&col_label, str_slice(value->compound_value.members[i].name));
+            ImGui::Text("%s", col_label.data);
+            ImGui::NextColumn();
         }
+        str_free(&col_label);
+        ImGui::Separator();
+    }
 
-        for (DynArrayCount i = 0; i < prgstate->collection.count; ++i)
+    for (DynArrayCount i = 0; i < collection->records.count; ++i)
+    {
+        ImGui::PushID((int)i);
+
+        Value *value = &collection->records[i]->value;
+        TypeDescriptor *value_type = value->typedesc;
+        assert(value_type->type_id == TypeID::Compound);
+
+        for (DynArrayCount j = 0, memcount = value_type->compound_type.members.count;
+             j < memcount;
+             ++j)
         {
-            ImGui::PushID((int)i);
+            ImGui::PushID((int)j);
 
-            Value *value = &prgstate->collection[i].value;
-            TypeDescriptor *value_type = value->typedesc;
-            assert(value_type->type_id == TypeID::Compound);
-
-            for (DynArrayCount j = 0, memcount = value_type->compound_type.members.count;
-                 j < memcount;
-                 ++j)
+            Value *memval = &value->compound_value.members[j].value;
+            TypeDescriptor *memtype = memval->typedesc;
+            TYPESWITCH (memtype->type_id)
             {
-                ImGui::PushID((int)j);
+                case TypeID::String:
+                    ImGui::InputText("##field", memval->str_val.data, memval->str_val.capacity);
+                    break;
 
-                Value *memval = &value->compound_value.members[j].value;
-                TypeDescriptor *memtype = memval->typedesc;
-                TYPESWITCH (memtype->type_id)
-                {
-                    case TypeID::String:
-                        ImGui::InputText("##field", memval->str_val.data, memval->str_val.capacity);
-                        break;
-                    case TypeID::Int:
-                        ImGui::InputInt("##field", &memval->s32_val);
-                        break;
-                    case TypeID::Float:
-                        ImGui::InputFloat("##field", &memval->f32_val);
-                        break;
-                    case TypeID::Bool:
-                        ImGui::Checkbox("##field", &memval->bool_val);
-                        break;
-                    default:
-                        ImGui::Text("TODO: %s", TypeID::to_string(memtype->type_id));
-                        break;
-                }
+                case TypeID::Int:
+                    ImGui::InputInt("##field", &memval->s32_val);
+                    break;
 
-                ImGui::PopID();
-                ImGui::NextColumn();
+                case TypeID::Float:
+                    ImGui::InputFloat("##field", &memval->f32_val);
+                    break;
+
+                case TypeID::Bool:
+                    ImGui::Checkbox("##field", &memval->bool_val);
+                    break;
+
+                default:
+                    ImGui::Text("TODO: %s", TypeID::to_string(memtype->type_id));
+                    break;
             }
 
             ImGui::PopID();
+            ImGui::NextColumn();
         }
 
-
-        // // get max columns
-        // for (DynArrayCount j = 0; i < prgstate->collection.count; ++i)
-        // {
-        //     Value *value = &prgstate->collection[i].value;
-        //     TypeDescriptor *typedesc = get_typedesc(value->typeref);
-
-        //     if (typedesc->type_id == TypeID::Compount)
-        //     {
-        //         column_count = max(column_count, value->compound_value.members.count);
-        //     }
-        // }
-
-        // ImGui::Columns(column_count);
-
-        ImGui::Columns(1);
-        ImGui::Separator();
+        ImGui::PopID();
     }
+
+
+    // // get max columns
+    // for (DynArrayCount j = 0; i < prgstate->collection.count; ++i)
+    // {
+    //     Value *value = &prgstate->collection[i].value;
+    //     TypeDescriptor *typedesc = get_typedesc(value->typeref);
+
+    //     if (typedesc->type_id == TypeID::Compount)
+    //     {
+    //         column_count = max(column_count, value->compound_value.members.count);
+    //     }
+    // }
+
+    // ImGui::Columns(column_count);
+
+    ImGui::Columns(1);
+    ImGui::Separator();
 
     ImGui::End();
     ImGui::PopStyleVar();
@@ -1277,13 +1252,15 @@ int main(int argc, char **argv)
 
     ProgramState prgstate;
     prgstate_init(&prgstate);
+
+    load_base_type_descriptors(&prgstate);
     init_cli_commands(&prgstate);
+
     mem::default_allocator()->log_allocations();
     test_json_import(&prgstate, argc - 1, argv + 1);
 
     // TTY console
-    // run_terminal_cli(&prgstate);
-    run_terminal_json_cli(&prgstate);
+    // run_terminal_json_cli(&prgstate);
 
     if (0 != SDL_Init(SDL_INIT_VIDEO))
     {
@@ -1348,7 +1325,20 @@ int main(int argc, char **argv)
 
         draw_imgui_json_cli(&prgstate, window);
 
-        draw_collection_editor(&prgstate);
+        for (DynArrayCount i = 0, e = prgstate.editing_collections.count; i < e; ++i)
+        {
+            draw_collection_editor(prgstate.editing_collections[i]);
+        }
+
+        // if (prgstate.collections.count > 0)
+        // {
+        //     BucketItemCount i = 0;
+        //     while (i < prgstate.collections.capacity && !bucketarray_get_if_not_empty(&prgstate.collections, i))
+        //     {
+        //         ++i;
+        //     }
+        //     draw_collection_editor(&prgstate.collections[i]);
+        // }
 
         ImGui::ShowTestWindow(&show_imgui_testwindow);
 

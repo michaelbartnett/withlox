@@ -7,11 +7,235 @@ This will be maintained. Latest log entry will go below.
 
 - [ ] Milestone: Solid GUI Terminal: Test/develop on Windows
 
-- [ ] CLI command to load a directory of JSON files into a collection DynArray<Value>
+- [X] CLI command to load a directory of JSON files into a collection DynArray<Value>
 
-- [ ] CLI command to show an editing window for the value collection
+- [X] CLI command to show an editing window for the value collection
 
 - [ ] CLI command to save the DynArray<Value> back out to JSON files
+
+- [ ] The `loadjson` command should store the `Value`s in a collection
+     tracking both index and load path parameter.
+
+- [ ] An`edit` command that will focus/create an editor window for the
+     specified collection (could be index or the load path)
+
+- [ ] A `drop` command that will remove the specified collection from memory
+
+- [ ] Upgrade IMGUI
+
+- [ ] Fix the text field string length problem
+
+
+## 2016-10-06-0429EST Really beating on it
+
+While making the multi-collection-editor commands I described in the
+last entry, I decided to grab some more test data. I found this
+community game on github called "Journey to the Center of Hawkthorne".
+
+http://projecthawkthorne.com/
+
+https://github.com/hawkthorne/hawkthorne-journey
+
+I chose it because they have the json files describing characters that
+look exactly like the kind of data I want this thing to be good at
+editing, and they have a clearly written LICENSING.md file that states
+that the the code is licensed under an MIT-like license, and the
+assets are all under a Creative Commons BY-NA license. I don't think I plan
+on selling this tool, so that works perfectly for me.
+
+I ran into a few issues, one terrifying, and a couple of others that I
+expected to have sooner or later.
+
+The terrifying one was a bug in `dynarray_copy`. Pretty bad if that's broken.
+
+It came in two parts. I'll include diffs so you can see how bad I am.
+
+The first is that the counts were reversed here.
+
+```diff
+ void dynarray_copy(DynArray<T> *dest, const DynArray<T> *src)
+ {
+     assert(src->count <= dest->capacity);
+-    dynarray_copy(dest, 0, src, 0, dest->count);
++    dynarray_copy(dest, 0, src, 0, src->count);
+ }
+```
+
+You want to copy the `src` count of items to the `dest`, and not the
+other way around, because this is most commonly called from
+`dynarray_clone` which initializes the `dest` array and then copies
+the `src` contents into it via this function. So `dest->count` is
+usually 0!
+
+The second part is really bad:
+
+```diff
+ template<typename T>
+ void dynarray_copy(DynArray<T> *dest, DynArrayCount dest_start, const DynArray<T> *src, DynArrayCount src_start, DynArrayCount count)
+ {
+     assert(src_start + count <= src->count);
+
+     DynArrayCount final_count = max<DynArrayCount>(dest_start + count, dest->count);
+     assert(final_count > dest_start || count == 0);
+
+     DynArrayCount capacity_required = dest_start + count;
+     dynarray_ensure_capacity(dest, capacity_required);
+-    std::memcpy(dest + dest_start, src + src_start, count * sizeof(T));
++    std::memcpy(dest->data + dest_start, src->data + src_start, count * sizeof(T));
+     dest->count = final_count;
+ }
+ ```
+
+This was doing a memcpy of the container directly itself rather than
+just the `data` field. That in and of itself is not so bad, it's sort
+of like assigning one to the other. EXCEPT: the `count * sizeof(T)`
+expression. If my arrays were larger this would have been spotted
+faster because it would have written into protected memory and
+faulted. That would have been much nicer. Instead I got an infinite
+loop in some other part of the code.
+
+The other issue has to do with the size of character buffers. This
+first manifested as an assert firing in FormatBuffer stating that its
+capacity had exceeded the max (UINT16_MAX, specifically). With my
+confidence shattered into pieces from the last bug, I figued that I
+had better make sure that FormatBuffer wasn't also broken.
+
+Fortunately, it mostly wasn't. It was kinda bad, but not broken. What
+would happen is that it would keep trying to double size when it ran
+out of room to write more chars. Problem is that eventually it would
+reach close to the max, like 61k, and then decide to double.
+
+Okay, not broke, but clearly behavior could be better. So I put the
+max capacity asserts immediately where RESIZE_ARRAY calls happen, and
+when doubling the size, I clamp it to the max capacity.
+
+Here's the capacity doubling code (in `ensure_formatbuffer_space`):
+
+```diff
+-        fb->capacity = (fb->capacity * 2 < fb->capacity + length + 1
+-                        ? fb->capacity + length + 1
+-                        : fb->capacity * 2);
+-        RESIZE_ARRAY(fb->allocator, fb->buffer, fb->capacity, char);
++        size_t new_capacity = min(FormatBuffer::MaxCapacity - 1,
++                                  (fb->capacity * 2 < fb->capacity + length + 1
++                                   ? fb->capacity + length + 1
++                                   : fb->capacity * 2));
++
++        RESIZE_ARRAY(fb->allocator, fb->buffer, new_capacity, char);
++        fb->capacity = new_capacity;
+```
+
+And here's the check at the beginning of that function with an assert added:
+
+```diff
+ static void ensure_formatbuffer_space(FormatBuffer *fb, size_t length)
+ {
+     size_t bytes_remaining = fb->capacity - fb->cursor;
+
++    assert((fb->capacity - bytes_remaining + length) < FormatBuffer::MaxCapacity);
+```
+
+So when I tested again, I got the same asserts firing, but with a different callstack.
+
+In the command function where this was being called (`loadjson`) it
+was accumulating output in the format buffer and not flushing it until
+after looping through all that it wanted to loop through. Easy fix:
+flush at the end of the loop body. 
+
+Now there are no more asserts firing in FormatBuffer routines. I don't
+know if this is good behavior long term. I could see arguments for
+keeping it as-is and expecting code just flush enough, but I could
+also see arguments for FormatBuffer being able to handle as many chars
+as there is virtual memory to go around. I'll table that for now.
+
+But now there's one last assert: when drawing the console log to IMGUI
+I take an accumulated list of log entry string and concat them
+together for display. This uses my `Str` type which has the same
+UINT16_MAX length limit. Maybe these narrow size fields are a waste of
+time, but I think they keep me hoenst. I haven't done it yet, but the
+fix I think I'll apply here is to just drop old entries.
+
+But the most reasonable way to do that is by having a ringbuffer-style
+queue, and I don't have one of those yet...
+
+Actually that doesn't even work, because IMGUI expects the char buffer
+to be continuous! Ack! I have to sleep on this.
+
+Oh! Also, can I just say that my integral type conversion functions are
+the best?
+
+This is how I got the Str length assert:
+
+```
+min_capacity = STRLEN(min_capacity + log_entries[i].length + 1);
+```
+
+That `STRLEN` macro expands to a call to an overloaded function that
+converts `size_t` to `u16` and asserts that the input is in a valid
+range.
+
+Alright, I'm out.
+
+# 2016-10-03-0429EST TypeRefs are no more
+
+In a flurry of furious refactoring I got rid of TypeRef. It was easier
+than I thought it was going to be. I started by adding
+`TypeDescriptor*` versions of fields to structs in `types.h` and
+implementing overloaded or alternately-named versions of a few key
+leaf functions, such as `add_typedescriptor`.
+
+Then one by one I'd start removing the `TypeRef` fields. This would
+trigger compiler errors in various functions. These functions would
+often take `TypeRef`s as parameters, so in those cases I would make a
+duplicate stub function that did a nominal amount of work, possibly
+referencing `TypeRef` or other fields so I would be prompted to delete
+the stubs later once I finally deleted the `TypeRef` struct
+itself. The actual function's parameters were then changed to take
+`TypeDescriptor*`s, and this would trigger further compiler errors
+which would help guide me through making appropriate changes in the
+function.
+
+There was one small bug, but it was so small I don't even remember
+what it was. There was no issue with BucketArray since I had already
+tested it.
+
+I also imported my numeric conversion functions from my
+raytracer/blender importer project. This is a big ugly macro mess that
+defines conversion functions for all unsigned and signed explicitly
+sized integral types, plus `size_t` and `intptr_t`. I tried templates
+at first, but I realized that in order to do this effectively you
+probably want something like extern template that can restrict what
+instantiations are allowed without having to write out each
+implementation.
+
+There's this todo item:
+
+- CLI command to show an editing window for the value collection
+
+I think I have a clearer idea on what I can do to make progress, so
+I'm replacing it with new todo items. I basically want the `loadjson`
+command to make some sort of `Collection` record containing the array
+of `Value`s. The collection editor shouldn't pop up by default, I want
+to be able to list loaded collections, and then have a separate
+command to open or focus an editor window displaying those values.
+
+And then, to get the ball rolling on UI, I want to upgrade IMGUI and
+fix the string length problem.
+
+- [] The `loadjson` command should store the `Value`s in a collection
+     tracking both index and load path parameter.
+
+- [] An`edit` command that will focus/create an editor window for the
+     specified collection (could be index or the load path)
+
+- [] A `drop` command that will remove the specified collection from memory
+
+- [] Upgrade IMGUI
+
+- [] Fix the text field string length problem
+
+It has also become clear that I need to think about iteration mechanisms for
+the hashtable and bucketarray.
 
 # 2016-10-03-0256EST BucketArray
 
@@ -641,9 +865,9 @@ In the meantime, I can just render & edit each row based on the actual
 value. Once I can load, edit, and save values, then I will go do a pass on
 cleaning up memory management.
 
-- [] CLI command to load a directory of JSON files into a collection DynArray<Value>
+- [X] CLI command to load a directory of JSON files into a collection DynArray<Value>
 
-- [] CLI command to show an editing window for the value collection
+- [X] CLI command to show an editing window for the value collection
 
 - [] CLI command to save the DynArray<Value> back out to JSON files
 

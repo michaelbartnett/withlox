@@ -68,7 +68,7 @@ TODO(mike): unit test with doctest or something
 
 
 typedef u32 BucketItemCount;
-#define BUCKEITEMCOUNT(n) U32(n)
+#define BUCKETITEMCOUNT(n) U32(n)
 
 template<typename T, BucketItemCount ItemCount>
 struct Bucket
@@ -117,9 +117,45 @@ struct BucketArray
         return at(index);
     }
 
+    T &operator[](s32 index) const
+    {
+        return at(BUCKETITEMCOUNT(index));
+    }
+
     T &at(BucketItemCount index) const;
 };
 
+
+template<typename T, BucketItemCount ItemCount>
+BucketIndex bucketarray_translate_index(const BucketArray<T, ItemCount> *ba, BucketItemCount index);
+
+namespace bucketarray
+{
+
+template<typename T, BucketItemCount ItemCount>
+bool exists(BucketArray<T, ItemCount> *ba, BucketItemCount index)
+{
+    if (index >= ba->capacity)
+    {
+        return false;
+    }
+
+    BucketIndex bidx = bucketarray_translate_index(ba, index);
+    return ba->all_buckets[bidx.bucket_index]->occupied[bidx.item_index];
+}
+
+
+template<typename T, BucketItemCount ItemCount>
+bool exists(BucketArray<T, ItemCount> *ba, s32 index)
+{
+    if (index < 0)
+    {
+        return false;
+    }
+    return exists(ba, BUCKETITEMCOUNT(index));
+}
+
+}
 
 
 template<typename T, BucketItemCount ItemCount>
@@ -145,7 +181,7 @@ BucketItemCount bucketarray_indexify(const BucketArray<T, ItemCount> *ba, Bucket
 
 
 template <typename T, BucketItemCount ItemCount>
-bool bucketarray_get_if_not_empty(const BucketArray<T, ItemCount> *ba, BucketItemCount index, T **output)
+bool bucketarray_get_if_not_empty(const BucketArray<T, ItemCount> *ba, BucketItemCount index, T **output = nullptr)
 {
     BucketIndex bidx = bucketarray_translate_index(ba, index);
     return bucketarray_get_if_not_empty(ba, bidx, output);
@@ -153,11 +189,11 @@ bool bucketarray_get_if_not_empty(const BucketArray<T, ItemCount> *ba, BucketIte
 
 
 template <typename T, BucketItemCount ItemCount>
-bool bucketarray_get_if_not_empty(const BucketArray<T, ItemCount> *ba, BucketIndex bidx, T **output)
+bool bucketarray_get_if_not_empty(const BucketArray<T, ItemCount> *ba, BucketIndex bidx, T **output = nullptr)
 {
     Bucket<T, ItemCount> *b = ba->all_buckets[DYNARRAY_COUNT(bidx.bucket_index)];
     bool found = b->occupied[bidx.item_index];
-    *output = found ? &b->items[bidx.item_index] : nullptr;
+    if (output) *output = found ? &b->items[bidx.item_index] : nullptr;
     return found;
 }
 

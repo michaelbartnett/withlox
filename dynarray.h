@@ -35,12 +35,54 @@ struct DynArray
         return at(index);
     }
 
+    T &operator[](s32 index) const
+    {
+        return at(DYNARRAY_COUNT(index));
+    }
+
     T &at(DynArrayCount index) const
     {
         ASSERT(index < count);
         return this->data[index];
     }
 };
+
+
+template<typename T> T *dynarray_append(DynArray<T> *dynarray);
+template<typename T> T *dynarray_append(DynArray<T> *dynarray, T item);
+
+namespace dynarray
+{
+
+template<typename T>
+T *append(DynArray<T> *dynarray)
+{
+    return dynarray_append(dynarray);
+}
+
+
+template<typename T>
+T *append(DynArray<T> *dynarray, T item)
+{
+    return dynarray_append(dynarray, item);
+}
+
+
+template<typename T>
+T *find(const DynArray<T> *dynarray, T value)
+{
+    for (DynArrayCount i = 0, e = dynarray->count; i < e; ++i)
+    {
+        if ((*dynarray)[i] == value)
+        {
+            return &(*dynarray)[i];
+        }
+    }
+
+    return nullptr;
+}
+
+}
 
 
 template<typename T>
@@ -191,7 +233,7 @@ void dynarray_copy(DynArray<T> *dest, DynArrayCount dest_start, const DynArray<T
 
     DynArrayCount capacity_required = dest_start + count;
     dynarray_ensure_capacity(dest, capacity_required);
-    std::memcpy(dest + dest_start, src + src_start, count * sizeof(T));
+    std::memcpy(dest->data + dest_start, src->data + src_start, count * sizeof(T));
     dest->count = final_count;
 }
 
@@ -200,7 +242,7 @@ template<typename T>
 void dynarray_copy(DynArray<T> *dest, const DynArray<T> *src)
 {
     assert(src->count <= dest->capacity);
-    dynarray_copy(dest, 0, src, 0, dest->count);
+    dynarray_copy(dest, 0, src, 0, src->count);
 }
 
 
@@ -215,14 +257,12 @@ DynArray<T> dynarray_clone(const DynArray<T> *src)
 
 
 template<typename Compare, typename T>
-void dynarray_sort_unstable(const DynArray<T> *dynarray)
+void dynarray_sort_unstable(const DynArray<T> *dynarray, const Compare &comp)
 {
-    Compare comp;
     std::sort(dynarray->data,
               dynarray->data + dynarray->count,
               comp);
 }
-
 
 #define DYNARRAY_H
 #endif

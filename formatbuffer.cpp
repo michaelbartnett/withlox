@@ -78,12 +78,11 @@ void FormatBuffer::flush_to_log()
 }
 
 
-
-
-
 static void ensure_formatbuffer_space(FormatBuffer *fb, size_t length)
 {
     size_t bytes_remaining = fb->capacity - fb->cursor;
+
+    assert((fb->capacity - bytes_remaining + length) < FormatBuffer::MaxCapacity);
 
     if (!fb->buffer)
     {
@@ -95,11 +94,16 @@ static void ensure_formatbuffer_space(FormatBuffer *fb, size_t length)
     }
     else if (bytes_remaining <= length)
     {
-        fb->capacity = (fb->capacity * 2 < fb->capacity + length + 1
-                        ? fb->capacity + length + 1
-                        : fb->capacity * 2);
-        RESIZE_ARRAY(fb->allocator, fb->buffer, fb->capacity, char);
+        size_t new_capacity = min(FormatBuffer::MaxCapacity - 1,
+                                  (fb->capacity * 2 < fb->capacity + length + 1
+                                   ? fb->capacity + length + 1
+                                   : fb->capacity * 2));
+
+        RESIZE_ARRAY(fb->allocator, fb->buffer, new_capacity, char);
+        fb->capacity = new_capacity;
     }
+
+    assert(fb->capacity < FormatBuffer::MaxCapacity);
 }
 
 
@@ -161,10 +165,14 @@ void formatbuffer_v_writef(FormatBuffer *fmt_buf, const char *format, va_list va
         size_t new_bytes_remaining = byte_write_count + 1;
         assert(new_bytes_remaining > bytes_remaining);
 
-        fmt_buf->capacity += new_bytes_remaining - bytes_remaining;
-        assert(fmt_buf->capacity - fmt_buf->cursor > byte_write_count);
+        // fmt_buf->capacity += new_bytes_remaining - bytes_remaining;
+        size_t new_capacity = fmt_buf->capacity + new_bytes_remaining - bytes_remaining;
+        assert(new_capacity - fmt_buf->cursor > byte_write_count);
 
-        RESIZE_ARRAY(fmt_buf->allocator, fmt_buf->buffer, fmt_buf->capacity, char);
+        assert(new_capacity < FormatBuffer::MaxCapacity);
+
+        RESIZE_ARRAY(fmt_buf->allocator, fmt_buf->buffer, new_capacity, char);
+        fmt_buf->capacity = new_capacity;
 
         int confirm_result = vsnprintf(fmt_buf->buffer + fmt_buf->cursor,
                                        new_bytes_remaining, format, vargs);
@@ -176,8 +184,6 @@ void formatbuffer_v_writef(FormatBuffer *fmt_buf, const char *format, va_list va
 
     fmt_buf->cursor += byte_write_count;
 
-
-    assert(fmt_buf->capacity < FormatBuffer::MaxCapacity);
 }
 
 
