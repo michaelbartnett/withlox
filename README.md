@@ -21,7 +21,7 @@ This will be maintained. Latest log entry will go below.
 
 - [X] A `drop` command that will remove the specified collection from memory
 
-- [ ] Upgrade dearimgui
+- [X] Upgrade dearimgui
 
 - [ ] Fix the text field string length problem
 
@@ -263,7 +263,7 @@ fix the string length problem.
 
 - [X] A `drop` command that will remove the specified collection from memory
 
-- [] Upgrade dearimgui
+- [X] Upgrade dearimgui
 
 - [] Fix the text field string length problem
 

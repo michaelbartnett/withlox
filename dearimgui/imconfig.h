@@ -31,6 +31,9 @@
 //---- Don't define obsolete functions names
 #define IMGUI_DISABLE_OBSOLETE_FUNCTIONS
 
+//---- Pack colors to BGRA instead of RGBA (remove need to post process vertex buffer in back ends)
+//#define IMGUI_USE_BGRA_PACKED_COLOR
+
 //---- Implement STB libraries in a namespace to avoid conflicts
 #define IMGUI_STB_NAMESPACE     ImGuiStb
 
@@ -44,6 +47,7 @@
         ImVec4(const MyVec4& f) { x = f.x; y = f.y; z = f.z; w = f.w; }     \
         operator MyVec4() const { return MyVec4(x,y,z,w); }
 */
+
 #define IM_VEC2_CLASS_EXTRA                                                 \
     ImVec2 scaled(float s) { return ImVec2(x * s, y * s); }
 
