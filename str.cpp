@@ -1,6 +1,7 @@
 #include "str.h"
 #include "memory.h"
 #include "common.h"
+#include "platform.h"
 
 static char empty_string_storage[] = { '\0' };
 static char *empty_string = empty_string_storage;

@@ -89,7 +89,7 @@ void FallbackAllocator::log_allocations() OVERRIDE
 ////////////////// Mallocator //////////////////
 ////////////////////////////////////////////////
 
-void Mallocator::log_allocations() OVERRIDE 
+void Mallocator::log_allocations() OVERRIDE
 {
     struct AllocLogInfo
     {
@@ -148,6 +148,76 @@ void Mallocator::log_allocations() OVERRIDE
 }
 
 
+void *Mallocator::probe() OVERRIDE
+{
+    return alloclist_head;
+}
+
+
+void Mallocator::log_allocs_since_probe(void *probe) OVERRIDE
+{
+    struct AllocLogInfo
+    {
+        void *header;
+        size_t total_size;
+        size_t payload_size;
+        u32 alignment;
+        const char *sourceline;
+        const char *category;
+        
+    };
+
+    AllocLogInfo *allocinfo_list = MAKE_ARRAY(this, alloc_count, AllocLogInfo);
+    // size_t allocinfo_count = alloc_count - 1;
+    size_t allocinfo_count = 0;
+
+    logging_allocations = true;
+
+    {
+        MemBlockHeader *last = static_cast<MemBlockHeader *>(probe);
+        size_t i = 0;
+        MemBlockHeader *header = alloclist_head;
+        assert(header->payload() == allocinfo_list);
+        header = header->next;
+        AllocLogInfo *allocinfo_iter = allocinfo_list;
+
+        while (header != last && header)
+        {
+            allocinfo_iter->header = header;
+            allocinfo_iter->total_size = header->total_size;
+            allocinfo_iter->payload_size = header->payload_size();
+            allocinfo_iter->alignment = header->alignment;
+            allocinfo_iter->sourceline = header->sourceline;
+            allocinfo_iter->category = header->category;
+            ++i;
+            header = header->next;
+            ++allocinfo_iter;
+        }
+
+        allocinfo_count = i;
+        assert(allocinfo_iter == allocinfo_list + allocinfo_count);
+    }
+
+    logging_allocations = false;
+
+    sys_state.logf(sys_state.userdata, "--- LOG ALLOCS %lu ---\n", alloc_count);
+
+    for (size_t i = 0; i < allocinfo_count; ++i)
+    {
+        sys_state.logf(sys_state.userdata,
+                       "category: \"%s\", address: %p total_size: %u payload_size: %u, alignment: %u, source: \"%s\"\n",
+                       allocinfo_list[i].category,
+                       allocinfo_list[i].header,
+                       allocinfo_list[i].total_size,
+                       allocinfo_list[i].payload_size,
+                       allocinfo_list[i].alignment,
+                       allocinfo_list[i].sourceline);
+    }
+
+    dealloc(allocinfo_list);
+}
+
+
 Mallocator::MemBlockHeader *Mallocator::get_header(void *ptr)
 {
     char *charptr = (char *)ptr;
@@ -164,11 +234,16 @@ size_t Mallocator::payload_size_of(void *ptr) OVERRIDE
 }
 
 
+bool ALLOC_STACKTRACE = false;
 void *Mallocator::realloc(void *ptr, size_t size, size_t align, AllocationMetadata meta) OVERRIDE
 {
     assert(!logging_allocations);
     assert(size > 0);
     assert(align < UINT8_MAX);
+
+    if (ALLOC_STACKTRACE) {
+        std::printf("Allocated bytecount before: %lu", bytecount);
+    }
 
     u8 align_u8 = (u8)align;
 
@@ -234,8 +309,10 @@ void *Mallocator::realloc(void *ptr, size_t size, size_t align, AllocationMetada
     u8 *result = (u8 *)hdr->payload();
     *((u8 *)(memblock + (hdr->payload_offset - 1))) = hdr->payload_offset;
 
+    size_t preexisting_payload_size = 0;
     if (preexisting_hdr)
     {
+        preexisting_payload_size = preexisting_hdr->payload_size();
         size_t copy_size = std::min(preexisting_hdr->payload_size(), hdr->payload_size());
         std::memcpy(result, ptr, copy_size);
         bytecount -= preexisting_hdr->total_size;
@@ -251,6 +328,12 @@ void *Mallocator::realloc(void *ptr, size_t size, size_t align, AllocationMetada
         ++alloc_count;
     }
 
+    if (ALLOC_STACKTRACE) {
+        size_t requested = size - preexisting_payload_size;
+        std::printf(", after: %lu, requested: %lu, total: %lu\n", bytecount, requested, alloc_size);
+        print_stacktrace();
+    }
+
 
     return result;
 }
@@ -258,11 +341,18 @@ void *Mallocator::realloc(void *ptr, size_t size, size_t align, AllocationMetada
 
 void Mallocator::dealloc(void *ptr) OVERRIDE
 {
+    if (ALLOC_STACKTRACE) {
+        std::printf("Allocated bytecount before: %lu", bytecount);
+    }
+
     ASSERT(!logging_allocations);
 
     if (!ptr) return;
 
     MemBlockHeader *hdr = get_header(ptr);
+
+    size_t freed = hdr->total_size;
+
     bytecount -= hdr->total_size;
     if (hdr->next)
     {
@@ -281,6 +371,12 @@ void Mallocator::dealloc(void *ptr) OVERRIDE
     assert(!alloclist_contains(hdr));
 
     --alloc_count;
+
+    if (ALLOC_STACKTRACE) {
+        std::printf(", after: %lu, freed: %lu\n", bytecount, freed);
+        print_stacktrace();
+    }
+
     validate_alloclist();
 }
 

@@ -13,18 +13,51 @@ This will be maintained. Latest log entry will go below.
 
 - [ ] CLI command to save the DynArray<Value> back out to JSON files
 
-- [ ] The `loadjson` command should store the `Value`s in a collection
+- [X] The `loadjson` command should store the `Value`s in a collection
      tracking both index and load path parameter.
 
-- [ ] An`edit` command that will focus/create an editor window for the
+- [X] An`edit` command that will focus/create an editor window for the
      specified collection (could be index or the load path)
 
-- [ ] A `drop` command that will remove the specified collection from memory
+- [X] A `drop` command that will remove the specified collection from memory
 
-- [ ] Upgrade IMGUI
+- [ ] Upgrade dearimgui
 
 - [ ] Fix the text field string length problem
 
+- [ ] TypeDescriptor list window, show all or for collection
+
+## 2016-10-10-0304EST Dropping collections works
+
+Dropping collections works. I had to add more operations for
+bucketarray and dynarray that revolve around getting indexes for
+values and pointers and checking ranges.
+
+I also moved all the bucketarray and dynarray operations into
+namespaces rather than prefix every thing with `bucketarray_` or
+`dynarray_`. This is how bitsquid does it, and it makes more sense to
+me (and looks nicer, IMO). Later I'll do the same thing for the
+hashtable, but that thing is complicated, and it has a weird name.
+
+I think a window that I want to build next is one that can list all of
+the type descriptors in a given collection, as well as all the
+typedescriptors allocated globally (including those not referencing
+any values).
+
+- [] TypeDescriptor list window, show all or for collection
+
+But before that I'm going to upgrade dearimgui.
+
+I also fucked around with tracing allocator calls. It was somewhat
+educational.
+
+## 2016-10-09-0413EST Log UI truncation works
+
+I was able to greatly simplify the `concatenated_log` function by just
+re-writing the whole string whenever it changes on a frame.
+
+There's an optimization loss here when the log length is smaller than
+`STR_LENGTH_MAX`, but that's probably gonna be rare, so w/e.
 
 ## 2016-10-06-0429EST Really beating on it
 
@@ -222,15 +255,15 @@ command to open or focus an editor window displaying those values.
 And then, to get the ball rolling on UI, I want to upgrade IMGUI and
 fix the string length problem.
 
-- [] The `loadjson` command should store the `Value`s in a collection
+- [X] The `loadjson` command should store the `Value`s in a collection
      tracking both index and load path parameter.
 
-- [] An`edit` command that will focus/create an editor window for the
+- [X] An`edit` command that will focus/create an editor window for the
      specified collection (could be index or the load path)
 
-- [] A `drop` command that will remove the specified collection from memory
+- [X] A `drop` command that will remove the specified collection from memory
 
-- [] Upgrade IMGUI
+- [] Upgrade dearimgui
 
 - [] Fix the text field string length problem
 

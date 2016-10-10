@@ -13,7 +13,8 @@ static DynArray<Str> log_entries = {};
 static char *output_buffer = 0;
 static size_t output_buffer_size = 0;
 // static FormatBuffer *concatenated = 0;
-static u32 next_log_entry_to_concat = 0;
+static DynArrayCount next_log_entry_to_concat = 0;
+static DynArrayCount start_log_entry_index = 0;
 static bool concatenated_dirty = false;
 static Str concatenated = {};
 
@@ -37,7 +38,7 @@ void append_log(Str log_entry)
     //         break;
     //     }
     // }
-    dynarray_append(&log_entries, log_entry);
+    dynarray::append(&log_entries, log_entry);
     concatenated_dirty = true;
 }
 
@@ -81,7 +82,7 @@ static void vlogf(const char *format, va_list vargs)
 
     if (!log_entries.data)
     {
-        dynarray_init(&log_entries, 1024);
+        dynarray::init(&log_entries, 1024);
     }
 
     assert(output_buffer_size < STR_LENGTH_MAX);
@@ -122,6 +123,7 @@ u32 log_count()
     return log_entries.count;
 }
 
+
 Str *get_log(u32 i)
 {
     return &log_entries[i];
@@ -134,6 +136,7 @@ void log_write_with_userdata(void *userdata, const char *buffer, size_t length)
     append_log(str(buffer, STRLEN(length)));
 }
 
+
 void logf_with_userdata(void *userdata, const char *format, ...)
 {
     UNUSED(userdata);
@@ -144,62 +147,49 @@ void logf_with_userdata(void *userdata, const char *format, ...)
 }
 
 
-// Str concatenated_log()
-// {
-//     if (!concatenated)
-//     {
-//         concatenated_dirty = true;
-//         concatenated = new FormatBuffer(128); // ugh, new
-//     }
+DynArrayCount advance_start_index_to_fit_strlen(
+    DynArrayCount start_index,
+    size_t capacity,
+    const DynArray<Str> *entries
+    )
+{
+    for (DynArrayCount i = start_index; (capacity > STR_LENGTH_MAX) && (i < entries->count); ++i)
+    {
+        capacity -= (*entries)[i].length;
+        ++start_index;
+    }
+    return start_index;
+}
 
-//     if (concatenated_dirty)
-//     {
-//         for (u32 i = next_log_entry_to_concat; i < log_entries.count; ++i)
-//         {
-//             Str *str = &log_entries[i];
-//             concatenated->write(str->data, str->length);
-//             concatenated->write("\n", 1);
-//         }
-//         concatenated_dirty = false;
-//         next_log_entry_to_concat = log_entries.count;
-//     }
 
-//     Str result;
-//     result.length = STRLEN(concatenated->cursor);
-//     result.data = concatenated->buffer;
-//     result.capacity = result.capacity;
-//     return result;
-// }
+void write_catlog_from_index(Str *catlog, const DynArray<Str> *entries, DynArrayCount start_index)
+{
+    str_clear(catlog);
+    for (DynArrayCount i = start_index; i < entries->count; ++i)
+    {
+        Str entry = entries->at(i);
+        str_append(catlog, entry);
+        str_append(catlog, '\n');
+    }
+}
 
 
 Str *concatenated_log()
 {
-    if (!concatenated.data)
-    {
-        str_ensure_capacity(&concatenated, 128);
-    }
-
     if (concatenated_dirty)
     {
-        StrLen min_capacity = concatenated.capacity;
-        DynArrayCount start_cat_from = 0;
+        size_t min_capacity = concatenated.length;
         for (DynArrayCount i = next_log_entry_to_concat; i < log_entries.count; ++i)
         {
-            size_t new_min_capacity = min_capacity + log_entries[i].length + 1;
-            min_capacity = STRLEN(new_min_capacity);
+            min_capacity += log_entries[i].length + 1;
         }
 
-        str_ensure_capacity(&concatenated, min_capacity);
+        start_log_entry_index = advance_start_index_to_fit_strlen(
+            start_log_entry_index, min_capacity, &log_entries);
 
-        for (u32 i = next_log_entry_to_concat; i < log_entries.count; ++i)
-        {
-            str_append(&concatenated, log_entries[i]);
-            str_append(&concatenated, '\n');
+        write_catlog_from_index(&concatenated, &log_entries, start_log_entry_index);
 
-            // Str *str = &log_entries[i];
-            // concatenated->write(str->data, str->length);
-            // concatenated->write("\n", 1);
-        }
+
         concatenated_dirty = false;
         next_log_entry_to_concat = log_entries.count;
     }
@@ -212,6 +202,7 @@ void clear_concatenated_log()
 {
     str_clear(&concatenated);
     next_log_entry_to_concat = log_entries.count;
+    start_log_entry_index = next_log_entry_to_concat;
 }
 
 #ifdef __clang__

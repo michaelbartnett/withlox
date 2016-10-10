@@ -26,7 +26,7 @@ TypeDescriptor *find_equiv_typedesc(ProgramState *prgstate, TypeDescriptor *type
                  i < e; ++i)
             {
                 TypeDescriptor *predefined;
-                if (bucketarray_get_if_not_empty(typedesc_storage, i, &predefined))
+                if (bucketarray::get_if_not_empty(typedesc_storage, i, &predefined))
                 {
                     if (equal(type_desc, predefined))
                     {
@@ -57,7 +57,7 @@ TypeDescriptor *find_equiv_typedesc_or_add(ProgramState *prgstate, TypeDescripto
 
 TypeDescriptor *add_typedescriptor(ProgramState *prgstate, TypeDescriptor type_desc)
 {
-    TypeDescriptor *result = bucketarray_add(&prgstate->type_descriptors).elem;
+    TypeDescriptor *result = bucketarray::add(&prgstate->type_descriptors).elem;
     *result = type_desc;
     return result;
 }
@@ -131,12 +131,12 @@ CompoundTypeMember *find_member(const TypeDescriptor *type_desc, NameRef name)
 DynArray<CompoundTypeMember> copy_compound_member_array(const DynArray<CompoundTypeMember> *src)
 {
     DynArray<CompoundTypeMember> result;
-    dynarray_init<CompoundTypeMember>(&result, src->count);
+    dynarray::init<CompoundTypeMember>(&result, src->count);
 
     for (DynArrayCount i = 0, e = src->count; i < e; ++i)
     {
         const CompoundTypeMember *src_member = &(*src)[i];
-        CompoundTypeMember *dest_member = dynarray_append(&result);
+        CompoundTypeMember *dest_member = dynarray::append(&result);
         dest_member->name = src_member->name;
         dest_member->typedesc = src_member->typedesc;
     }
@@ -169,7 +169,7 @@ TypeDescriptor copy_typedesc(const TypeDescriptor *src_typedesc)
             break;
 
         case TypeID::Union:
-            new_typedesc.union_type.type_cases = dynarray_clone(&src_typedesc->union_type.type_cases);
+            new_typedesc.union_type.type_cases = dynarray::clone(&src_typedesc->union_type.type_cases);
             break;
     }
 
@@ -177,7 +177,7 @@ TypeDescriptor copy_typedesc(const TypeDescriptor *src_typedesc)
 }
 
 
-// TODO(mike): FlatSet<T> container type or a dynarray_add_to_set template function
+// TODO(mike): FlatSet<T> container type or a dynarray::add_to_set template function
 bool are_typedescs_unique(const DynArray<TypeDescriptor *> *types)
 {
     for (DynArrayCount a = 0, count = types->count; a < count - 1; ++a)
@@ -210,9 +210,9 @@ TypeDescriptor *make_union(ProgramState *prgstate, TypeDescriptor *a_desc, TypeD
 
     if (neither_unions)
     {
-        dynarray_init(typecases, 2);
-        dynarray_append(typecases, a_desc);
-        dynarray_append(typecases, b_desc);
+        dynarray::init(typecases, 2);
+        dynarray::append(typecases, a_desc);
+        dynarray::append(typecases, b_desc);
     }
     else //if (both_unions)
     {
@@ -261,10 +261,10 @@ TypeDescriptor *make_union(ProgramState *prgstate, TypeDescriptor *a_desc, TypeD
             b_typecases = &b_desc->union_type.type_cases;
         }
 
-        *typecases = dynarray_clone(a_typecases);
+        *typecases = dynarray::clone(a_typecases);
         DynArrayCount a_num_cases = a_typecases->count;
         DynArrayCount b_num_cases = b_typecases->count;
-        dynarray_ensure_capacity(typecases, a_num_cases + b_num_cases);
+        dynarray::ensure_capacity(typecases, a_num_cases + b_num_cases);
 
         for (DynArrayCount i = 0; i < b_num_cases; ++i)
         {
@@ -284,7 +284,7 @@ TypeDescriptor *make_union(ProgramState *prgstate, TypeDescriptor *a_desc, TypeD
                 continue;
             }
 
-            dynarray_append(typecases, b_case);
+            dynarray::append(typecases, b_case);
         }
     }
 
@@ -369,11 +369,11 @@ void free_typedescriptor_components(TypeDescriptor *typedesc)
             break;
 
         case TypeID::Compound:
-            dynarray_deinit(&typedesc->compound_type.members);
+            dynarray::deinit(&typedesc->compound_type.members);
             break;
 
         case TypeID::Union:
-            dynarray_deinit(&typedesc->union_type.type_cases);
+            dynarray::deinit(&typedesc->union_type.type_cases);
             break;
     }
 }

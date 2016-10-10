@@ -325,12 +325,14 @@ void print_stacktrace(int skip_frames)
     // std::fprintf(stream, "\n...................................\n\n");
 
     {
+        std::printf("----------------------------------------------------------------\n");
         char cmdbuf[512];
         pid_t pid = getpid();
         for (int i = 1 + skip_frames; i < n_frames; ++i) {
             std::sprintf(cmdbuf, "xcrun atos -d -p %i %p", pid, callstack[i]);
             std::system(cmdbuf);
         }
+        std::printf("----------------------------------------------------------------\n\n");
     }
 }
 

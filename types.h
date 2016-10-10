@@ -269,7 +269,7 @@ void free_typedescriptor_components(TypeDescriptor *typedesc);
 
 HEADERFN void add_member(TypeDescriptor *typedesc, const CompoundTypeMember &member)
 {
-    CompoundTypeMember *new_member = dynarray_append(&typedesc->compound_type.members);
+    CompoundTypeMember *new_member = dynarray::append(&typedesc->compound_type.members);
     new_member->name = member.name;
     new_member->typedesc = member.typedesc;
 }
@@ -441,21 +441,21 @@ HEADERFN Value clone(const Value *src)
             break;
 
         case TypeID::Array:
-            dynarray_init(&result.array_value.elements, src->array_value.elements.count);
+            dynarray::init(&result.array_value.elements, src->array_value.elements.count);
             for (DynArrayCount i = 0; i < src->array_value.elements.count; ++i)
             {
                 Value *src_element = &src->array_value.elements[i];
-                Value *dest_element = dynarray_append(&result.array_value.elements);
+                Value *dest_element = dynarray::append(&result.array_value.elements);
                 *dest_element = clone(src_element);
             }
             break;
 
         case TypeID::Compound:
-            dynarray_init(&result.compound_value.members, src->compound_value.members.count);
+            dynarray::init(&result.compound_value.members, src->compound_value.members.count);
             for (DynArrayCount i = 0; i < src->compound_value.members.count; ++i)
             {
                 CompoundValueMember *src_member = &src->compound_value.members[i];
-                CompoundValueMember *dest_member = dynarray_append(&result.compound_value.members);
+                CompoundValueMember *dest_member = dynarray::append(&result.compound_value.members);
                 dest_member->name = src_member->name;
                 dest_member->value = clone(&src_member->value);
             }
@@ -562,11 +562,11 @@ HEADERFN void value_free(Value *value)
                 CompoundValueMember *member = &value->compound_value.members[i];
                 value_free(&member->value);
             }
-            dynarray_deinit(&value->compound_value.members);
+            dynarray::deinit(&value->compound_value.members);
             break;
 
         case TypeID::Union:
-            assert(!(bool)"There must never be a value of type Union");
+            ASSERT_MSG("There must never be a value of type Union");
     }
 
     ZERO_PTR(value);

@@ -8,7 +8,7 @@
 #include "formatbuffer.h"
 #include "pretty.h"
 #include "types.h"
-
+#include "memory.h"
 
 void exec_command(ProgramState *prgstate, StrSlice name, DynArray<Value> args)
 {
@@ -559,13 +559,30 @@ CLI_COMMAND_FN_SIG(loadjson)
 }
 
 
-CLI_COMMAND_FN_SIG(dropjson)
+CLI_COMMAND_FN_SIG(dropcoll)
 {
     UNUSED(prgstate);
     UNUSED(userdata);
     UNUSED(args);
 
-    logln("TODO: implement dropjson");
+    if (args.count != 1 || ! vIS_INT(&args[0]))
+    {
+        logln("usage: drop <collection index>");
+        logln("Run lscollections to see collection indexes");
+        return;
+    }
+
+    s32 coll_idx = args[0].s32_val;
+
+    BucketIndex bidx;
+    if (!bucketarray::exists(&bidx, &prgstate->collections, BUCKETITEMCOUNT(coll_idx)))
+    {
+        logf_ln("Index %i out of range [0, %i] or slot empty",
+                coll_idx, prgstate->collections.count);
+        return;
+    }
+
+    drop_collection(prgstate, bidx);
 }
 
 
@@ -579,7 +596,7 @@ CLI_COMMAND_FN_SIG(lscollections)
     for (BucketItemCount i = 0; i < prgstate->collections.capacity; ++i)
     {
         Collection *collection;
-        if (bucketarray_get_if_not_empty(&prgstate->collections, i, &collection))
+        if (bucketarray::get_if_not_empty(&prgstate->collections, i, &collection))
         {
             logf_ln("[%i] %s", i, collection->load_path.data);
         }
@@ -589,9 +606,7 @@ CLI_COMMAND_FN_SIG(lscollections)
 
 CLI_COMMAND_FN_SIG(edit)
 {
-    UNUSED(prgstate);
     UNUSED(userdata);
-    UNUSED(args);
 
     if (args.count != 1 || ! vIS_INT(&args[0]))
     {
@@ -620,6 +635,19 @@ CLI_COMMAND_FN_SIG(edit)
         dynarray::append(&prgstate->editing_collections, coll);
         logf_ln("Now editing '%s'", coll->load_path.data);
     }
+}
+
+
+
+CLI_COMMAND_FN_SIG(memstats)
+{
+    UNUSED(prgstate);
+    UNUSED(userdata);
+    UNUSED(args);
+
+    mem::IAllocator *default_allocator = mem::default_allocator();
+
+    logf_ln("%lu bytes allocated", default_allocator->bytes_allocated());
 }
 
 
@@ -652,7 +680,8 @@ void init_cli_commands(ProgramState *prgstate)
     REGISTER_COMMAND(prgstate, catfile, nullptr);
     REGISTER_COMMAND(prgstate, loadjson, nullptr);
     REGISTER_COMMAND(prgstate, abspath, nullptr);
-    REGISTER_COMMAND(prgstate, dropjson, nullptr);
+    REGISTER_COMMAND(prgstate, dropcoll, nullptr);
     REGISTER_COMMAND(prgstate, lscollections, nullptr);
     REGISTER_COMMAND(prgstate, edit, nullptr);
+    REGISTER_COMMAND(prgstate, memstats, nullptr);
 }

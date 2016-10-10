@@ -191,10 +191,10 @@ s32 run_hashtable_tests()
     { // Insertion
         const char *testname = "Hashtable Fill";
         const u32 limit = 100;
-        DynArray<HashtableTest> tests = dynarray_init<HashtableTest>(limit);
+        DynArray<HashtableTest> tests = dynarray::init<HashtableTest>(limit);
         for (u32 i = 0; i < limit; ++i)
         {
-            HashtableTest *test = dynarray_append(&tests);
+            HashtableTest *test = dynarray::append(&tests);
             test->name = testname;
             test->bucket_count = i * 1000;
             test->fail_count = 0;
@@ -219,17 +219,17 @@ s32 run_hashtable_tests()
             }
         }
         printf_ln("There were %i %s test failures", fails, testname);
-        dynarray_deinit(&tests);
+        dynarray::deinit(&tests);
         total_fail_count += fails;
     }
 
     { // Lookup
         const char *testname = "Hashtable Lookup";
         const u32 limit = 100;
-        DynArray<HashtableTest> tests = dynarray_init<HashtableTest>(limit);
+        DynArray<HashtableTest> tests = dynarray::init<HashtableTest>(limit);
         for (u32 i = 0; i < limit; ++i)
         {
-            HashtableTest *test = dynarray_append(&tests);
+            HashtableTest *test = dynarray::append(&tests);
             test->name = testname;
             test->bucket_count = i * 1000;
 			test->fail_count = 0;
@@ -255,17 +255,17 @@ s32 run_hashtable_tests()
             }
         }
         printf_ln("There were %i %s test failures", fails, testname);
-        dynarray_deinit(&tests);
+        dynarray::deinit(&tests);
         total_fail_count += fails;
     }
 
     { // Set-If-Unset
         const char *testname = "Hashtable Set-If-Unset";
         const u32 limit = 100;
-        DynArray<HashtableTest> tests = dynarray_init<HashtableTest>(limit);
+        DynArray<HashtableTest> tests = dynarray::init<HashtableTest>(limit);
         for (u32 i = 0; i < limit; ++i)
         {
-            HashtableTest *test = dynarray_append(&tests);
+            HashtableTest *test = dynarray::append(&tests);
             test->name = testname;
             test->bucket_count = i * 1000;
 			test->fail_count = 0;
@@ -291,7 +291,7 @@ s32 run_hashtable_tests()
             }
         }
         printf_ln("There were %i %s test failures", fails, testname);
-        dynarray_deinit(&tests);
+        dynarray::deinit(&tests);
         total_fail_count += fails;
     }
 

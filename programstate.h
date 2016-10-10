@@ -28,13 +28,6 @@ struct Collection
 };
 
 
-// inline void loadedrecord_free(LoadedRecord *lr)
-// {
-//     value_free(&lr->value);
-//     str_free(&lr->fullpath);
-// }
-
-
 struct ProgramState
 {
     NameTable names;
@@ -64,16 +57,16 @@ struct ProgramState
 HEADERFN void prgstate_init(ProgramState *prgstate)
 {
     nametable_init(&prgstate->names, MEGABYTES(2));
-    bucketarray_init(&prgstate->type_descriptors);
+    bucketarray::init(&prgstate->type_descriptors);
     ht_init(&prgstate->typedesc_bindings);
 
-    bucketarray_init(&prgstate->collections);
-    bucketarray_init(&prgstate->loaded_records);
+    bucketarray::init(&prgstate->collections);
+    bucketarray::init(&prgstate->loaded_records);
 
     ht_init(&prgstate->command_map);
     ht_init(&prgstate->value_map);
 
-    dynarray_init(&prgstate->editing_collections, 0);
+    dynarray::init(&prgstate->editing_collections, 0);
 }
 
 
@@ -98,7 +91,8 @@ struct ParseResult
 
 // ParseResult load_json_dir(OUTPARAM DynArray<Value> *destarray, ProgramState *prgstate, StrSlice path);
 ParseResult load_json_dir(OUTPARAM Collection **pcollection, ProgramState *prgstate, StrSlice path);
-void drop_loaded_records(ProgramState *prgstate);
+void drop_collection(ProgramState *prgstate, BucketIndex bucket_index);
+
 
 #define PROGRAMSTATE_H
 #endif

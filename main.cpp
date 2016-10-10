@@ -33,6 +33,8 @@
 
 Memory Management:
 
+http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2271.html#Appendix_26
+
 http://www.ibm.com/developerworks/aix/tutorials/au-memorymanager/
 
 https://bitbucket.org/bitsquid/foundation/src/7f896236dbafd2cb842655004b1c7bf6e76dcef9?at=default
@@ -197,7 +199,7 @@ TypeDescriptor *typedesc_from_json_array(ProgramState *prgstate, json_value_s *j
     json_array_s *jarray = (json_array_s *)jv->payload;
 
     DynArray<TypeDescriptor *> element_types;
-    dynarray_init(&element_types, DYNARRAY_COUNT(jarray->length));
+    dynarray::init(&element_types, DYNARRAY_COUNT(jarray->length));
 
     for (json_array_element_s *elem = jarray->start;
          elem;
@@ -219,7 +221,7 @@ TypeDescriptor *typedesc_from_json_array(ProgramState *prgstate, json_value_s *j
 
         if (! found)
         {
-            dynarray_append(&element_types, typedesc);
+            dynarray::append(&element_types, typedesc);
         }
     }
 
@@ -237,11 +239,11 @@ TypeDescriptor *typedesc_from_json_array(ProgramState *prgstate, json_value_s *j
 
 // WARNING(mike): DID NOT SORTING BREAK THIS???
         // // Sort the typeref array so that equality checks for union types can be linear
-        // dynarray_sort_unstable<SortTypeRef>(&element_types);
+        // dynarray::sort_unstable<SortTypeRef>(&element_types);
 
 
         UnionType union_type;
-        union_type.type_cases = dynarray_clone(&element_types);
+        union_type.type_cases = dynarray::clone(&element_types);
 
         TypeDescriptor element_union_type;
         element_union_type.type_id = TypeID::Union;
@@ -283,7 +285,7 @@ TypeDescriptor *typedesc_from_json_array(ProgramState *prgstate, json_value_s *j
         free_typedescriptor_components(&constructed_typedesc);
     }
 
-    dynarray_deinit(&element_types);
+    dynarray::deinit(&element_types);
 
     return result;
 }
@@ -297,13 +299,13 @@ TypeDescriptor *typedesc_from_json_object(ProgramState *prgstate, json_value_s *
     json_object_s *jobj = (json_object_s *)jv->payload;
 
     DynArray<CompoundTypeMember> members;
-    dynarray_init(&members, DYNARRAY_COUNT(jobj->length));
+    dynarray::init(&members, DYNARRAY_COUNT(jobj->length));
 
     for (json_object_element_s *elem = jobj->start;
          elem;
          elem = elem->next)
     {
-        CompoundTypeMember *member = dynarray_append(&members);
+        CompoundTypeMember *member = dynarray::append(&members);
         member->name = nametable_find_or_add(&prgstate->names,
                                              elem->name->string, elem->name->string_size);
         member->typedesc = typedesc_from_json(prgstate, elem->value);
@@ -370,12 +372,12 @@ TypeDescriptor *typedesc_from_json(ProgramState *prgstate, json_value_s *jv)
 
 DynArray<CompoundTypeMember> clone(const DynArray<CompoundTypeMember> &memberset)
 {
-    DynArray<CompoundTypeMember> result = dynarray_init<CompoundTypeMember>(memberset.count);
+    DynArray<CompoundTypeMember> result = dynarray::init<CompoundTypeMember>(memberset.count);
 
     for (u32 i = 0; i < memberset.count; ++i)
     {
         CompoundTypeMember *src_member = &memberset[i];
-        CompoundTypeMember *dest_member = dynarray_append(&result);
+        CompoundTypeMember *dest_member = dynarray::append(&result);
         ZERO_PTR(dest_member);
         NameRef newname = src_member->name;
         dest_member->name = newname;
@@ -446,7 +448,7 @@ Value create_array_with_type_from_json(ProgramState *prgstate, json_array_s *jar
     Value result;
     result.typedesc = typedesc;
 
-    dynarray_init(&result.array_value.elements, DYNARRAY_COUNT(jarray->length));
+    dynarray::init(&result.array_value.elements, DYNARRAY_COUNT(jarray->length));
     TypeDescriptor *elem_typedesc = typedesc->array_type.elem_type;
 
     DynArrayCount member_idx = 0;
@@ -454,7 +456,7 @@ Value create_array_with_type_from_json(ProgramState *prgstate, json_array_s *jar
          jelem;
          jelem = jelem->next)
     {
-        Value *value_element = dynarray_append(&result.array_value.elements);
+        Value *value_element = dynarray::append(&result.array_value.elements);
 
         TYPESWITCH (elem_typedesc->type_id)
         {
@@ -496,7 +498,7 @@ Value create_object_with_type_from_json(ProgramState *prgstate, json_object_s *j
     Value result;
 
     result.typedesc = typedesc;
-    dynarray_init(&result.compound_value.members, typedesc->compound_type.members.count);
+    dynarray::init(&result.compound_value.members, typedesc->compound_type.members.count);
 
     DynArrayCount member_idx = 0;
     for (json_object_element_s *jelem = jobj->start;
@@ -504,7 +506,7 @@ Value create_object_with_type_from_json(ProgramState *prgstate, json_object_s *j
          jelem = jelem->next)
     {
         CompoundTypeMember *type_member = &typedesc->compound_type.members[member_idx];
-        CompoundValueMember *value_member = dynarray_append(&result.compound_value.members);
+        CompoundValueMember *value_member = dynarray::append(&result.compound_value.members);
         value_member->name = type_member->name;
 
         TypeDescriptor *type_member_desc = type_member->typedesc;
@@ -669,9 +671,9 @@ ParseResult load_json_dir(OUTPARAM Collection **pcollection, ProgramState *prgst
     ParseResult result = {};
     result.status = ParseResult::Succeeded;
 
-    Collection *collection = bucketarray_add(&prgstate->collections).elem;
+    Collection *collection = bucketarray::add(&prgstate->collections).elem;
     collection->load_path = str(path);
-    dynarray_init(&collection->records, 0);
+    dynarray::init(&collection->records, 0);
     *pcollection = collection;
 
     DirLister dirlist(path);
@@ -731,10 +733,10 @@ ParseResult load_json_dir(OUTPARAM Collection **pcollection, ProgramState *prgst
                     }
                     else
                     {
-                        LoadedRecord *lr = bucketarray_add(&prgstate->loaded_records).elem;
+                        LoadedRecord *lr = bucketarray::add(&prgstate->loaded_records).elem;
                         lr->fullpath = fullpath;
                         lr->value = parsed_value;
-                        dynarray_append(&collection->records, lr);
+                        dynarray::append(&collection->records, lr);
                     }
                     break;
                 }
@@ -743,6 +745,33 @@ ParseResult load_json_dir(OUTPARAM Collection **pcollection, ProgramState *prgst
     }
 
     return result;
+}
+
+
+void drop_collection(ProgramState *prgstate, BucketIndex bucket_index)
+{
+    Collection *coll = &prgstate->collections[bucket_index];
+
+    for (DynArrayCount i = 0, e = coll->records.count; i < e; ++i)
+    {
+        LoadedRecord *lr = coll->records[i];
+        str_free(&lr->fullpath);
+        value_free(&lr->value);
+        BucketIndex removed_bucket_index = bucketarray::remove(&prgstate->loaded_records, lr);
+        ASSERT(removed_bucket_index.is_valid());
+    }
+
+    str_free(&coll->load_path);
+    dynarray::deinit(&coll->records);
+
+    DynArrayCount edit_index;
+    if (dynarray::try_find_index(&edit_index, &prgstate->editing_collections, coll))
+    {
+        dynarray::swappop(&prgstate->editing_collections, edit_index);
+    }
+
+    bool removed = bucketarray::remove_at(&prgstate->collections, bucket_index);
+    ASSERT(removed);
 }
 
 
@@ -762,7 +791,8 @@ void test_json_import(ProgramState *prgstate, int filename_count, char **filenam
 
     TypeDescriptor *result = nullptr;
 
-    for (int i = 0; i < filename_count; ++i) {
+    for (int i = 0; i < filename_count; ++i)
+    {
         const char *filename = filenames[i];
         Str jsonstr = read_file(filename);
         assert(jsonstr.data);
@@ -822,17 +852,20 @@ void log_parse_error(ParseResult pr, StrSlice input, size_t input_offset_from_sr
 
 void process_console_input(ProgramState *prgstate, StrSlice input_buf)
 {
+    // mem::ALLOC_STACKTRACE = true;
+
     tokenizer::State tokstate;
     tokenizer::init(&tokstate, input_buf.data);
 
     tokenizer::Token first_token = tokenizer::read_string(&tokstate);
 
     DynArray<Value> cmd_args;
-    dynarray_init(&cmd_args, 10);
+    dynarray::init(&cmd_args, 10);
 
     bool error = false;
 
-    for (;;) {
+    for (;;)
+    {
         size_t offset_from_input = (size_t)(tokstate.current - input_buf.data);
 
         Value parsed_value;
@@ -846,7 +879,7 @@ void process_console_input(ProgramState *prgstate, StrSlice input_buf)
                 error = true;
                 goto AfterArgParseLoop;
             case ParseResult::Succeeded:
-                dynarray_append(&cmd_args, parsed_value);
+                dynarray::append(&cmd_args, parsed_value);
                 break;
             case ParseResult::Eof:
                 goto AfterArgParseLoop;
@@ -861,7 +894,9 @@ AfterArgParseLoop:
         exec_command(prgstate, first_token.text, cmd_args);
     }
 
-    dynarray_deinit(&cmd_args);
+    dynarray::deinit(&cmd_args);
+
+    // mem::ALLOC_STACKTRACE = false;
 }
 
 
@@ -876,7 +911,8 @@ void run_terminal_json_cli(ProgramState *prgstate)
             break;
         }
 
-        append_log(input);
+        // void *alloc_probe = mem::default_allocator()->probe();
+        // append_log(input);
 
         tokenizer::State tokstate;
         tokenizer::init(&tokstate, input);
@@ -890,6 +926,8 @@ void run_terminal_json_cli(ProgramState *prgstate)
         }
 
         process_console_input(prgstate, str_slice(input));
+
+        // mem::default_allocator()->log_allocs_since_probe(alloc_probe);
 
         std::free(input);
     }
@@ -943,9 +981,9 @@ void CliHistory::add(StrSlice input)
 {
     if (!this->input_entries.data)
     {
-        dynarray_init(&this->input_entries, 64);
+        dynarray::init(&this->input_entries, 64);
     }
-    dynarray_append(&this->input_entries, str(input));
+    dynarray::append(&this->input_entries, str(input));
     this->to_front();
 }
 
@@ -1048,7 +1086,7 @@ void draw_imgui_json_cli(ProgramState *prgstate, SDL_Window *window)
     static CliHistory history;
     // if (first_draw)
     // {
-        // clihistory_init(&history);
+
     // }
 
     ImGuiWindowFlags console_wndflags = 0
@@ -1127,7 +1165,7 @@ void draw_imgui_json_cli(ProgramState *prgstate, SDL_Window *window)
 }
 
 
-void draw_collection_editor(Collection *collection)
+bool draw_collection_editor(Collection *collection)
 {
     ImGuiWindowFlags wndflags = 0
         | ImGuiWindowFlags_NoSavedSettings
@@ -1138,10 +1176,12 @@ void draw_collection_editor(Collection *collection)
     ImGui::SetNextWindowSize(ImVec2(400, 400), ImGuiSetCond_Once);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
     // ImGui::Begin("Collection Editor", nullptr, wndflags);
-    ImGui::Begin(collection->load_path.data, nullptr, wndflags);
+    bool window_open = true;
+    ImGui::Begin(collection->load_path.data, &window_open, wndflags);
 
     // collect and render column names
     DynArrayCount column_count = 0;
+    if (collection->records.count > 0)
     {
         Value *value = &collection->records[0]->value;
 
@@ -1227,6 +1267,8 @@ void draw_collection_editor(Collection *collection)
 
     ImGui::End();
     ImGui::PopStyleVar();
+
+    return window_open;
 }
 
 
@@ -1327,21 +1369,16 @@ int main(int argc, char **argv)
 
         for (DynArrayCount i = 0, e = prgstate.editing_collections.count; i < e; ++i)
         {
-            draw_collection_editor(prgstate.editing_collections[i]);
+            bool open = draw_collection_editor(prgstate.editing_collections[i]);
+            if (!open)
+            {
+                dynarray::swappop(&prgstate.editing_collections, i);
+                --i;
+                --e;
+            }
         }
 
-        // if (prgstate.collections.count > 0)
-        // {
-        //     BucketItemCount i = 0;
-        //     while (i < prgstate.collections.capacity && !bucketarray_get_if_not_empty(&prgstate.collections, i))
-        //     {
-        //         ++i;
-        //     }
-        //     draw_collection_editor(&prgstate.collections[i]);
-        // }
-
         ImGui::ShowTestWindow(&show_imgui_testwindow);
-
 
         glViewport(0, 0,
                    (int)ImGui::GetIO().DisplaySize.x, (int)ImGui::GetIO().DisplaySize.y);

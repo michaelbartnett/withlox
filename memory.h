@@ -38,6 +38,8 @@
 namespace mem
 {
 
+extern bool ALLOC_STACKTRACE;
+
 using std::size_t;
 
 typedef void logf_fn(void *userdata, const char *fmt, ...);
@@ -80,6 +82,10 @@ public:
     virtual size_t bytes_allocated() = 0;
     virtual size_t payload_size_of(void *ptr) = 0;
     virtual void log_allocations() = 0;
+
+    virtual void* probe() = 0;
+    virtual void log_allocs_since_probe(void *probe) = 0;
+
     virtual ~IAllocator() {}
 
     void *calloc(size_t size, size_t align, AllocationMetadata meta)
@@ -106,6 +112,16 @@ public:
     virtual size_t  bytes_allocated() OVERRIDE;
     virtual size_t  payload_size_of(void *ptr) OVERRIDE;
     virtual void    log_allocations() OVERRIDE;
+
+    virtual void* probe() OVERRIDE
+    {
+        assert(!(bool)"Not supported");
+    }
+    virtual void log_allocs_since_probe(void *probe) OVERRIDE
+    {
+        UNUSED(probe);
+        assert(!(bool)"Not supported");
+    }
 };
 
 
@@ -168,6 +184,10 @@ Mallocator()
     virtual void *realloc(void *ptr, size_t size, size_t align, AllocationMetadata meta) OVERRIDE;
     virtual void dealloc(void *ptr) OVERRIDE;
     virtual size_t bytes_allocated() OVERRIDE;
+
+    virtual void* probe() OVERRIDE;
+    virtual void log_allocs_since_probe(void *probe) OVERRIDE;
+
     MemBlockHeader *get_header(void *ptr);
     void validate_alloclist();
     bool alloclist_contains(void *ptr);

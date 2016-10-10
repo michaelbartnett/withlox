@@ -111,10 +111,10 @@ s32 run_nametable_tests()
 
     {
         DynArray<NameTableTest> tests;
-        dynarray_init(&tests, test_count);
+        dynarray::init(&tests, test_count);
         for (DynArrayCount i = 0; i < test_count; ++i)
         {
-            NameTableTest *test = dynarray_append(&tests);
+            NameTableTest *test = dynarray::append(&tests);
             test->name = str_slice(test_find_names[i]);
         }
 
@@ -146,10 +146,10 @@ s32 run_nametable_tests()
 
     {
         DynArray<NameTableTest> tests;
-        dynarray_init(&tests, test_count);
+        dynarray::init(&tests, test_count);
         for (DynArrayCount i = 0; i < test_count; ++i)
         {
-            NameTableTest *test = dynarray_append(&tests);
+            NameTableTest *test = dynarray::append(&tests);
             test->name = str_slice(test_find_names[i]);
         }
 

@@ -38,7 +38,7 @@ TODO(mike): unit test with doctest or something
     }
 
     DynArray<u32> test;
-    dynarray_init(&test, test_amount);
+    dynarray::init(&test, test_amount);
     test.count = test_amount;
     for (int i = test_amount - 1; i >= 0; --i)
     {
@@ -84,6 +84,11 @@ struct BucketIndex
 {
     s32 bucket_index;
     s32 item_index;
+
+    bool is_valid()
+    {
+        return bucket_index >= 0 && item_index >= 0;
+    }
 };
 
 
@@ -108,8 +113,8 @@ struct BucketArray
 
     T &operator[](BucketIndex bidx) const
     {
-        ASSERT(bidx.bucket_index < all_buckets.count);
-        return all_buckets[bidx.bucket_index].items[bidx.item_index];
+        ASSERT(BUCKETITEMCOUNT(bidx.bucket_index) < all_buckets.count);
+        return all_buckets[bidx.bucket_index]->items[bidx.item_index];
     }
 
     T &operator[](BucketItemCount index) const
@@ -126,40 +131,29 @@ struct BucketArray
 };
 
 
-template<typename T, BucketItemCount ItemCount>
-BucketIndex bucketarray_translate_index(const BucketArray<T, ItemCount> *ba, BucketItemCount index);
-
 namespace bucketarray
 {
 
 template<typename T, BucketItemCount ItemCount>
-bool exists(BucketArray<T, ItemCount> *ba, BucketItemCount index)
+void init(BucketArray<T, ItemCount> *ba,
+          mem::IAllocator *allocator = nullptr,
+          DynArrayCount    initial_bucket_capacity = 0)
 {
-    if (index >= ba->capacity)
+    if (!allocator)
     {
-        return false;
+        allocator = mem::default_allocator();
     }
 
-    BucketIndex bidx = bucketarray_translate_index(ba, index);
-    return ba->all_buckets[bidx.bucket_index]->occupied[bidx.item_index];
+    ba->allocator = allocator;
+    ba->count = 0;
+    ba->capacity = 0;
+    dynarray::init(&ba->all_buckets, initial_bucket_capacity, allocator);
+    dynarray::init(&ba->vacancy_buckets, initial_bucket_capacity, allocator);
 }
 
 
 template<typename T, BucketItemCount ItemCount>
-bool exists(BucketArray<T, ItemCount> *ba, s32 index)
-{
-    if (index < 0)
-    {
-        return false;
-    }
-    return exists(ba, BUCKETITEMCOUNT(index));
-}
-
-}
-
-
-template<typename T, BucketItemCount ItemCount>
-BucketIndex bucketarray_translate_index(const BucketArray<T, ItemCount> *ba, BucketItemCount index)
+BucketIndex translate_index(const BucketArray<T, ItemCount> *ba, BucketItemCount index)
 {
     ASSERT(index >= 0);
     BucketIndex result;
@@ -173,42 +167,56 @@ BucketIndex bucketarray_translate_index(const BucketArray<T, ItemCount> *ba, Buc
 
 
 template<typename T, BucketItemCount ItemCount>
-BucketItemCount bucketarray_indexify(const BucketArray<T, ItemCount> *ba, BucketIndex bucket_idx)
+bool exists(OUTPARAM BucketIndex *out_bidx, BucketArray<T, ItemCount> *ba, BucketItemCount index)
 {
-    UNUSED(ba);
-    return bucket_idx.bucket_index * S32(ItemCount) + bucket_idx.item_index;
-}
+    if (index >= ba->capacity)
+    {
+        return false;
+    }
 
-
-template <typename T, BucketItemCount ItemCount>
-bool bucketarray_get_if_not_empty(const BucketArray<T, ItemCount> *ba, BucketItemCount index, T **output = nullptr)
-{
-    BucketIndex bidx = bucketarray_translate_index(ba, index);
-    return bucketarray_get_if_not_empty(ba, bidx, output);
-}
-
-
-template <typename T, BucketItemCount ItemCount>
-bool bucketarray_get_if_not_empty(const BucketArray<T, ItemCount> *ba, BucketIndex bidx, T **output = nullptr)
-{
-    Bucket<T, ItemCount> *b = ba->all_buckets[DYNARRAY_COUNT(bidx.bucket_index)];
-    bool found = b->occupied[bidx.item_index];
-    if (output) *output = found ? &b->items[bidx.item_index] : nullptr;
-    return found;
-}
-
-
-template <typename T, BucketItemCount ItemCount>
-T &BucketArray<T, ItemCount>::at(BucketItemCount index) const
-{
-    BucketIndex idx = bucketarray_translate_index(this, index);
-    Bucket<T, ItemCount> *b = all_buckets[DYNARRAY_COUNT(idx.bucket_index)];
-    return b->items[idx.item_index];
+    BucketIndex bidx = translate_index(ba, index);
+    *out_bidx = bidx;
+    return ba->all_buckets[bidx.bucket_index]->occupied[bidx.item_index];
 }
 
 
 template<typename T, BucketItemCount ItemCount>
-BucketIndex bucketarray_bucketindex_of_ptr(BucketArray<T, ItemCount> *ba, T *elem)
+bool exists(BucketArray<T, ItemCount> *ba, BucketItemCount index)
+{
+    if (index >= ba->capacity)
+    {
+        return false;
+    }
+
+    BucketIndex bidx = translate_index(ba, index);
+    return ba->all_buckets[bidx.bucket_index]->occupied[bidx.item_index];
+}
+
+
+template<typename T, BucketItemCount ItemCount>
+bool exists(BucketIndex *out_bidx, BucketArray<T, ItemCount> *ba, s32 index)
+{
+    if (index < 0)
+    {
+        return false;
+    }
+    return exists(out_bidx, ba, BUCKETITEMCOUNT(index));
+}
+
+
+template<typename T, BucketItemCount ItemCount>
+bool exists(BucketArray<T, ItemCount> *ba, s32 index)
+{
+    if (index < 0)
+    {
+        return false;
+    }
+    return exists(ba, BUCKETITEMCOUNT(index));
+}
+
+
+template<typename T, BucketItemCount ItemCount>
+BucketIndex bucketindex_of(BucketArray<T, ItemCount> *ba, T *elem)
 {
     BucketIndex result;
     result.bucket_index = -1;
@@ -234,38 +242,63 @@ BucketIndex bucketarray_bucketindex_of_ptr(BucketArray<T, ItemCount> *ba, T *ele
 
 
 template<typename T, BucketItemCount ItemCount>
-void bucketarray_init(BucketArray<T, ItemCount> *ba,
-                      mem::IAllocator *allocator = nullptr,
-                      DynArrayCount    initial_bucket_capacity = 0)
-{
-    if (!allocator)
-    {
-        allocator = mem::default_allocator();
-    }
-
-    ba->allocator = allocator;
-    ba->count = 0;
-    ba->capacity = 0;
-    dynarray_init(&ba->all_buckets, initial_bucket_capacity, allocator);
-    dynarray_init(&ba->vacancy_buckets, initial_bucket_capacity, allocator);
-}
-
-
-template<typename T, BucketItemCount ItemCount>
-Bucket<T, ItemCount> *bucketarray_addbucket(BucketArray<T, ItemCount> *ba)
+Bucket<T, ItemCount> *addbucket(BucketArray<T, ItemCount> *ba)
 {
     Bucket<T, ItemCount> *bucket = MAKE_OBJ(ba->allocator, Bucket<T, ItemCount>);
     bucket->index = ba->all_buckets.count;
     bucket->count = 0;
     ba->capacity += ItemCount;
     zero_obj(bucket->occupied);
-    dynarray_append(&ba->all_buckets, bucket);
-    return *dynarray_append(&ba->vacancy_buckets, bucket);
+    dynarray::append(&ba->all_buckets, bucket);
+    return *dynarray::append(&ba->vacancy_buckets, bucket);
 }
 
 
 template<typename T, BucketItemCount ItemCount>
-IndexElemPair<T> bucketarray_add(BucketArray<T, ItemCount> *ba)
+bool remove_at(BucketArray<T, ItemCount> *ba, BucketIndex bidx)
+{
+    Bucket<T, ItemCount> *b = ba->all_buckets[DynArrayCount(bidx.bucket_index)];
+    if (!b->occupied[bidx.item_index]) {
+        return false;
+    }
+
+    b->occupied[bidx.item_index] = false;
+    --b->count;
+    --ba->count;
+    return true;
+}
+
+
+template<typename T, BucketItemCount ItemCount>
+bool remove_at(BucketArray<T, ItemCount> *ba, s32 index)
+{
+    BucketIndex bidx = bucketarray::translate_index(ba, index);
+    return remove(ba, bidx);
+}
+
+
+template <typename T, BucketItemCount ItemCount>
+BucketIndex remove(BucketArray<T, ItemCount> *ba, T *item)
+{
+    BucketIndex bidx = bucketindex_of(ba, item);
+    BucketIndex result = {-1, -1};
+
+    if (bidx.bucket_index >= 0)
+    {
+        bool removed = remove_at(ba, bidx);
+
+        if (removed)
+        {
+            result = bidx;
+        }
+    }
+
+    return result;
+}
+
+
+template<typename T, BucketItemCount ItemCount>
+IndexElemPair<T> add(BucketArray<T, ItemCount> *ba)
 {
     DynArrayCount vacant_bucket_count = ba->vacancy_buckets.count;
     Bucket<T, ItemCount> *bucket;
@@ -276,7 +309,7 @@ IndexElemPair<T> bucketarray_add(BucketArray<T, ItemCount> *ba)
     }
     else
     {
-        bucket = bucketarray_addbucket(ba);
+        bucket = bucketarray::addbucket(ba);
     }
 
     ASSERT(bucket);
@@ -299,7 +332,7 @@ IndexElemPair<T> bucketarray_add(BucketArray<T, ItemCount> *ba)
 
     if (bucket->count == ItemCount)
     {
-        dynarray_swappop(&ba->vacancy_buckets, vacant_bucket_count - 1);
+        dynarray::swappop(&ba->vacancy_buckets, vacant_bucket_count - 1);
     }
 
     ++ba->count;
@@ -309,15 +342,32 @@ IndexElemPair<T> bucketarray_add(BucketArray<T, ItemCount> *ba)
 }
 
 
-template<typename T, BucketItemCount ItemCount>
-void bucketarray_remove(BucketArray<T, ItemCount> *ba, s32 index)
+template <typename T, BucketItemCount ItemCount>
+bool get_if_not_empty(const BucketArray<T, ItemCount> *ba, BucketIndex bidx, T **output = nullptr)
 {
-    BucketIndex idx = bucketarray_translate_index(ba, index);
+    Bucket<T, ItemCount> *b = ba->all_buckets[DYNARRAY_COUNT(bidx.bucket_index)];
+    bool found = b->occupied[bidx.item_index];
+    if (output) *output = found ? &b->items[bidx.item_index] : nullptr;
+    return found;
+}
 
-    Bucket<T, ItemCount> *b = ba->all_buckets[DynArrayCount(idx.bucket_index)];
-    b->occupied[idx.item_index] = false;
-    --b->count;
-    --ba->count;
+
+template <typename T, BucketItemCount ItemCount>
+bool get_if_not_empty(const BucketArray<T, ItemCount> *ba, BucketItemCount index, T **output = nullptr)
+{
+    BucketIndex bidx = bucketarray::translate_index(ba, index);
+    return get_if_not_empty(ba, bidx, output);
+}
+
+}
+
+
+template <typename T, BucketItemCount ItemCount>
+T &BucketArray<T, ItemCount>::at(BucketItemCount index) const
+{
+    BucketIndex idx = bucketarray::translate_index(this, index);
+    Bucket<T, ItemCount> *b = all_buckets[DYNARRAY_COUNT(idx.bucket_index)];
+    return b->items[idx.item_index];
 }
 
 
