@@ -10,5 +10,8 @@ inline ImVec2 ImGui_SDLWindowSize(SDL_Window *window)
     return ImVec2(w, h);
 }
 
+struct Str;
+bool ImGui_InputText(const char *label, Str *str);
+
 #define IMGUI_HELPERS_H
 #endif

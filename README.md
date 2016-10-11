@@ -23,9 +23,91 @@ This will be maintained. Latest log entry will go below.
 
 - [X] Upgrade dearimgui
 
-- [ ] Fix the text field string length problem
+- [X] Fix the text field string length problem
 
 - [ ] TypeDescriptor list window, show all or for collection
+
+- [ ] Display value fields in collection editor associated with correct
+      named column
+
+## 2016-10-11-0353EST Hacks
+
+I fixed the ImGui::TextInput field buffer size issue!
+
+At first I tried the obvious thing, which would be to see if the next
+control is currently focused (using
+`ImGui::GetCurrentContext()->ActiveId1`). If it is, then if the buffer
+is nearly full, then I bump up its size by 32 chars (might make the
+expand amount configurable later).
+
+So *dearimgui* has a relatively intuitive ID system. This is unlike
+Unity's, which is totally opaque unless you fire up IlSpy and start
+trawling through `UnityEditor.dll`. Anyway! It was easy to infer that I
+could get the ID of the control I was about to render:
+
+```
+// this id
+ImGuiID control_id = ImGui::GetID("##field");
+
+// refers to this control, assuming the same context (pushed/popped IDs)
+ImGui::InputText("##field", buf, bufsize);
+```
+
+ and then see if that was the current `ImGuiContext::ActiveId`:
+ 
+ ```
+ImGuiContext *guictx = ImGui::GetCurrentContext();
+ImGuiID control_id = ImGui::GetID(label);
+
+if (guictx->ActiveId == control_id)
+{
+    // do things...
+}
+ ```
+
+However there was a problem: *dearimgui*'s internal text edit state would
+only recalculate its internal size whenever a text field is freshly
+focused.
+
+This mean that you would focus a field, be able to type one letter,
+and then be blocked. But, if you defocused and refocused, now you
+suddenly had the 32 extra chars to use. Then you'd hit that
+wall...rinse and repeat.
+
+My workaround for this was to set `ImGuiContext::ActiveId` to `0` when resizing the buffer,
+and then immediately request keyboard focus on the same control I was about to render.
+
+```
+ImGuiContext *guictx = ImGui::GetCurrentContext();
+ImGuiID control_id = ImGui::GetID(label);
+
+if (guictx->ActiveId == control_id)
+{
+    if ((str->capacity - str->length) < 2)
+    {
+        str_ensure_capacity(str, str->capacity + 32);
+        guictx->ActiveId = 0;
+        ImGui::SetKeyboardFocusHere(0);
+    }
+}
+```
+
+This worked surprisingly well. I was going to post an issue about
+this, but might not be necessary now unless I see performance issues
+soon (doubtful).
+
+There's always more work to do, so here's some more:
+
+The columns are always fubar when I load the Hawkthorne characters
+JSON. I realized that I didn't actually bother to line up column names
+in the collection editor, just drew each cmopound member in whatever
+order it came in. That should work properly (after I do the type
+descriptor list window).
+
+- [] Display value fields in collection editor associated with correct
+      named column
+
+After these two things are done I should really go build on Windows again.
 
 ## 2016-10-10-0304EST Dropping collections works
 
@@ -265,7 +347,7 @@ fix the string length problem.
 
 - [X] Upgrade dearimgui
 
-- [] Fix the text field string length problem
+- [X] Fix the text field string length problem
 
 It has also become clear that I need to think about iteration mechanisms for
 the hashtable and bucketarray.

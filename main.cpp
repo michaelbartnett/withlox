@@ -912,7 +912,7 @@ void run_terminal_json_cli(ProgramState *prgstate)
         }
 
         // void *alloc_probe = mem::default_allocator()->probe();
-        // append_log(input);
+        append_log(input);
 
         tokenizer::State tokstate;
         tokenizer::init(&tokstate, input);
@@ -955,8 +955,6 @@ public:
     void restore(s64 position, ImGuiTextEditCallbackData *data);
     void backward(ImGuiTextEditCallbackData *data);
     void forward(ImGuiTextEditCallbackData *data);
-
-
 
     DynArray<Str> input_entries;
     Str saved_input_buf;
@@ -1220,7 +1218,7 @@ bool draw_collection_editor(Collection *collection)
             TYPESWITCH (memtype->type_id)
             {
                 case TypeID::String:
-                    ImGui::InputText("##field", memval->str_val.data, memval->str_val.capacity);
+                    ImGui_InputText("##field", &memval->str_val);
                     break;
 
                 case TypeID::Int:

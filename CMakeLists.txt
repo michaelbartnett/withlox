@@ -57,6 +57,7 @@ set(CXX_SOURCES
   json.h
   platform.h
   imgui_helpers.h
+  imgui_helpers.cpp
   logging.h
   logging.cpp
   memory.h
