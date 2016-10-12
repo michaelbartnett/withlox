@@ -62,7 +62,7 @@ TypeDescriptor *find_equiv_typedesc(ProgramState *prgstate, TypeDescriptor *type
                  i < e; ++i)
             {
                 TypeDescriptor *predefined;
-                if (bucketarray::get_if_not_empty(typedesc_storage, i, &predefined))
+                if (bucketarray::get_if_not_empty(&predefined, typedesc_storage, i))
                 {
                     if (typedesc_equal(type_desc, predefined))
                     {
@@ -237,8 +237,8 @@ TypeDescriptor *make_union(ProgramState *prgstate, TypeDescriptor *a_desc, TypeD
     TypeDescriptor new_typedesc = {};
     new_typedesc.type_id = TypeID::Union;
 
-    bool a_is_union = a_desc->type_id == TypeID::Union;
-    bool b_is_union = b_desc->type_id == TypeID::Union;
+    bool a_is_union = tIS_UNION(a_desc);
+    bool b_is_union = tIS_UNION(b_desc);
     bool both_unions = a_is_union && b_is_union;
     bool neither_unions = !a_is_union && !b_is_union;
 
@@ -358,8 +358,8 @@ TypeDescriptor *compound_member_merge(ProgramState *prgstate, TypeDescriptor *a_
 {
     assert(a_desc);
     assert(b_desc);
-    assert(a_desc->type_id == TypeID::Compound);
-    assert(b_desc->type_id == TypeID::Compound);
+    ASSERT(tIS_COMPOUND(a_desc));
+    ASSERT(tIS_COMPOUND(b_desc));
 
     TypeDescriptor new_typedesc = copy_typedesc(a_desc);
 

@@ -609,10 +609,9 @@ bool draw_collection_editor(Collection *collection)
         ImGui::PushID((int)i);
 
         Value *value = &collection->records[i]->value;
-        TypeDescriptor *value_type = value->typedesc;
-        assert(value_type->type_id == TypeID::Compound);
+        ASSERT(vIS_COMPOUND(value));
 
-        for (DynArrayCount j = 0, memcount = value_type->compound_type.members.count;
+        for (DynArrayCount j = 0, memcount = value->typedesc->compound_type.members.count;
              j < memcount;
              ++j)
         {
@@ -656,7 +655,7 @@ bool draw_collection_editor(Collection *collection)
     // {
     //     Value *value = &prgstate->collection[i].value;
 
-    //     if (value->typedesc->type_id == TypeID::Compount)
+    //     if (vIS_COMPOUND(value))
     //     {
     //         column_count = max(column_count, value->compound_value.members.count);
     //     }

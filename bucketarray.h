@@ -343,7 +343,7 @@ IndexElemPair<T> add(BucketArray<T, ItemCount> *ba)
 
 
 template <typename T, BucketItemCount ItemCount>
-bool get_if_not_empty(const BucketArray<T, ItemCount> *ba, BucketIndex bidx, T **output = nullptr)
+bool get_if_not_empty(OUTPARAM T **output, const BucketArray<T, ItemCount> *ba, BucketIndex bidx)
 {
     Bucket<T, ItemCount> *b = ba->all_buckets[DYNARRAY_COUNT(bidx.bucket_index)];
     bool found = b->occupied[bidx.item_index];
@@ -353,10 +353,10 @@ bool get_if_not_empty(const BucketArray<T, ItemCount> *ba, BucketIndex bidx, T *
 
 
 template <typename T, BucketItemCount ItemCount>
-bool get_if_not_empty(const BucketArray<T, ItemCount> *ba, BucketItemCount index, T **output = nullptr)
+bool get_if_not_empty(OUTPARAM T **output, const BucketArray<T, ItemCount> *ba, BucketItemCount index)
 {
     BucketIndex bidx = bucketarray::translate_index(ba, index);
-    return get_if_not_empty(ba, bidx, output);
+    return get_if_not_empty(output, ba, bidx);
 }
 
 }

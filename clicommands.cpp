@@ -593,7 +593,7 @@ CLI_COMMAND_FN_SIG(lscollections)
     for (BucketItemCount i = 0; i < prgstate->collections.capacity; ++i)
     {
         Collection *collection;
-        if (bucketarray::get_if_not_empty(&prgstate->collections, i, &collection))
+        if (bucketarray::get_if_not_empty(&collection, &prgstate->collections, i))
         {
             logf_ln("[%i] %s", i, collection->load_path.data);
         }

@@ -369,7 +369,7 @@ Value create_value_from_json(ProgramState *prgstate, json_value_s *jv)
         case json_type_array:
         {
             TypeDescriptor *typedesc = typedesc_from_json_array(prgstate, jv);
-            assert(typedesc->type_id == TypeID::Array);
+            ASSERT(tIS_ARRAY(typedesc));
             json_array_s *jarray = (json_array_s *)jv->payload;
             result = create_array_with_type_from_json(prgstate, jarray, typedesc);
             break;

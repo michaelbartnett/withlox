@@ -44,9 +44,6 @@ struct ProgramState
     OAHashtable<StrSlice, CliCommand, StrSliceEqual, StrSliceHash> command_map;
     StrToValueMap value_map;
 
-    Str collection_directory;
-    // DynArray<Value> collection;
-
     BucketArray<Collection> collections;
     BucketArray<LoadedRecord> loaded_records;
 
@@ -72,8 +69,6 @@ HEADERFN void prgstate_init(ProgramState *prgstate)
 
 
 
-// ParseResult load_json_dir(OUTPARAM DynArray<Value> *destarray, ProgramState *prgstate, StrSlice path);
-// JsonParseResult load_json_dir(OUTPARAM Collection **pcollection, ProgramState *prgstate, StrSlice path);
 void drop_collection(ProgramState *prgstate, BucketIndex bucket_index);
 
 #define PROGRAMSTATE_H
