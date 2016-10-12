@@ -192,12 +192,7 @@ CLI_COMMAND_FN_SIG(checktype)
         return;
     }
 
-    // fmt_buf.writeln("");
     Value *value = &args[1];
-    // fmt_buf.write("Value: ");
-    // pretty_print(value, &fmt_buf);
-    // fmt_buf.writef("Parsed value's type: %i ", value->typeref.index);
-    // pretty_print(value->typeref, &fmt_buf);
 
     TypeCheckInfo check = check_type_compatible(value->typedesc, typedesc);
 

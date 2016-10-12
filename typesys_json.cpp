@@ -48,16 +48,6 @@ TypeDescriptor *typedesc_from_json_array(ProgramState *prgstate, json_value_s *j
     {
         // Element type is Union
 
-        // logln("Ecountered a heterogeneous json array. "
-        //       "It will be reported as an Array of None type since this is not yet supported");
-
-
-
-// WARNING(mike): DID NOT SORTING BREAK THIS???
-        // // Sort the typeref array so that equality checks for union types can be linear
-        // dynarray::sort_unstable<SortTypeRef>(&element_types);
-
-
         UnionType union_type;
         union_type.type_cases = dynarray::clone(&element_types);
 

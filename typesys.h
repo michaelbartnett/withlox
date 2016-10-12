@@ -75,27 +75,6 @@ inline const char *to_string(u32 type_id)
 
 struct TypeDescriptor;
 
-// struct TypeRef
-// {
-//     u32 index;
-//     DynArray<TypeDescriptor> *owner;
-// };
-
-// struct SortTypeRef
-// {
-//     bool operator() (const TypeRef &a, const TypeRef &b)
-//     {
-//         return (a.owner == b.owner && a.index < b.index)
-//             || (intptr_t)a.owner < (intptr_t)b.owner;
-//     }
-// };
-
-// inline bool typeref_identical(const TypeRef &lhs, const TypeRef &rhs)
-// {
-//     return lhs.index == rhs.index
-//         && lhs.owner == rhs.owner;
-// }
-
 
 struct CompoundTypeMember
 {
@@ -155,96 +134,7 @@ bool are_typedescs_unique(const DynArray<TypeDescriptor *> *types);
 
 CompoundTypeMember *find_member(const TypeDescriptor *type_desc, NameRef name);
 
-HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b);
-
-
-HEADERFN bool equal(const CompoundTypeMember *a, const CompoundTypeMember *b)
-{
-    return nameref_identical(a->name, b->name) && (a->typedesc == b->typedesc);
-}
-
-
-HEADERFN bool equal(const TypeDescriptor *a, const TypeDescriptor *b)
-{
-    assert(a);
-    assert(b);
-
-    if (a->type_id != b->type_id)
-    {
-        return false;
-    }
-
-    TYPESWITCH (a->type_id)
-    {
-        case TypeID::None:
-        case TypeID::String:
-        case TypeID::Int:
-        case TypeID::Float:
-        case TypeID::Bool:
-            return true;
-
-        case TypeID::Array:
-            return a->array_type.elem_type == b->array_type.elem_type;
-
-        case TypeID::Compound:
-        {
-            DynArrayCount a_mem_count = a->compound_type.members.count;
-            if (a_mem_count != b->compound_type.members.count)
-            {
-                return false;
-            }
-
-            for (DynArrayCount ia = 0; ia < a_mem_count; ++ia)
-            {
-                CompoundTypeMember *a_member = &a->compound_type.members[ia];
-                CompoundTypeMember *b_member = find_member(b, a->compound_type.members[ia].name);
-                if (!b_member || !equal(a_member, b_member))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        case TypeID::Union:
-            if (a->union_type.type_cases.count != b->union_type.type_cases.count)
-            {
-                return false;
-            }
-
-            #if SANITY_CHECK
-            assert(are_typedescs_unique(&a->union_type.type_cases));
-            assert(are_typedescs_unique(&b->union_type.type_cases));
-            #endif
-
-            for (DynArrayCount ia = 0, count = a->union_type.type_cases.count;
-                 ia < count;
-                 ++ia)
-            {
-                TypeDescriptor *a_case = a->union_type.type_cases[ia];
-
-                bool found = false;
-
-                for (DynArrayCount ib = 0;
-                     ib < count;
-                     ++ib)
-                {
-                    if (a_case == b->union_type.type_cases[ib])
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (!found)
-                {
-                    return false;
-                }
-            }
-            return true;
-    }
-}
+bool typedesc_equal(const TypeDescriptor *a, const TypeDescriptor *b);
 
 
 struct ProgramState;
@@ -271,6 +161,7 @@ TypeDescriptor *compound_member_merge(ProgramState *prgstate, TypeDescriptor *a_
 TypeDescriptor *merge_types(ProgramState *prgstate, /*const*/ TypeDescriptor *a_desc, /*const*/ TypeDescriptor *b_desc);
 
 void free_typedescriptor_components(TypeDescriptor *typedesc);
+
 
 
 HEADERFN void add_member(TypeDescriptor *typedesc, const CompoundTypeMember &member)
@@ -341,10 +232,12 @@ struct ArrayValue
     DynArray<Value> elements;
 };
 
+
 struct CompoundValue
 {
     DynArray<CompoundValueMember> members;
 };
+
 
 struct Value
 {
@@ -360,6 +253,17 @@ struct Value
     };
 };
 
+
+struct CompoundValueMember
+{
+    // Assertion on save: member_desc->type_desc == value->type_desc
+    // Maybe could exist in a being-edited state where the type is not satisfied?
+    NameRef name;
+    Value value;
+};
+
+
+
 #define tIS_INT(typedesc)      ((typedesc)->type_id == TypeID::Int)
 #define tIS_STRING(typedesc)   ((typedesc)->type_id == TypeID::String)
 #define tIS_BOOL(typedesc)     ((typedesc)->type_id == TypeID::Bool)
@@ -374,13 +278,13 @@ struct Value
 #define vIS_COMPOUND(val)      tIS_COMPOUND((val)->typedesc)
 #define vIS_UNION(val)         tIS_UNION((val)->typedesc)
 
-HEADERFN void value_assertions(const Value &value)
+inline void value_assertions(const Value &value)
 {
     assert(value.typedesc->type_id != TypeID::Union);
 }
-HEADERFN void value_assertions(const Value *value)
+inline void value_assertions(const Value *value)
 {
-    value_assertions(*value);
+    assert(value->typedesc->type_id != TypeID::Union);
 }
 
 // struct ValueHash
@@ -392,200 +296,13 @@ HEADERFN void value_assertions(const Value *value)
 // };
 
 
-struct CompoundValueMember
-{
-    // Assertion on save: member_desc->type_desc == value->type_desc
-    // Maybe could exist in a being-edited state where the type is not satisfied?
-    NameRef name;
-    Value value;
-};
+CompoundValueMember *find_member(const Value *value, NameRef name);
 
+Value clone(const Value *src);
 
-HEADERFN CompoundValueMember *find_member(const Value *value, NameRef name)
-{
-    for (u32 i = 0; i < value->compound_value.members.count; ++i)
-    {
-        CompoundValueMember *member = &value->compound_value.members[i];
-        if (nameref_identical(member->name, name))
-        {
-            return member;
-        }
-    }
+bool value_equal(const Value &lhs, const Value &rhs);
 
-    return nullptr;
-}
-
-
-HEADERFN Value clone(const Value *src)
-{
-    value_assertions(src);
-
-    Value result;
-    result.typedesc = src->typedesc;
-
-    TypeDescriptor *type_desc = src->typedesc;
-
-    TYPESWITCH (type_desc->type_id)
-    {
-        case TypeID::None:
-            break;
-
-        case TypeID::String:
-            result.str_val = str(src->str_val);
-            break;
-
-        case TypeID::Int:
-            result.s32_val = src->s32_val;
-            break;
-
-        case TypeID::Float:
-            result.f32_val = src->f32_val;
-            break;
-
-        case TypeID::Bool:
-            result.bool_val = src->bool_val;
-            break;
-
-        case TypeID::Array:
-            dynarray::init(&result.array_value.elements, src->array_value.elements.count);
-            for (DynArrayCount i = 0; i < src->array_value.elements.count; ++i)
-            {
-                Value *src_element = &src->array_value.elements[i];
-                Value *dest_element = dynarray::append(&result.array_value.elements);
-                *dest_element = clone(src_element);
-            }
-            break;
-
-        case TypeID::Compound:
-            dynarray::init(&result.compound_value.members, src->compound_value.members.count);
-            for (DynArrayCount i = 0; i < src->compound_value.members.count; ++i)
-            {
-                CompoundValueMember *src_member = &src->compound_value.members[i];
-                CompoundValueMember *dest_member = dynarray::append(&result.compound_value.members);
-                dest_member->name = src_member->name;
-                dest_member->value = clone(&src_member->value);
-            }
-            break;
-
-        case TypeID::Union:
-            assert(!(bool)"There should never be a value with type_id Union");
-            break;
-    }
-
-    return result;
-}
-
-
-HEADERFN bool value_equal(const Value &lhs, const Value &rhs)
-{
-    value_assertions(lhs);
-    value_assertions(rhs);
-
-    if (lhs.typedesc != rhs.typedesc)
-    {
-        return false;
-    }
-
-    TypeDescriptor *type_desc = lhs.typedesc;
-
-    TYPESWITCH (type_desc->type_id)
-    {
-        case TypeID::None:     return true;
-        case TypeID::String:   return str_equal(lhs.str_val, rhs.str_val);
-        case TypeID::Int:      return lhs.s32_val == rhs.s32_val;
-        case TypeID::Float:    return 0.0f == (lhs.f32_val - rhs.f32_val);
-        case TypeID::Bool:     return lhs.bool_val == rhs.bool_val;
-
-        case TypeID::Array:
-        {
-            DynArrayCount num_elems = lhs.array_value.elements.count; 
-            if (num_elems != lhs.array_value.elements.count)
-            {
-                return false;
-            }
-            for (DynArrayCount i = 0; i < num_elems; ++i)
-            {
-                Value *l_elem = &lhs.array_value.elements[i];
-                Value *r_elem = &rhs.array_value.elements[i];
-                if (!value_equal(*l_elem, *r_elem))
-                {
-                    return false;
-                }
-            }
-            break;
-        }
-
-        case TypeID::Compound:
-            for (u32 i = 0; i < type_desc->compound_type.members.count; ++i)
-            {
-                CompoundTypeMember *type_member = &type_desc->compound_type.members[i];
-                CompoundValueMember *lh_member = find_member(&lhs, type_member->name);
-                CompoundValueMember *rh_member = find_member(&rhs, type_member->name);
-
-                if (!value_equal(lh_member->value, rh_member->value))
-                {
-                    return false;
-                }
-            }
-
-        case TypeID::Union:
-            assert(!(bool)"There must never be a value of type Union");
-            break;
-    }
-
-    return true;
-}
-
-
-HEADERFN void value_free(Value *value)
-{
-    value_assertions(value);
-    TypeDescriptor *type_desc = value->typedesc;
-
-    TYPESWITCH (type_desc->type_id)
-    {
-        case TypeID::None:
-        case TypeID::Int:
-        case TypeID::Float:
-        case TypeID::Bool:
-            break;
-
-        case TypeID::String:
-            str_free(&value->str_val);
-            break;
-
-        case TypeID::Array:
-            for (DynArrayCount i = 0; i < value->array_value.elements.count; ++i)
-            {
-                Value *element = &value->array_value.elements[i];
-                value_free(element);
-            }
-            break;
-
-        case TypeID::Compound:            
-            for (u32 i = 0; i < value->compound_value.members.count; ++i)
-            {
-                CompoundValueMember *member = &value->compound_value.members[i];
-                value_free(&member->value);
-            }
-            dynarray::deinit(&value->compound_value.members);
-            break;
-
-        case TypeID::Union:
-            ASSERT_MSG("There must never be a value of type Union");
-    }
-
-    ZERO_PTR(value);
-}
-
-
-struct ValueEqual
-{
-    bool operator()(const Value &lhs, const Value &rhs)
-    {
-        return value_equal(lhs, rhs);
-    }
-};
+void value_free_components(Value *value);
 
 #define TYPES_H
 #endif

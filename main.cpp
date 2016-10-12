@@ -160,7 +160,7 @@ void drop_collection(ProgramState *prgstate, BucketIndex bucket_index)
     {
         LoadedRecord *lr = coll->records[i];
         str_free(&lr->fullpath);
-        value_free(&lr->value);
+        value_free_components(&lr->value);
         BucketIndex removed_bucket_index = bucketarray::remove(&prgstate->loaded_records, lr);
         ASSERT(removed_bucket_index.is_valid());
     }
@@ -655,9 +655,8 @@ bool draw_collection_editor(Collection *collection)
     // for (DynArrayCount j = 0; i < prgstate->collection.count; ++i)
     // {
     //     Value *value = &prgstate->collection[i].value;
-    //     TypeDescriptor *typedesc = get_typedesc(value->typeref);
 
-    //     if (typedesc->type_id == TypeID::Compount)
+    //     if (value->typedesc->type_id == TypeID::Compount)
     //     {
     //         column_count = max(column_count, value->compound_value.members.count);
     //     }
