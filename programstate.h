@@ -34,6 +34,7 @@ struct ProgramState
     NameTable names;
     BucketArray<TypeDescriptor> type_descriptors;
     OAHashtable<NameRef, TypeDescriptor *> typedesc_bindings;
+    OAHashtable<TypeDescriptor *, NameRef> typedesc_reverse_bindings;
 
     TypeDescriptor *prim_string;
     TypeDescriptor *prim_int;
@@ -57,6 +58,7 @@ HEADERFN void prgstate_init(ProgramState *prgstate)
     nametable_init(&prgstate->names, MEGABYTES(2));
     bucketarray::init(&prgstate->type_descriptors);
     ht_init(&prgstate->typedesc_bindings);
+    ht_init(&prgstate->typedesc_reverse_bindings);
 
     bucketarray::init(&prgstate->collections);
     bucketarray::init(&prgstate->loaded_records);

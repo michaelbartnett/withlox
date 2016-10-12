@@ -109,6 +109,7 @@ TypeDescriptor *add_typedescriptor(ProgramState *prgstate)
 void bind_typedesc_name(ProgramState *prgstate, NameRef name, TypeDescriptor *typedesc)
 {
     ht_set(&prgstate->typedesc_bindings, name, typedesc);
+    ht_set(&prgstate->typedesc_reverse_bindings, typedesc, name);
 }
 
 
@@ -116,6 +117,12 @@ void bind_typedesc_name(ProgramState *prgstate, const char *name, TypeDescriptor
 {
     NameRef nameref = nametable_find_or_add(&prgstate->names, str_slice(name));
     bind_typedesc_name(prgstate, nameref, typedesc);
+}
+
+
+NameRef *find_typedesc_name(ProgramState *prgstate, TypeDescriptor *typedesc)
+{
+    return ht_find(&prgstate->typedesc_reverse_bindings, typedesc);
 }
 
 

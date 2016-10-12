@@ -606,7 +606,7 @@ bool draw_collection_editor(Collection *collection)
 
     for (DynArrayCount i = 0; i < collection->records.count; ++i)
     {
-        ImGui::PushID((int)i);
+        ImGui::PushID(S32(i));
 
         Value *value = &collection->records[i]->value;
         ASSERT(vIS_COMPOUND(value));
@@ -615,7 +615,7 @@ bool draw_collection_editor(Collection *collection)
              j < memcount;
              ++j)
         {
-            ImGui::PushID((int)j);
+            ImGui::PushID(S32(j));
 
             Value *memval = &value->compound_value.members[j].value;
             TypeDescriptor *memtype = memval->typedesc;
@@ -669,6 +669,63 @@ bool draw_collection_editor(Collection *collection)
     ImGui::End();
     ImGui::PopStyleVar();
 
+    return window_open;
+}
+
+
+bool draw_typelist_window(ProgramState *prgstate)
+{
+    ImGuiWindowFlags wndflags = 0
+        | ImGuiWindowFlags_NoSavedSettings
+        // | ImGuiWindowFlags_NoMove
+        // | ImGuiWindowFlags_NoResize
+        ;
+
+    ImGui::SetNextWindowSize(ImVec2(400, 400), ImGuiSetCond_Once);
+    bool window_open = true;
+
+    if (! ImGui::Begin("Type Descriptors", &window_open, wndflags))
+    {
+        goto EndWindow;
+    }
+
+    ImGui::Text("There are %i type descriptors loaded", prgstate->type_descriptors.count);
+
+    if (ImGui::BeginChild("Here they are..."))
+    {
+        for (BucketItemCount i = 0, e = prgstate->type_descriptors.capacity; i < e; ++i)
+        {
+            TypeDescriptor *typedesc;
+
+            if (! bucketarray::get_if_not_empty(&typedesc, &prgstate->type_descriptors, i))
+                continue;
+
+            ImGui::PushID(S32(i));
+            bool tree_open = ImGui::TreeNode("##typedesc_list_entry", "%-8s @ %p", TypeID::to_string(typedesc->type_id), typedesc);
+            if (tree_open)
+            {
+                NameRef *pname = find_typedesc_name(prgstate, typedesc);
+                if (pname)
+                {
+                    ImGui::TreeNodeEx("##typedesc_name", ImGuiTreeNodeFlags_Leaf,
+                                      "Name: '%s'", str_slice(*pname).data);
+                }
+                else
+                {
+                    ImGui::TreeNodeEx("##typedesc_name", ImGuiTreeNodeFlags_Leaf, "Unnamed");
+                }
+                ImGui::TreePop();
+                ImGui::TreePop();
+            }
+            ImGui::PopID();
+        }
+
+    }
+    ImGui::EndChild();
+
+
+EndWindow:
+    ImGui::End();
     return window_open;
 }
 
@@ -778,6 +835,8 @@ int main(int argc, char **argv)
                 --e;
             }
         }
+
+        draw_typelist_window(&prgstate);
 
         ImGui::ShowTestWindow(&show_imgui_testwindow);
 

@@ -92,11 +92,11 @@ NameRef nametable_find_or_add(NameTable *nt, StrSlice name)
 
     char *str_storage = storage_location + sizeof(StrLen);
     std::strncpy(str_storage, name.data, name.length + 1);
-    
+
     StrSlice key;
     key.length = name.length;
     key.data = str_storage;
-    
+
     // set next_storage_offset to past end of null terminator, and add
     // padding if not aligned with the size of StrLen
     size_t size_modulo = size % sizeof(StrLen);

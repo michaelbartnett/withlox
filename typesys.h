@@ -160,6 +160,7 @@ TypeDescriptor *find_equiv_typedesc_or_add(ProgramState *prgstate, TypeDescripto
 void bind_typedesc_name(ProgramState *prgstate, NameRef name, TypeDescriptor *typedesc);
 void bind_typedesc_name(ProgramState *prgstate, const char *name, TypeDescriptor *typedesc);
 
+NameRef *find_typedesc_name(ProgramState *prgstate, TypeDescriptor *);
 TypeDescriptor *find_typedesc_by_name(ProgramState *prgstate, NameRef name);
 TypeDescriptor *find_typedesc_by_name(ProgramState *prgstate, StrSlice name);
 TypeDescriptor *find_typedesc_by_name(ProgramState *prgstate, Str name);
