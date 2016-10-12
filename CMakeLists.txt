@@ -55,6 +55,7 @@ set(CXX_SOURCES
   hashtable.h
   common.h
   json.h
+  json_error.h
   platform.h
   imgui_helpers.h
   imgui_helpers.cpp
@@ -67,8 +68,10 @@ set(CXX_SOURCES
   clicommands.h
   clicommands.cpp
   programstate.h
-  types.h
-  types.cpp
+  typesys.h
+  typesys.cpp
+  typesys_json.h
+  typesys_json.cpp
   ${IMGUI_SOURCES}  
   ${CXX_PLATFORM_SOURCES}
   )

@@ -24,7 +24,13 @@ parse_type <type descriptor syntax>
 #include "nametable.h"
 #include "common.h"
 
+
 #define TYPESWITCH(type_id) switch ((TypeID::Tag)(type_id))
+
+
+struct ProgramState;
+void load_base_type_descriptors(ProgramState *prgstate);
+
 
 namespace TypeID
 {

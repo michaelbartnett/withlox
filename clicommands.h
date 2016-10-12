@@ -4,7 +4,7 @@
 
 #include "str.h"
 #include "dynarray.h"
-#include "types.h"
+#include "typesys.h"
 
 struct ProgramState;
 

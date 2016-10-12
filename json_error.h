@@ -1,6 +1,8 @@
+#ifndef JSON_ERROR_H
+
 #include "json.h"
 
-const char* json_error_code_string(size_t error_code)
+inline const char* json_error_code_string(size_t error_code)
 {
     switch (error_code)
     {
@@ -47,3 +49,6 @@ const char* json_error_code_string(size_t error_code)
 
     assert(0); // shouldn't happen
 }
+
+#define JSON_ERROR_H
+#endif

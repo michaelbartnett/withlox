@@ -30,6 +30,24 @@ This will be maintained. Latest log entry will go below.
 - [ ] Display value fields in collection editor associated with correct
       named column
 
+## 2016-10-12-0218EST Cleanup and TypeDescriptor list
+
+I've been feeling like the JSON stuff takes up to much space in
+`main.cpp` for a while, and eventually the main UI code shouldn't need
+to care where a type descriptor or value came from until it's time to
+save out the data. So I pulled all of that stuff out (including
+`load_json_dir`) into a `typesys_json.h` file.
+
+I also renamed `types.h` to `typesys.h` since `types.h` is sometimes
+the name of a generic header where you store commonly defined types
+for an application. I have a type system sort of thing going on here,
+so "typesys" as an abbreviation for "type system" makes sense to me.
+
+I'm aso going with the terse name because at work
+`SoManyOfOurNamesAreOhSoLong` and honestly it's fatiguing. It should
+probably be named typesystem.h but y'know what? This is my pogram and I
+get to make all the meaningless decisions.
+
 ## 2016-10-11-0353EST Hacks
 
 I fixed the ImGui::TextInput field buffer size issue!

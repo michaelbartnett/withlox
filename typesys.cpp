@@ -1,5 +1,41 @@
-#include "types.h"
+#include "typesys.h"
 #include "programstate.h"
+
+
+void load_base_type_descriptors(ProgramState *prgstate)
+{
+    ASSERT(prgstate);
+
+    TypeDescriptor *none_type = add_typedescriptor(prgstate);
+    none_type->type_id = TypeID::None;
+    bind_typedesc_name(prgstate, TypeID::to_string(none_type->type_id),
+                       none_type);
+    prgstate->prim_none = none_type;
+
+    TypeDescriptor *string_type = add_typedescriptor(prgstate);
+    string_type->type_id = TypeID::String;
+    bind_typedesc_name(prgstate, TypeID::to_string(string_type->type_id),
+                       string_type);
+    prgstate->prim_string = string_type;
+
+    TypeDescriptor *int_type = add_typedescriptor(prgstate);
+    int_type->type_id = TypeID::Int;
+    bind_typedesc_name(prgstate, TypeID::to_string(int_type->type_id),
+                       int_type);
+    prgstate->prim_int = int_type;
+
+    TypeDescriptor *float_type = add_typedescriptor(prgstate);
+    float_type->type_id = TypeID::Float;
+    bind_typedesc_name(prgstate, TypeID::to_string(float_type->type_id),
+                       float_type);
+    prgstate->prim_float = float_type;
+
+    TypeDescriptor *bool_type = add_typedescriptor(prgstate);
+    bool_type->type_id = TypeID::Bool;
+    bind_typedesc_name(prgstate, TypeID::to_string(bool_type->type_id),
+                       bool_type);
+    prgstate->prim_bool = bool_type;
+}
 
 
 // TODO(mike): Guarantee no structural duplicates, and do it fast. Hashtable.

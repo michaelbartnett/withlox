@@ -6,8 +6,9 @@
 #include "hashtable.h"
 #include "dynarray.h"
 #include "nametable.h"
-#include "types.h"
+#include "typesys.h"
 #include "clicommands.h"
+#include "typesys_json.h"
 
 
 typedef OAHashtable<StrSlice, Value, StrSliceEqual, StrSliceHash> StrToValueMap;
@@ -71,28 +72,9 @@ HEADERFN void prgstate_init(ProgramState *prgstate)
 
 
 
-struct ParseResult
-{
-    enum Status
-    {
-        Eof,
-        Failed,
-        Succeeded
-    };
-
-    Status status;
-    Str error_desc;
-    size_t parse_offset;
-    size_t error_offset;
-    size_t error_line;
-    size_t error_column;
-};
-
-
 // ParseResult load_json_dir(OUTPARAM DynArray<Value> *destarray, ProgramState *prgstate, StrSlice path);
-ParseResult load_json_dir(OUTPARAM Collection **pcollection, ProgramState *prgstate, StrSlice path);
+// JsonParseResult load_json_dir(OUTPARAM Collection **pcollection, ProgramState *prgstate, StrSlice path);
 void drop_collection(ProgramState *prgstate, BucketIndex bucket_index);
-
 
 #define PROGRAMSTATE_H
 #endif

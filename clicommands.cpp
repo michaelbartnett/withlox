@@ -7,7 +7,8 @@
 #include "platform.h"
 #include "formatbuffer.h"
 #include "pretty.h"
-#include "types.h"
+#include "typesys.h"
+#include "typesys_json.h"
 #include "memory.h"
 
 void exec_command(ProgramState *prgstate, StrSlice name, DynArray<Value> args)
@@ -525,18 +526,19 @@ CLI_COMMAND_FN_SIG(loadjson)
     }
 
     Collection *collection;
-    ParseResult parse_result = load_json_dir(&collection, prgstate, str_slice(args[0].str_val.data));
+    JsonParseResult parse_result = load_json_dir(&collection, prgstate,
+                                                 args[0].str_val.data, args[0].str_val.length);
 
     switch (parse_result.status)
     {
-        case ParseResult::Eof:
+        case JsonParseResult::Eof:
             log("Directory...empty?");
             break;
 
-        case ParseResult::Failed:
+        case JsonParseResult::Failed:
             break;
 
-        case ParseResult::Succeeded:
+        case JsonParseResult::Succeeded:
         {
             FormatBuffer fmt_buf;
             fmt_buf.flush_on_destruct();

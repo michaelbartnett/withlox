@@ -1,7 +1,7 @@
 // -*- c++ -*-
 #ifndef PRETTY_H
 
-#include "types.h"
+#include "typesys.h"
 
 #include "tokenizer.h"
 #include "logging.h"
