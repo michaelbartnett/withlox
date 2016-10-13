@@ -458,7 +458,7 @@ TValue *ht_find(OAHASH_TYPE *ht, TKey key)
 
 // returns true if something was occupying that spot
 template OAHASH_TPARAMS
-bool ht_set_if_unset(OAHASH_TYPE *ht, TKey key, TValue value)
+bool ht_set_if_unset(OUTPARAM TValue **p_stored_value, OAHASH_TYPE *ht, TKey key, TValue value)
 {
     typedef typename OAHASH_TYPE::Entry Entry;
 
@@ -470,6 +470,37 @@ bool ht_set_if_unset(OAHASH_TYPE *ht, TKey key, TValue value)
         entry->value = value;
     }
 
+    if (p_stored_value)
+    {
+        *p_stored_value = &entry->value;
+    }
+
+    return was_occupied;
+}
+
+
+// returns true if something was occupying that spot
+template OAHASH_TPARAMS
+bool ht_set_if_unset(OAHASH_TYPE *ht, TKey key, TValue value)
+{
+    return ht_set_if_unset(static_cast<TValue **>(nullptr), ht, key, value);
+}
+
+
+// returns true if slot was previously occupied
+template OAHASH_TPARAMS
+bool ht_set(OUTPARAM TValue **p_stored_value, OAHASH_TYPE *ht, TKey key, TValue value)
+{
+    typedef typename OAHASH_TYPE::Entry Entry;
+    Entry *entry;
+    bool was_occupied = ht_find_or_add_entry(&entry, ht, key);
+    entry->value = value;
+
+    if (p_stored_value)
+    {
+        *p_stored_value = &entry->value;
+    }
+
     return was_occupied;
 }
 
@@ -478,11 +509,7 @@ bool ht_set_if_unset(OAHASH_TYPE *ht, TKey key, TValue value)
 template OAHASH_TPARAMS
 bool ht_set(OAHASH_TYPE *ht, TKey key, TValue value)
 {
-    typedef typename OAHASH_TYPE::Entry Entry;
-    Entry *entry;
-    bool was_occupied = ht_find_or_add_entry(&entry, ht, key);
-    entry->value = value;
-    return was_occupied;
+    return ht_set(static_cast<TValue **>(nullptr), ht, key, value);
 }
 
 

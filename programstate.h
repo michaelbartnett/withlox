@@ -12,7 +12,6 @@
 
 
 typedef OAHashtable<StrSlice, Value, StrSliceEqual, StrSliceHash> StrToValueMap;
-typedef OAHashtable<StrSlice, TypeDescriptor *, StrSliceEqual, StrSliceHash> StrToTypeMap;
 
 
 struct LoadedRecord
@@ -34,7 +33,7 @@ struct ProgramState
     NameTable names;
     BucketArray<TypeDescriptor> type_descriptors;
     OAHashtable<NameRef, TypeDescriptor *> typedesc_bindings;
-    OAHashtable<TypeDescriptor *, NameRef> typedesc_reverse_bindings;
+    OAHashtable<TypeDescriptor *, DynArray<NameRef> > typedesc_reverse_bindings;
 
     TypeDescriptor *prim_string;
     TypeDescriptor *prim_int;

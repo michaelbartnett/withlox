@@ -259,10 +259,10 @@ void clear(DynArray<T> *dynarray)
 template<typename T>
 void copy(DynArray<T> *dest, DynArrayCount dest_start, const DynArray<T> *src, DynArrayCount src_start, DynArrayCount count)
 {
-    assert(src_start + count <= src->count);
+    ASSERT(src_start + count <= src->count);
 
     DynArrayCount final_count = max<DynArrayCount>(dest_start + count, dest->count);
-    assert(final_count > dest_start || count == 0);
+    ASSERT(final_count > dest_start || count == 0);
 
     DynArrayCount capacity_required = dest_start + count;
     dynarray::ensure_capacity(dest, capacity_required);
@@ -274,8 +274,15 @@ void copy(DynArray<T> *dest, DynArrayCount dest_start, const DynArray<T> *src, D
 template<typename T>
 void copy(DynArray<T> *dest, const DynArray<T> *src)
 {
-    assert(src->count <= dest->capacity);
+    ASSERT(src->count <= dest->capacity);
     dynarray::copy(dest, 0, src, 0, src->count);
+}
+
+
+template<typename T>
+void append_from(DynArray<T> *dest, const DynArray<T> *src)
+{
+    dynarray::copy(dest, dest->count, src, 0, src->count);
 }
 
 
