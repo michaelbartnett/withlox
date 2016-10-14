@@ -363,7 +363,8 @@ bool ht_find_or_add_entry(typename OAHASH_TYPE::Entry **result, OAHASH_TYPE *ht,
                 if (ht->buckets[i].hash == hash
                     && keys_equal_fn(key, ht->entries[i].key))
                 {
-                    return &ht->entries[i];
+                    *result = &ht->entries[i];
+                    return true;
                 }
             }
             else
