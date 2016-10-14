@@ -112,16 +112,28 @@ void bind_typedesc_name(ProgramState *prgstate, NameRef name, TypeDescriptor *ty
 
     // ht_set(&prgstate->typedesc_reverse_bindings, typedesc, name);
 
-    DynArray<NameRef> *names;
-    ht_set_if_unset(&names, &prgstate->typedesc_reverse_bindings, typedesc, DynArray<NameRef>());
+    DynArray<NameRef> *names = nullptr;
+    ht_set_if_unset(&names, &prgstate->typedesc_reverse_bindings, typedesc, dynarray::init<NameRef>(0));
     dynarray::append(names, name);
+}
+
+
+void bind_typedesc_name(ProgramState *prgstate, StrSlice name, TypeDescriptor *typedesc)
+{
+    NameRef nameref = nametable_find_or_add(&prgstate->names, name);
+    bind_typedesc_name(prgstate, nameref, typedesc);
 }
 
 
 void bind_typedesc_name(ProgramState *prgstate, const char *name, TypeDescriptor *typedesc)
 {
-    NameRef nameref = nametable_find_or_add(&prgstate->names, str_slice(name));
-    bind_typedesc_name(prgstate, nameref, typedesc);
+    bind_typedesc_name(prgstate, str_slice(name), typedesc);
+}
+
+
+void bind_typedesc_name(ProgramState *prgstate, Str name, TypeDescriptor *typedesc)
+{
+    bind_typedesc_name(prgstate, str_slice(name), typedesc);
 }
 
 

@@ -526,6 +526,7 @@ JsonParseResult load_json_dir(OUTPARAM Collection **pcollection, ProgramState *p
                         lr->fullpath = fullpath;
                         lr->value = parsed_value;
                         dynarray::append(&collection->records, lr);
+                        bind_typedesc_name(prgstate, dirlist.current.access_path, parsed_value.typedesc);
                     }
                     break;
                 }

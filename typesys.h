@@ -158,6 +158,8 @@ TypeDescriptor *find_equiv_typedesc(ProgramState *prgstate, TypeDescriptor *type
 TypeDescriptor *find_equiv_typedesc_or_add(ProgramState *prgstate, TypeDescriptor *type_desc, bool *new_type_added);
 
 void bind_typedesc_name(ProgramState *prgstate, NameRef name, TypeDescriptor *typedesc);
+void bind_typedesc_name(ProgramState *prgstate, StrSlice name, TypeDescriptor *typedesc);
+void bind_typedesc_name(ProgramState *prgstate, Str name, TypeDescriptor *typedesc);
 void bind_typedesc_name(ProgramState *prgstate, const char *name, TypeDescriptor *typedesc);
 
 DynArray<NameRef> *find_names_of_typedesc(ProgramState *prgstate, TypeDescriptor *typedesc);

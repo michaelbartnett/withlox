@@ -700,33 +700,37 @@ bool draw_typelist_window(ProgramState *prgstate)
             if (! bucketarray::get_if_not_empty(&typedesc, &prgstate->type_descriptors, i))
                 continue;
 
+            DynArray<NameRef> *names = find_names_of_typedesc(prgstate, typedesc);
+
+            fmtbuf.clear();
+            fmtbuf.write('[');
+            if (names)
+            {
+                for (DynArrayCount j = 0, ej = names->count; j < ej; ++j)
+                {
+                    StrSlice name = str_slice(names->at(j));
+                    if (j > 0)
+                    {
+                        fmtbuf.write(", ");
+                    }
+                    fmtbuf.write(name.data);
+                }
+            }
+            fmtbuf.write(']');
+
             ImGui::PushID(S32(i));
-            bool tree_open = ImGui::TreeNode("##typedesc_list_entry", "%-8s @ %p", TypeID::to_string(typedesc->type_id), typedesc);
+
+            bool tree_open = ImGui::TreeNode("##typedesc_list_entry", "%-8s @ %p, %s",
+                                             TypeID::to_string(typedesc->type_id), typedesc, fmtbuf.buffer);
+
             if (tree_open)
             {
-                DynArray<NameRef> *names = find_names_of_typedesc(prgstate, typedesc);
-
                 fmtbuf.clear();
-                fmtbuf.write('[');
+                pretty_print(typedesc, &fmtbuf);
 
-                if (names)
-                {
-                    for (DynArrayCount j = 0, ej = names->count; j < ej; ++j)
-                    {
-                        StrSlice name = str_slice(names->at(j));
-                        if (j > 0)
-                        {
-                            fmtbuf.write(", ");
-                        }
-                        fmtbuf.write(name.data);
-                    }
-                }
-
-                fmtbuf.write(']');
-
-                ImGui::TreeNodeEx("##typedesc_namelist",
+                ImGui::TreeNodeEx("##typedesc_pprint",
                                   ImGuiTreeNodeFlags_Leaf|ImGuiTreeNodeFlags_NoTreePushOnOpen,
-                                  "Names: %s", fmtbuf.buffer);
+                                  "%s", fmtbuf.buffer);
 
                 ImGui::TreePop();
             }
@@ -770,7 +774,9 @@ int main(int argc, char **argv)
     init_cli_commands(&prgstate);
 
     // mem::default_allocator()->log_allocations();
-    test_json_import(&prgstate, argc - 1, argv + 1);
+    UNUSED(argc);
+    UNUSED(argv);
+    // test_json_import(&prgstate, argc - 1, argv + 1);
 
     // TTY console
     // run_terminal_json_cli(&prgstate);

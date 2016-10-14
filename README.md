@@ -25,10 +25,114 @@ This will be maintained. Latest log entry will go below.
 
 - [X] Fix the text field string length problem
 
-- [ ] TypeDescriptor list window, show all or for collection
+- [X] TypeDescriptor list window, show all or for collection
 
 - [ ] Display value fields in collection editor associated with correct
       named column
+
+## 2016-10-14-0434EST Listing types and JSON type inference
+
+I made the type list window and it's very nice. In the Project
+Hawkthorne test data, I ran across this (from `troy.json`):
+
+```
+{
+    "left": ["loop", ["8-10,7"], 0.16],
+    "right": ["loop", ["8-10,8"], 0.16]
+}
+```
+
+The `"left"` and `"right"` members both have this type:
+
+```
+Union(
+| String
+| [String]
+| Float)
+```
+
+This is the most correct conservative inference that can be made.
+
+But let's look at more data for some context. This is everything in
+the `"animations"` property of the top level object.
+
+```
+{
+  "dropwalk": {
+    "left": ["loop", ["8-10,7"], 0.16],
+    "right": ["loop", ["8-10,8"], 0.16]
+  },
+  "holdwalk": {
+    "left": ["loop", ["2-4,5"], 0.16],
+    "right": ["loop", ["2-4,6"], 0.16]
+  },
+  "hurt": {
+    "left": ["once", ["4-5,3"], 1],
+    "right": ["once", ["4-5,4"], 1]
+  },
+  "jump": {
+    "left": ["loop", ["1-3,3"], 0.16],
+    "right": ["loop", ["1-3,4"], 0.16]
+  },
+  "throwwalk": {
+    "left": ["loop", ["2-4,7"], 0.16],
+    "right": ["loop", ["2-4,8"], 0.16]
+  },
+  "wieldjump": {
+    "left": ["loop", ["1-3,3"], 0.16],
+    "right": ["loop", ["1-3,4"], 0.16]
+  }
+}
+```
+
+Clearly `"left"` and `"right"` are not just arrays, they're tuples!
+
+Dammit, now I have to make Tuples! Argh!
+
+But this also presents and interesting problem, how do you identify
+patterns like this and know to make a Tuple out of those types?
+
+I'm pretty sure this is an area where I should look at prior
+art. Learn about Hindley-Milner type inference, and all that jazz.
+
+I did a quick search and found some prior art, some basic stuff I'd
+seen before (json2csharp) some stuff I hadn't seen before
+(json-autotype), and some stuff that I'd heard of but never read
+anything about (type providers in F#).
+
+- http://json2csharp.com/
+- https://github.com/mgajda/json-autotype
+- https://www.youtube.com/watch?v=8D2-m2ikydc
+- http://conscientiousprogrammer.com/blog/2015/12/12/24-days-of-hackage-2015-day-12-json-autotype-inferring-types-from-data/
+- http://fsharp.github.io/FSharp.Data/library/JsonProvider.html
+- http://web.archive.org/web/20150214185115/https://maxs.io/generating-types-from-json-samples/
+- https://haxe.org/manual/type-system-unification.html
+- https://haxe.org/manual/type-system-unification-common-base-type.html
+
+Type providers seem to be particularly relevant.
+
+I also ran into PLAI again, and this looks real good:
+
+- http://cs.brown.edu/courses/cs173/2012/book/types.html#(part._.Type_.Inference)
+
+I should just watch all those lecture videos and read this whole textbook.
+
+But it's time to move on.
+
+This stuff is cool, but *distracting*! I mean, I'm going to have
+amazing JSON type inference later, but only after more UI and stuff is
+in place. I need to get a better idea of editing values, and then I'll
+need to add a couple more fundamental types such as tuples and enums
+(the C kind, not the Rust kind).
+
+Rust-like enums would be more like tagged unions. Maybe I need some
+way of representing a tagged union? I dunno. You can always name a
+type case in a union, so why not just make use of that. These are
+thoughts.
+
+But like I said, I'm done with the type list window for the time
+being. It's time go back to UI. Editing values is not really a thing
+at the moment.
 
 ## 2016-10-12-0218EST Cleanup and TypeDescriptor list
 
@@ -144,7 +248,7 @@ the type descriptors in a given collection, as well as all the
 typedescriptors allocated globally (including those not referencing
 any values).
 
-- [] TypeDescriptor list window, show all or for collection
+- [X] TypeDescriptor list window, show all or for collection
 
 But before that I'm going to upgrade dearimgui.
 
