@@ -291,6 +291,12 @@ void process_console_input(ProgramState *prgstate, StrSlice input_buf)
         }
 
         tokstate.current += parse_result.parse_offset;
+
+        if (tokenizer::past_end(&tokstate))
+        {
+            goto AfterArgParseLoop;
+        }
+
     }
 AfterArgParseLoop:
 

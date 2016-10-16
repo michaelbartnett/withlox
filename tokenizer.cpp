@@ -51,12 +51,6 @@ static bool at_one_before_end(State *tokstate)
 }
 
 
-static bool at_end(State *tokstate)
-{
-    return tokstate->current == tokstate->end;
-}
-
-
 static Token read_word(State *tokstate)
 {
     const char *start = tokstate->current;

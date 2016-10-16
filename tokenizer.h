@@ -19,6 +19,18 @@ void init(State *state, const char *input);
 void init(State *state, const char *input, size_t length);
 
 
+inline bool at_end(State *tokstate)
+{
+    return tokstate->current == tokstate->end;
+}
+
+
+inline bool past_end(State *tokstate)
+{
+    return tokstate->current > tokstate->end;
+}
+
+
 inline StrLen chars_remaining(State *tokstate)
 {
     std::ptrdiff_t diff = (tokstate->end - tokstate->current);
