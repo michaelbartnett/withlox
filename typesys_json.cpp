@@ -451,88 +451,118 @@ JsonParseResult try_parse_json_as_value(OUTPARAM Value *output, ProgramState *pr
 }
 
 
+void JsonParseResult::release()
+{
+    str_free(&error_desc);
+}
+
+
+void LoadJsonDirResult::release()
+{
+    switch (error_kind)
+    {
+        case NoError:
+            break;
+
+        case FileError:
+            file_error.release();
+            break;
+
+        case ParseError:
+            parse_error.release();
+            break;
+    }
+}
+
+
 // TODO(mike): Should probably be its own return type instead
 // of piggybacking on the JsonParseResult
-JsonParseResult load_json_dir(OUTPARAM Collection **pcollection, ProgramState *prgstate,
-                              const char *path, size_t path_length)
+// JsonParseResult load_json_dir(OUTPARAM Collection **pcollection, ProgramState *prgstate,
+LoadJsonDirResult load_json_dir(ProgramState *prgstate, const char *path, size_t path_length)
 {
-    ASSERT(pcollection);
-    JsonParseResult result = {};
-    result.status = JsonParseResult::Succeeded;
+    LoadJsonDirResult result = {};
 
-    Collection *collection = bucketarray::add(&prgstate->collections).elem;
-    collection->load_path = str(path, STRLEN(path_length));
-    dynarray::init(&collection->records, 0);
-    *pcollection = collection;
+    DynArray<LoadedRecord *> records;
+    dynarray::init(&records, 0);
 
     DirLister dirlist(path, path_length);
 
-    bool error = false;
+    if (dirlist.has_error())
+    {
+        result = LoadJsonDirResult::from_fs_error(dirlist.error);
+        return result;
+    }
 
     while (dirlist.next())
     {
-        if (dirlist.current.is_file && str_endswith_ignorecase(dirlist.current.name, ".json"))
+        if ( ! (dirlist.current.is_file && str_endswith_ignorecase(dirlist.current.name, ".json")))
         {
-            Str filecontents = {};
+            continue;
+        }
 
-            FileReadResult read_result = read_text_file(&filecontents, dirlist.current.access_path.data);
+        Str filecontents = {};
 
-            if (read_result.error_kind != FileReadResult::NoError)
+        FileReadResult read_result = read_text_file(&filecontents, dirlist.current.access_path.data);
+
+        if (read_result.error_kind != FileReadResult::NoError)
+        {
+            result = LoadJsonDirResult::from_fs_error(read_result.platform_error);
+            goto BreakWhile;
+        }
+
+        read_result.release();
+
+        Value parsed_value;
+        JsonParseResult last_parse_result = try_parse_json_as_value(OUTPARAM &parsed_value, prgstate,
+                                                                    filecontents.data, filecontents.length);
+
+        str_free(&filecontents);
+
+        switch (last_parse_result.status)
+        {
+            case JsonParseResult::Eof:
+                break;
+
+            case JsonParseResult::Failed:
+                result = LoadJsonDirResult::from_parse_error(last_parse_result);
+                goto BreakWhile;
+
+            case JsonParseResult::Succeeded:
             {
-                FormatBuffer errorfmt;
-                errorfmt.writef("Error reading json file '%s': ", dirlist.current.name.data);
-                errorfmt.writeln(read_result.platform_error.message.data);
-                result.error_desc = str(errorfmt.buffer, STRLEN(errorfmt.cursor));
-                error = true;
-            }
-
-            read_result.release();
-
-            if (error) break;
-
-            Value parsed_value;
-            JsonParseResult parse_result = try_parse_json_as_value(OUTPARAM &parsed_value, prgstate,
-                                                                   filecontents.data, filecontents.length);
-
-            switch (parse_result.status)
-            {
-                case JsonParseResult::Eof:
-                    break;
-
-                case JsonParseResult::Failed:
+                Str fullpath = {};
+                PlatformError abspath_err = resolve_path(&fullpath, dirlist.current.access_path.data);
+                if (abspath_err.is_error())
                 {
-                    result = parse_result;
-                    FormatBuffer errorfmt;
-                    errorfmt.writef("error parsing json file %s: %s", dirlist.current.name.data, result.error_desc.data);
-                    result.error_desc = str(errorfmt.buffer, STRLEN(errorfmt.cursor));
-                    error = true;
-                    break;
+                    result = LoadJsonDirResult::from_fs_error(abspath_err);
+                    goto BreakWhile;
                 }
-                case JsonParseResult::Succeeded:
+                else
                 {
-                    Str fullpath = {};
-                    PlatformError abspath_err = resolve_path(&fullpath, dirlist.current.access_path.data);
-                    if (abspath_err.is_error())
-                    {
-                        FormatBuffer errorfmt;
-                        errorfmt.writef("error resolving absolute path for '%s': %s",
-                                        dirlist.current.access_path.data, abspath_err.message.data);
-                        result.error_desc = str(errorfmt.buffer, STRLEN(errorfmt.cursor));
-                        error = true;
-                    }
-                    else
-                    {
-                        LoadedRecord *lr = bucketarray::add(&prgstate->loaded_records).elem;
-                        lr->fullpath = fullpath;
-                        lr->value = parsed_value;
-                        dynarray::append(&collection->records, lr);
-                        bind_typedesc_name(prgstate, dirlist.current.access_path, parsed_value.typedesc);
-                    }
-                    break;
+                    LoadedRecord *lr = bucketarray::add(&prgstate->loaded_records).elem;
+                    lr->fullpath = fullpath;
+                    lr->value = parsed_value;
+                    dynarray::append(&records, lr);
+                    bind_typedesc_name(prgstate, dirlist.current.access_path, parsed_value.typedesc);
                 }
+                break;
             }
         }
     }
+BreakWhile:
+
+    Collection *collection = nullptr;
+    if (records.count > 0)
+    {
+        collection = bucketarray::add(&prgstate->collections).elem;
+        collection->load_path = str(path, STRLEN(path_length));
+        collection->records = records;
+    }
+    else
+    {
+        dynarray::deinit(&records);
+    }
+
+    result.collection = collection;
 
     return result;
 }

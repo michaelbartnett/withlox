@@ -517,42 +517,46 @@ CLI_COMMAND_FN_SIG(loadjson)
 
     if (args.count != 1)
     {
-        log("Usage: loadjson \"<path/to/directory/with/json/files>\"");
+        logln("Usage: loadjson \"<path/to/directory/with/json/files>\"");
     }
 
-    Collection *collection;
-    JsonParseResult parse_result = load_json_dir(&collection, prgstate,
-                                                 args[0].str_val.data, args[0].str_val.length);
+    LoadJsonDirResult load_result = load_json_dir(prgstate, args[0].str_val.data, args[0].str_val.length);
+    Collection *collection = load_result.collection;
 
-    switch (parse_result.status)
+    if (load_result.collection)
     {
-        case JsonParseResult::Eof:
-            log("Directory...empty?");
-            break;
+        FormatBuffer fmt_buf;
+        fmt_buf.flush_on_destruct();
 
-        case JsonParseResult::Failed:
-            break;
-
-        case JsonParseResult::Succeeded:
+        for (DynArrayCount i = 0; i < collection->records.count; ++i)
         {
-            FormatBuffer fmt_buf;
-            fmt_buf.flush_on_destruct();
-
-            for (DynArrayCount i = 0; i < collection->records.count; ++i)
-            {
-                fmt_buf.write('\n');
-                LoadedRecord *record = collection->records[i];
-                fmt_buf.write("Path: ");
-                fmt_buf.write(record->fullpath.data);
-                fmt_buf.write("\nValue: ");
-                pretty_print(&record->value, &fmt_buf);
-                fmt_buf.writef("Parsed value's type: %p ", record->value.typedesc);
-                pretty_print(record->value.typedesc, &fmt_buf);
-                fmt_buf.flush_to_log();
-            }
-            break;
+            fmt_buf.write('\n');
+            LoadedRecord *record = collection->records[i];
+            fmt_buf.write("Path: ");
+            fmt_buf.write(record->fullpath.data);
+            fmt_buf.write("\nValue: ");
+            pretty_print(&record->value, &fmt_buf);
+            fmt_buf.writef("Parsed value's type: %p ", record->value.typedesc);
+            pretty_print(record->value.typedesc, &fmt_buf);
+            fmt_buf.flush_to_log();
         }
     }
+
+    switch (load_result.error_kind)
+    {
+        case LoadJsonDirResult::NoError:
+            break;
+
+        case LoadJsonDirResult::FileError:
+            logf_ln("[loadjson] File error: %s", load_result.file_error.message.data);
+            break;
+
+        case LoadJsonDirResult::ParseError:
+            logf_ln("[loadjson] Parse error: %s", load_result.parse_error.error_desc.data);
+            break;
+    }
+
+    load_result.release();
 }
 
 
