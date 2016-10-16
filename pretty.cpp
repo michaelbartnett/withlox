@@ -12,7 +12,7 @@ good print tests
  */
 
 
-void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
+void pretty_print(const TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
 {
     TypeID::Tag type_id = (TypeID::Tag)type_desc->type_id;
     TYPESWITCH (type_id)
@@ -107,7 +107,7 @@ void pretty_print(TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int indent)
 }
 
 
-void pretty_print(TypeDescriptor *type_desc, int indent)
+void pretty_print(const TypeDescriptor *type_desc, int indent)
 {
     FormatBuffer fmt_buf;
     fmt_buf.flush_on_destruct();
@@ -116,7 +116,7 @@ void pretty_print(TypeDescriptor *type_desc, int indent)
 }
 
 
-void pretty_print(Value *value, FormatBuffer *fmt_buf, int indent)
+void pretty_print(const Value *value, FormatBuffer *fmt_buf, int indent)
 {
     TypeDescriptor *type_desc = value->typedesc;
 
@@ -197,7 +197,7 @@ void pretty_print(Value *value, FormatBuffer *fmt_buf, int indent)
 }
 
 
-void pretty_print(Value *value, int indent)
+void pretty_print(const Value *value, int indent)
 {
     FormatBuffer fmt_buf;
     fmt_buf.flush_on_destruct();
@@ -206,7 +206,7 @@ void pretty_print(Value *value, int indent)
 }
 
 
-void pretty_print(tokenizer::Token token)
+void pretty_print(const tokenizer::Token token)
 {
     FormatBuffer fmt_buf;
     fmt_buf.flush_on_destruct();
@@ -214,7 +214,7 @@ void pretty_print(tokenizer::Token token)
     fmt_buf.flush_to_log();
 }
 
-void pretty_print(tokenizer::Token token, FormatBuffer *fmt_buf)
+void pretty_print(const tokenizer::Token token, FormatBuffer *fmt_buf)
 {
     char token_output[256];
     size_t len = std::min((size_t)token.text.length, sizeof(token_output) - 1);
