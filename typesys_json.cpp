@@ -554,8 +554,20 @@ BreakWhile:
     if (records.count > 0)
     {
         collection = bucketarray::add(&prgstate->collections).elem;
+
+        DynArray<TypeDescriptor *> types;
+        dynarray::init(&types, records.count);
+        for (DynArrayCount i = 0, e = records.count; i < e; ++i)
+        {
+            dynarray::append(&types, records[i]->value.typedesc);
+        }
+
+        collection->top_typedesc = merge_each_type(prgstate, types);
+
         collection->load_path = str(path, STRLEN(path_length));
         collection->records = records;
+
+        bind_typedesc_name(prgstate, collection->load_path, collection->top_typedesc);
     }
     else
     {

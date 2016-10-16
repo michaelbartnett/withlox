@@ -370,6 +370,10 @@ TypeDescriptor *make_union(ProgramState *prgstate, TypeDescriptor *a_desc, TypeD
 
 TypeDescriptor *merge_types(ProgramState *prgstate, /*const*/ TypeDescriptor *a_desc, /*const*/ TypeDescriptor *b_desc)
 {
+    if (a_desc == b_desc) {
+        return a_desc;
+    }
+
     bool a_is_compound = a_desc->type_id != TypeID::Compound;
     bool b_is_compound = b_desc->type_id != TypeID::Compound;
     bool neither_is_compound = ! (a_is_compound || b_is_compound);
@@ -386,10 +390,31 @@ TypeDescriptor *merge_types(ProgramState *prgstate, /*const*/ TypeDescriptor *a_
 }
 
 
+TypeDescriptor *merge_each_type(ProgramState *prgstate, DynArray<TypeDescriptor *> types)
+{
+    ASSERT(types.count > 0);
+    // if (types.count == 0) {
+    //     return nullptr;
+    // }
+    if (types.count == 1) {
+        return types[0];
+    }
+
+    TypeDescriptor *last_merged = merge_types(prgstate, types[0], types[1]);
+
+    for (DynArrayCount i = 2, e = types.count; i < e; ++i)
+    {
+        last_merged = merge_types(prgstate, last_merged, types[i]);
+    }
+
+    return last_merged;
+}
+
+
 TypeDescriptor *compound_member_merge(ProgramState *prgstate, TypeDescriptor *a_desc, TypeDescriptor *b_desc)
 {
-    assert(a_desc);
-    assert(b_desc);
+    ASSERT(a_desc);
+    ASSERT(b_desc);
     ASSERT(tIS_COMPOUND(a_desc));
     ASSERT(tIS_COMPOUND(b_desc));
 

@@ -25,6 +25,7 @@ struct Collection
 {
     Str load_path;
     DynArray<LoadedRecord *> records;
+    TypeDescriptor *top_typedesc;
 };
 
 

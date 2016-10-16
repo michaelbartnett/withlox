@@ -175,6 +175,7 @@ TypeDescriptor copy_typedesc(const TypeDescriptor *src_typedesc);
 TypeDescriptor *compound_member_merge(ProgramState *prgstate, TypeDescriptor *a_desc, TypeDescriptor *b_desc);
 
 TypeDescriptor *merge_types(ProgramState *prgstate, /*const*/ TypeDescriptor *a_desc, /*const*/ TypeDescriptor *b_desc);
+TypeDescriptor *merge_each_type(ProgramState *prgstate, DynArray<TypeDescriptor *> types);
 
 void free_typedescriptor_components(TypeDescriptor *typedesc);
 
