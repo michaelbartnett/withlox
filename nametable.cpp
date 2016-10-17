@@ -1,6 +1,6 @@
 #include "nametable.h"
 
-ptrdiff_t allocated_size(StrLen len)
+static ptrdiff_t allocated_size(StrLen len)
 {
     size_t needed_size = len + 1 + sizeof(StrLen);
     size_t result_size = sizeof(StrLen) * ((needed_size + sizeof(StrLen) - 1) /  sizeof(StrLen));
@@ -10,12 +10,8 @@ ptrdiff_t allocated_size(StrLen len)
 }
 
 
-bool nameref_identical(const NameRef &lhs, const NameRef &rhs)
+namespace nameref
 {
-    return lhs.offset == rhs.offset
-        && lhs.table == rhs.table;
-}
-
 
 StrSlice str_slice(NameRef nameref)
 {
@@ -38,6 +34,13 @@ StrSlice str_slice(NameRef nameref)
     return result;
 }
 
+bool identical(const NameRef &lhs, const NameRef &rhs)
+{
+    return lhs.offset == rhs.offset
+        && lhs.table == rhs.table;
+}
+
+}
 
 namespace nametable
 {
@@ -51,7 +54,6 @@ void init(NameTable *nt, size_t storage_size, mem::IAllocator *allocator)
     // The padding is so that ptrdiff_t == 0 can mean not-found.
     size_t capacity = storage_size < InitialStorageOffset ? InitialStorageOffset : storage_size;
     nt->storage_capacity = capacity;
-    // nt->storage = CALLOC_ARRAY(char, capacity);
 
     if (!allocator)
     {
@@ -60,7 +62,6 @@ void init(NameTable *nt, size_t storage_size, mem::IAllocator *allocator)
 
     nt->storage = MAKE_ZEROED_ARRAY(allocator, capacity, char);
 
-    // had to use reinterpret_cast because -Wcast-align
     *reinterpret_cast<u64 *>(nt->storage) = 0xdeadbeefdeadbeef;
 
     nt->next_storage_offset = InitialStorageOffset;
@@ -113,7 +114,6 @@ NameRef find_or_add(NameTable *nt, StrSlice name)
     ptrdiff_t alloc_size = allocated_size(name.length);
 
     assert(PTRDIFF_T(nt->storage_capacity) - nt->next_storage_offset > alloc_size);
-    // ASSERT(nt->storage_capacity - (size_t)nt->next_storage_offset > size);
 
     // Nameref stores offset into nametable storage.
     // The memory starts with a length of size StrLen (u16 at the time this was written)

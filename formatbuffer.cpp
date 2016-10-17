@@ -163,11 +163,9 @@ void formatbuffer_v_writef(FormatBuffer *fmt_buf, const char *format, va_list va
     // format size should always be less than output size, otherwise we risk losing the null terminator
     if (byte_write_count >= bytes_remaining)
     {
-        // size_t new_bytes_remaining = (byte_write_count + 1) - bytes_remaining;
         size_t new_bytes_remaining = byte_write_count + 1;
         assert(new_bytes_remaining > bytes_remaining);
 
-        // fmt_buf->capacity += new_bytes_remaining - bytes_remaining;
         size_t new_capacity = fmt_buf->capacity + new_bytes_remaining - bytes_remaining;
         assert(new_capacity - fmt_buf->cursor > byte_write_count);
 

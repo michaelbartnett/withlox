@@ -119,9 +119,8 @@ struct TypeDescriptor
     u32 type_id;
     union
     {
-        // DynArray<CompoundTypeMember> members;
         CompoundType compound_type;
-        // these could each just be a TypeSet the way it works now, but good to keep them separate
+        // these could each just be a set of TypeDescriptors the way it works now, but good to keep them separate
         ArrayType array_type;
         UnionType union_type; 
     };

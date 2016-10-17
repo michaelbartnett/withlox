@@ -158,7 +158,7 @@ DEF_SIZE_T_CAST(intptr_t)
 #define PTRDIFF_T(n) CHECKED_CAST_MACRO(intptr_t, n)
 #define SIZE_T(n) CHECKED_CAST_MACRO(size_t, n)
 
-// END CHecked Casts
+// END Checked Casts
 
 
 

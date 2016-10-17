@@ -230,7 +230,10 @@ template<typename T>
 T *append(DynArray<T> *dynarray, T item)
 {
     T *result = dynarray::append(dynarray);
-    *result = item;//T(item); // PODs only here
+
+    // Assign because assumed PODs only here
+    *result = item;
+
     return result;
 }
 
@@ -260,7 +263,6 @@ void pop(DynArray<T> *dynarray)
     {
         --dynarray->count;
     }
-    // return dynarray->count;
 }
 
 
@@ -268,7 +270,6 @@ template <typename T>
 void popnum(DynArray<T> *dynarray, DynArrayCount num)
 {
     dynarray->count -= min(num, dynarray->count);
-    // return dynarray->count;
 }
 
 

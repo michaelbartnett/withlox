@@ -50,17 +50,6 @@ struct LoadJsonDirResult
         PlatformError file_error;
     };
 
-
-    // bool is_error()
-    // {
-    //     return fs_error.is_error() || last_parse_result.status != JsonParseResult::Succeeded;
-    // }
-
-    // bool is_fs_error()
-    // {
-    //     return fs_error.is_error();
-    // }
-
     void release();
 
     static LoadJsonDirResult from_fs_error(PlatformError platform_error)
@@ -101,7 +90,6 @@ Value create_array_with_type_from_json(ProgramState *prgstate, json_array_s *jar
 JsonParseResult try_parse_json_as_value(OUTPARAM Value *output, ProgramState *prgstate,
                                         const char *input, size_t input_length);
 
-// JsonParseResult load_json_dir(OUTPARAM Collection **pcollection, ProgramState *prgstate,
 LoadJsonDirResult load_json_dir(ProgramState *prgstate, const char *path, size_t path_length);
 
 #define TYPESYS_JSON_H

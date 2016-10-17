@@ -166,7 +166,7 @@ s32 run_nametable_tests()
             }
             else
             {
-                StrSlice refslice = str_slice(test->ref);
+                StrSlice refslice = nameref::str_slice(test->ref);
                 if (!str_equal(refslice, test->name))
                 {
                     printf_ln("Test %i Failed to create valid slice: '%s' vs '%s'", i, refslice.data, test->name.data);

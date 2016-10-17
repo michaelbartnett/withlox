@@ -27,8 +27,62 @@ This will be maintained. Latest log entry will go below.
 
 - [X] TypeDescriptor list window, show all or for collection
 
-- [ ] Display value fields in collection editor associated with correct
+- [X] Display value fields in collection editor associated with correct
       named column
+
+## 2016-10-17-1418EST So much yak shaving
+
+Alright, in order to display the hawkthorne/characters collection
+correctly I ended up making a bunch of incremental improvements.
+
+- Made some iterator functions for walking through the nametable,
+
+- Changed all the nametable functions to be in a namespace instead of
+  using the "nametable_" prefix, 
+
+- Added an `lsnames` command which lists all names in the nametable, 
+
+- Added some pseudo-set helpers to dynarray:
+  `append_if_not_present`. I used `if_not_present` instead of
+  `if_not_contains` because there's another dynarray function,
+  `contains` which tests if a pointer is contained within the
+  dynarray. I'm not sure how useful this other function is, so I may
+  rename or remove it and change `append_if_not_present` to
+  `append_if_not_contains`. I dunno.
+
+- Fixed a bug in `process_console_input` that would cause a crash when
+  you forgot to close your string quotes.
+
+- Added const to pretty_print functions, because why not
+
+In terms of getting the collection edit window to actually display
+names correctly, I went and added a `top_typedesc` member to
+`Collection`, which is the result of merging the types of all the
+contained values. To go along with this, there's also now a
+`merge_each_type(ProgramState *, DynArray<TypeDescriptor *>)` which
+does a reduce list on that list with `merge_types`.
+
+The collection editor does a janky approximation of what will probably
+be needed in the future: it builds a set of names from the
+`top_typedesc` and then looks up that compound member by name for each
+member in the collection's list of values.
+
+It would be cool if there was a way to save indices or offsets for
+each member so we don't have to search every time. This will probably
+be necessary when we're editing hundreds (thousands?) of records.
+
+The collection window only supports Compound types, or Unions
+consisting entirely of Compound types. I'm not sure how to deal with
+Unions of wildly different types (e.g. Array + Compound + Scalar) yet.
+
+One thing I know I need to do is change the `Collection` struct to
+store two separate dynarrays of `Value`s and their `RecordMetadata` or
+whatever I end up calling it (for now, the only associated data is the
+path it was loaded from, the `full_path` member of `LoadedRecord`).
+
+The reason for this is I want to write the editor functions to work
+recursively on simple lists of values, or even a single value, which
+is assumed to be an Array of Compounds to start with.
 
 ## 2016-10-14-0434EST Listing types and JSON type inference
 
@@ -226,7 +280,7 @@ in the collection editor, just drew each cmopound member in whatever
 order it came in. That should work properly (after I do the type
 descriptor list window).
 
-- [] Display value fields in collection editor associated with correct
+- [X] Display value fields in collection editor associated with correct
       named column
 
 After these two things are done I should really go build on Windows again.

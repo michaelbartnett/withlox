@@ -226,11 +226,7 @@ void ht_init(OAHASH_TYPE *ht,
 
     ht->allocator = allocator;
     ht->count = 0;
-    // ht.hashfn = hashfn;
-    // ht.keys_equal_fn = keys_equal_fn;
     ht->bucket_count = initial_bucket_count;
-    // ht->buckets = CALLOC_ARRAY(Bucket, initial_bucket_count);
-    // ht->entries = CALLOC_ARRAY(Entry, initial_bucket_count);
 
     if (initial_bucket_count == 0)
     {
@@ -255,9 +251,6 @@ void ht_rehash(OAHASH_TYPE *ht, u32 new_bucket_count)
 
     // don't shrink
     new_bucket_count = std::max(ht->bucket_count, new_bucket_count);
-
-    // Bucket *new_buckets = CALLOC_ARRAY(Bucket, new_bucket_count);
-    // Entry *new_entries = CALLOC_ARRAY(Entry, new_bucket_count);
 
     Bucket *new_buckets = MAKE_ZEROED_ARRAY(ht->allocator, new_bucket_count, Bucket);
     Entry *new_entries = MAKE_ZEROED_ARRAY(ht->allocator, new_bucket_count, Entry);
@@ -326,7 +319,6 @@ bool ht_find_or_add_entry(typename OAHASH_TYPE::Entry **result, OAHASH_TYPE *ht,
             ? min_buckets
             : calculated_buckets;
 
-        // ht_rehash(ht, ht->bucket_count * 2 + 1);
         ht_rehash(ht, new_bucket_count);
     }
 
@@ -514,12 +506,9 @@ bool ht_set(OAHASH_TYPE *ht, TKey key, TValue value)
 }
 
 
-// template<typename TKey, typename TValue, typename FKeysEqual, typename FKeyHash>
 template OAHASH_TPARAMS
 bool ht_remove(OAHASH_TYPE *ht, TKey key)
 {
-    // typedef OAHashtable<TKey, TValue>::Entry Entry;
-    // typedef OAHashtable<TKey, TValue>::Bucket Bucket;
     typedef typename OAHASH_TYPE::BucketState::Tag BucketState;
 
     typename OAHASH_TYPE::HashFn hashfn;

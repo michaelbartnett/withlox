@@ -110,8 +110,6 @@ void bind_typedesc_name(ProgramState *prgstate, NameRef name, TypeDescriptor *ty
 {
     ht_set(&prgstate->typedesc_bindings, name, typedesc);
 
-    // ht_set(&prgstate->typedesc_reverse_bindings, typedesc, name);
-
     DynArray<NameRef> *names = nullptr;
     ht_set_if_unset(&names, &prgstate->typedesc_reverse_bindings, typedesc, dynarray::init<NameRef>(0));
     dynarray::append(names, name);
@@ -186,7 +184,7 @@ CompoundTypeMember *find_member(const TypeDescriptor *type_desc, NameRef name)
     {
         CompoundTypeMember *mem = &type_desc->compound_type.members[i];
 
-        if (nameref_identical(mem->name, name))
+        if (nameref::identical(mem->name, name))
         {
             return mem;
         }
@@ -534,7 +532,7 @@ TypeCheckInfo check_type_compatible(TypeDescriptor *input, TypeDescriptor *valid
                          ++j)
                     {
                         CompoundTypeMember *mem = &input->compound_type.members[j];
-                        if (nameref_identical(mem->name, validator_member->name))
+                        if (nameref::identical(mem->name, validator_member->name))
                         {
                             input_member = mem;
                             break;
@@ -642,7 +640,7 @@ TypeCheckInfo check_type_compatible(TypeDescriptor *input, TypeDescriptor *valid
 
 bool typemember_equal(const CompoundTypeMember *a, const CompoundTypeMember *b)
 {
-    return nameref_identical(a->name, b->name) && (a->typedesc == b->typedesc);
+    return nameref::identical(a->name, b->name) && (a->typedesc == b->typedesc);
 }
 
 
@@ -734,7 +732,7 @@ CompoundValueMember *find_member(const Value *value, NameRef name)
     for (u32 i = 0; i < value->compound_value.members.count; ++i)
     {
         CompoundValueMember *member = &value->compound_value.members[i];
-        if (nameref_identical(member->name, name))
+        if (nameref::identical(member->name, name))
         {
             return member;
         }

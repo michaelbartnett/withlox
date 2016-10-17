@@ -660,7 +660,7 @@ CLI_COMMAND_FN_SIG(lsnames)
 
     for (NameRef name = nametable::first(&prgstate->names); name.offset; name = nametable::next(name))
     {
-        logf_ln("%s", str_slice(name).data);
+        logf_ln("%s", nameref::str_slice(name).data);
     }
 }
 

@@ -26,31 +26,38 @@ struct NameRef
 };
 
 
-bool nameref_identical(const NameRef &lhs, const NameRef &rhs);
+namespace nameref
+{
+
+bool identical(const NameRef &lhs, const NameRef &rhs);
 
 
-struct NameRefIdentical
+struct Identical
 {
     bool operator()(const NameRef &a, const NameRef &b)
     {
-        return nameref_identical(a, b);
+        return identical(a, b);
     }
 };
 
 
-
-inline bool hashtable_keys_equal(const NameRef &lhs, const NameRef &rhs)
-{
-    return nameref_identical(lhs, rhs);
-}
-
-
 StrSlice str_slice(NameRef nameref);
+
 
 inline Str str(NameRef nameref)
 {
     return str(str_slice(nameref));
 }
+
+}
+
+
+inline bool hashtable_keys_equal(const NameRef &lhs, const NameRef &rhs)
+{
+    return nameref::identical(lhs, rhs);
+}
+
+
 
 namespace nametable
 {

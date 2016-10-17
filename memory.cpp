@@ -164,11 +164,9 @@ void Mallocator::log_allocs_since_probe(void *probe) OVERRIDE
         u32 alignment;
         const char *sourceline;
         const char *category;
-        
     };
 
     AllocLogInfo *allocinfo_list = MAKE_ARRAY(this, alloc_count, AllocLogInfo);
-    // size_t allocinfo_count = alloc_count - 1;
     size_t allocinfo_count = 0;
 
     logging_allocations = true;
@@ -305,7 +303,6 @@ void *Mallocator::realloc(void *ptr, size_t size, size_t align, AllocationMetada
     }
     alloclist_head = hdr;
 
-    // char *result = memblock + hdr->payload_offset;
     u8 *result = (u8 *)hdr->payload();
     *((u8 *)(memblock + (hdr->payload_offset - 1))) = hdr->payload_offset;
 

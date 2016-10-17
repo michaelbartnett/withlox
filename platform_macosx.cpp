@@ -6,7 +6,6 @@
 #include <sys/stat.h>
 #include <sys/param.h>
 #include <mach/mach_time.h>
-// #include <errno.h>
 #include <cerrno>
 #include <dirent.h>
 #include <unistd.h>
@@ -98,17 +97,6 @@ PlatformError read_filesize(OUTPARAM size_t *filesize, const char *filename)
 Str read_file(const char *filename)
 {
     Str result = {};
-    // struct stat statbuf;
-    // int err = stat(filename, &statbuf);
-
-    // if (0 != err)
-    // {
-    //     std::printf("Failed to stat file: %s\nReason: %s\n", filename, std::strerror(err));
-    //     return result;
-    // }
-
-    // assert(statbuf.st_size > 0);
-    // u16 filesize = (u16)statbuf.st_size;
 
     size_t read_filesize_result;
     PlatformError err = read_filesize(&read_filesize_result, filename);
@@ -151,27 +139,8 @@ FileReadResult::ErrorKind check_file_error(int err)
 }
 
 
-// void log_file_error(FileReadResult error, const char *prefix, const char *filename)
-// {
-//     FormatBuffer fb;
-//     fb.writef(fmt_with_filename, filename);
-//     logf_ln("%s: %s\n", prefix, std::strerror(err));
-// }
-
-
 FileReadResult read_text_file(Str *dest, const char *filename)
 {
-    // FileReadResult result;
-
-    // struct stat statbuf;
-    // int err = stat(filename, &statbuf);
-
-    // if (err)
-    // {
-        // return FileReadResult::from_error_code(err);
-    // }
-
-    // assert(statbuf.st_size > 0);
     size_t filesize_outparam;
     PlatformError readsize_error = read_filesize(&filesize_outparam, filename);
 
@@ -192,9 +161,6 @@ FileReadResult read_text_file(Str *dest, const char *filename)
     if (!f)
     {
         assert(errno);
-        // result.platform_error = PlatformError::from_code(errno);
-        // result.error_kind = check_file_error(result.platform_error.code);
-        // return result;
         return FileReadResult::from_error_code(errno);
     }
 
@@ -206,8 +172,6 @@ FileReadResult read_text_file(Str *dest, const char *filename)
         assert(!feof(f));
 
         // so just try to return an error, assert that there is an error
-        // result.platform_error = PlatformError::from_code(ferror(f));
-        // result.error_kind = check_file_error(result.platform_error.code);
         FileReadResult error_result = FileReadResult::from_error_code(ferror(f));
         assert(error_result.platform_error.code != 0);
         return error_result;
@@ -218,8 +182,6 @@ FileReadResult read_text_file(Str *dest, const char *filename)
     int fcloseerr = fclose(f);
     assert(fcloseerr == 0);
 
-    // result.platform_error = PlatformError::from_code(0);
-    // result.error_kind = FileReadResult::NoError;
     return FileReadResult::from_error_code(0);
 }
 
@@ -418,10 +380,6 @@ DirLister::DirLister(const StrSlice dirpath)
 {
     DirLister_init(this, str(dirpath));
 }
-// DirLister::DirLister(const Str &path)
-// {
-//     DirLister_init(this, path.data);
-// }
 
 
 DirLister::~DirLister()
@@ -461,8 +419,6 @@ bool DirLister::next()
             DirLister_deinit(this);
             return false;
         }
-
-        
 
         switch (entry.d_type)
         {

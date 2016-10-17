@@ -475,9 +475,6 @@ void LoadJsonDirResult::release()
 }
 
 
-// TODO(mike): Should probably be its own return type instead
-// of piggybacking on the JsonParseResult
-// JsonParseResult load_json_dir(OUTPARAM Collection **pcollection, ProgramState *prgstate,
 LoadJsonDirResult load_json_dir(ProgramState *prgstate, const char *path, size_t path_length)
 {
     LoadJsonDirResult result = {};

@@ -419,7 +419,6 @@ void CliHistory::backward(ImGuiTextEditCallbackData* data)
     if (this->pos == -1)
     {
         this->pos = this->input_entries.count - 1;
-        // str_overwrite(this->saved_input_buf, data->Buf);
         this->saved_input_buf = str(data->Buf);
         this->saved_cursor_pos = data->CursorPos;
         this->saved_selection_start = data->SelectionStart;
@@ -493,10 +492,6 @@ void draw_imgui_json_cli(ProgramState *prgstate, SDL_Window *window)
     static bool highlight_output_mode = false;
     static bool first_draw = true;
     static CliHistory history;
-    // if (first_draw)
-    // {
-
-    // }
 
     ImGuiWindowFlags console_wndflags = 0
         | ImGuiWindowFlags_NoSavedSettings
@@ -584,7 +579,6 @@ bool draw_collection_editor(Collection *collection)
 
     ImGui::SetNextWindowSize(ImVec2(400, 400), ImGuiSetCond_Once);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
-    // ImGui::Begin("Collection Editor", nullptr, wndflags);
     bool window_open = true;
     ImGui::Begin(collection->load_path.data, &window_open, wndflags);
 
@@ -617,48 +611,21 @@ bool draw_collection_editor(Collection *collection)
 
                 for (DynArrayCount j = 0, je = ct->members.count; j < je; ++j)
                 {
-                    std::printf("NAME: %s ", str_slice(ct->members[j].name).data);
-                    bool inserted = dynarray::append_if_not_present<NameRef, NameRefIdentical>(&names, ct->members[j].name);
-                    std::printf("inserted: %s\n", inserted ? "YES" : "NO");
+                    dynarray::append_if_not_present<NameRef, nameref::Identical>(&names, ct->members[j].name);
                 }
             }
         }
 
         ImGui::Columns(S32(names.count), "Data yay");
         ImGui::Separator();
-        // Str col_label = {};
 
         for (DynArrayCount i = 0; i < names.count; ++i)
         {
-            // str_overwrite(&col_label, str_slice(value->compound_value.members[i].name));
-            ImGui::Text("%s", str_slice(names[i]).data);
+            ImGui::Text("%s", nameref::str_slice(names[i]).data);
             ImGui::NextColumn();
         }
 
-        // str_free(&col_label);
         ImGui::Separator();
-
-        // // collect and render column names
-        // DynArrayCount column_count = 0;
-        // if (collection->records.count > 0)
-        // {
-        //     Value *value = &collection->records[0]->value;
-
-        //     column_count = value->compound_value.members.count;
-
-        //     ImGui::Columns((int)column_count, "Data Yay");
-        //     ImGui::Separator();
-
-        //     Str col_label = {};
-        //     for (DynArrayCount i = 0; i < column_count; ++i)
-        //     {
-        //         str_overwrite(&col_label, str_slice(value->compound_value.members[i].name));
-        //         ImGui::Text("%s", col_label.data);
-        //         ImGui::NextColumn();
-        //     }
-        //     str_free(&col_label);
-        //     ImGui::Separator();
-        // }
 
         for (DynArrayCount i = 0, ie = collection->records.count; i < ie; ++i)
         {
@@ -708,42 +675,6 @@ bool draw_collection_editor(Collection *collection)
                 ImGui::PopID();
                 ImGui::NextColumn();
             }
-
-            // for (DynArrayCount j = 0, memcount = value->typedesc->compound_type.members.count;
-            //      j < memcount;
-            //      ++j)
-            // {
-            //     ImGui::PushID(S32(j));
-
-            //     Value *memval = &value->compound_value.members[j].value;
-            //     TypeDescriptor *memtype = memval->typedesc;
-
-            //     switch ((TypeID::Tag)(memtype->type_id))
-            //     {
-            //         case TypeID::String:
-            //             ImGui_InputText("##field", &memval->str_val);
-            //             break;
-
-            //         case TypeID::Int:
-            //             ImGui::InputInt("##field", &memval->s32_val);
-            //             break;
-
-            //         case TypeID::Float:
-            //             ImGui::InputFloat("##field", &memval->f32_val);
-            //             break;
-
-            //         case TypeID::Bool:
-            //             ImGui::Checkbox("##field", &memval->bool_val);
-            //             break;
-
-            //         default:
-            //             ImGui::Text("TODO: %s", TypeID::to_string(memtype->type_id));
-            //             break;
-            //     }
-
-            //     ImGui::PopID();
-            //     ImGui::NextColumn();
-            // }
 
             ImGui::PopID();
         }
@@ -795,7 +726,7 @@ bool draw_typelist_window(ProgramState *prgstate)
             {
                 for (DynArrayCount j = 0, ej = names->count; j < ej; ++j)
                 {
-                    StrSlice name = str_slice(names->at(j));
+                    StrSlice name = nameref::str_slice((*names)[j]);
                     if (j > 0)
                     {
                         fmtbuf.write(", ");

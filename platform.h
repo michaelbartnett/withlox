@@ -156,13 +156,6 @@ struct DirEntry
     size_t filesize;
     StrSlice name;
     Str access_path;
-    // StrSlice name;
-
-    // DirEntry copy()
-    // {
-    //     DirEntry result = {is_file, str_make_copy(name)};
-    //     return result;
-    // }
 };
 
 
@@ -176,9 +169,6 @@ public:
     void *pimpl;
 
     DirLister(const char *path, size_t length);
-
-    // // Assumes valid initialized
-    // DirLister(const Str &path);
 
     DirLister(const char *path);
     DirLister(const StrSlice path);

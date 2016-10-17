@@ -75,7 +75,7 @@ void pretty_print(const TypeDescriptor *type_desc, FormatBuffer *fmt_buf, int in
                 for (u32 i = 0; i < type_desc->compound_type.members.count; ++i)
                 {
                     CompoundTypeMember *member = &type_desc->compound_type.members[i];
-                    fmt_buf->writef_indent(indent, "%s: ", str_slice(member->name).data);
+                    fmt_buf->writef_indent(indent, "%s: ", nameref::str_slice(member->name).data);
                     pretty_print(member->typedesc, fmt_buf, indent);
                 }
 
@@ -181,7 +181,7 @@ void pretty_print(const Value *value, FormatBuffer *fmt_buf, int indent)
                 for (u32 i = 0; i < value->compound_value.members.count; ++i)
                 {
                     CompoundValueMember *member = &value->compound_value.members[i];
-                    fmt_buf->writef_indent(indent, "'%s': ", str_slice(member->name).data);
+                    fmt_buf->writef_indent(indent, "'%s': ", nameref::str_slice(member->name).data);
                     pretty_print(&member->value, fmt_buf, indent);
                 }
 
