@@ -7,28 +7,45 @@ This will be maintained. Latest log entry will go below.
 
 - [ ] Milestone: Solid GUI Terminal: Test/develop on Windows
 
-- [X] CLI command to load a directory of JSON files into a collection DynArray<Value>
-
-- [X] CLI command to show an editing window for the value collection
-
 - [ ] CLI command to save the DynArray<Value> back out to JSON files
 
-- [X] The `loadjson` command should store the `Value`s in a collection
-     tracking both index and load path parameter.
+- [ ] Separate loaded record metadata from `Value`s
 
-- [X] An`edit` command that will focus/create an editor window for the
-     specified collection (could be index or the load path)
+- [ ] Try to write the collection editor to work recursively so that
+      sub-objects and arrays can be displayed.
 
-- [X] A `drop` command that will remove the specified collection from memory
+## 2016-10-17-1543EST What now
 
-- [X] Upgrade dearimgui
+I wanted to add some explicit TODOs since the last entry just sort of
+rambled on about changes and vague plans.
 
-- [X] Fix the text field string length problem
+- [] Separate loaded record metadata from `Value`s
 
-- [X] TypeDescriptor list window, show all or for collection
+- [] Try to write the collection editor to work recursively so that
+     sub-objects and arrays can be displayed.
 
-- [X] Display value fields in collection editor associated with correct
-      named column
+And I seriously have to try it on Windows again, I'm sure horrible
+bugs await and I expect most users of this to be running it on
+Windows.
+
+I also am reaching the point where I want to start thinking about
+having a type description language. This and whatever the output of
+pretty printing a type descriptor is should match exactly, because
+that is obviously useful. Before I get some type manipulation UI in, I
+want to be able to load up a bunch of JSON files, copy-paste the
+TypeDescriptors for them, paste them into a text editor to clean up
+the type, and then reimport the json files with the cleaned up types.
+
+My key example for this would be the `jq '.animations[]'
+test/hawkthorne/characters/*.json` array, which is actually a
+Tuple. Once I have a type description language working, then I'll want
+to add a Tuple type.
+
+The type description language should also support looking up types by
+name. I already have a way to bind multiple names to a type (improved
+for the type list window), but the challenge will be in dealing with
+recursive and mututally referential types, or even just types not
+dependent on order of definition within a single parse unit.
 
 ## 2016-10-17-1418EST So much yak shaving
 
