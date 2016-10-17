@@ -101,9 +101,9 @@ struct NameTableTest
 s32 run_nametable_tests()
 {
     NameTable nt;
-    nametable_init(&nt, 1024);
+    nametable::init(&nt, 1024);
 
-    // NameRef nametable_find_or_add(str_slice(""))
+    // NameRef nametable::find_or_add(str_slice(""))
     DynArrayCount test_count = ARRAY_DIM(test_add_names);
 
     s32 add_fails = 0;
@@ -121,7 +121,7 @@ s32 run_nametable_tests()
         for (DynArrayCount i = 0; i < test_count; ++i)
         {
             NameTableTest *test = &tests[i];
-            test->ref = nametable_find_or_add(&nt, test->name);
+            test->ref = nametable::find_or_add(&nt, test->name);
 
             if (!test->ref.offset)
             {
@@ -157,7 +157,7 @@ s32 run_nametable_tests()
         {
             NameTableTest *test = &tests[i];
 
-            test->ref = nametable_find(&nt, test->name);
+            test->ref = nametable::find(&nt, test->name);
 
             if (!test->ref.offset)
             {

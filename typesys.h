@@ -219,6 +219,20 @@ HEADERFN const char *to_string(TypeCheckResult e)
 }
 
 
+HEADERFN bool all_typecases_compound(UnionType *union_type)
+{
+    for (DynArrayCount i = 0, e = union_type->type_cases.count; i < e; ++i)
+    {
+        if (union_type->type_cases[i]->type_id != TypeID::Compound)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
 struct TypeCheckInfo
 {
     TypeCheckResult result;

@@ -120,7 +120,7 @@ void bind_typedesc_name(ProgramState *prgstate, NameRef name, TypeDescriptor *ty
 
 void bind_typedesc_name(ProgramState *prgstate, StrSlice name, TypeDescriptor *typedesc)
 {
-    NameRef nameref = nametable_find_or_add(&prgstate->names, name);
+    NameRef nameref = nametable::find_or_add(&prgstate->names, name);
     bind_typedesc_name(prgstate, nameref, typedesc);
 }
 
@@ -165,7 +165,7 @@ TypeDescriptor *find_typedesc_by_name(ProgramState *prgstate, NameRef name)
 TypeDescriptor *find_typedesc_by_name(ProgramState *prgstate, StrSlice name)
 {
     TypeDescriptor *result = nullptr;
-    NameRef nameref = nametable_find(&prgstate->names, name);
+    NameRef nameref = nametable::find(&prgstate->names, name);
     if (nameref.offset)
     {
         result = find_typedesc_by_name(prgstate, nameref);

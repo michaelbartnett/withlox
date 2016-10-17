@@ -55,7 +55,7 @@ struct ProgramState
 
 HEADERFN void prgstate_init(ProgramState *prgstate)
 {
-    nametable_init(&prgstate->names, MEGABYTES(2));
+    nametable::init(&prgstate->names, MEGABYTES(2));
     bucketarray::init(&prgstate->type_descriptors);
     ht_init(&prgstate->typedesc_bindings);
     ht_init(&prgstate->typedesc_reverse_bindings);

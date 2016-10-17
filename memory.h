@@ -2,8 +2,8 @@
 
 #ifndef MEMORY_H
 
-#include "common.h"
 #include "numeric_types.h"
+#include "common.h"
 #include <cstring>
 
 #define DEFAULT_ALIGN 8

@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cassert>
+#include <cstddef>
 
 typedef float f32;
 
@@ -109,6 +110,7 @@ DEF_U32_CAST(u64)
 // #define DEF_S64_CAST(src_type) DEF_CAST_FN2(src_type, s64, >= INT64_MIN, <= INT64_MAX)
 #define DEF_S64_CAST(src_type) DEF_CAST_FN1(src_type, s64, <= INT64_MAX)
 DEF_S64_CAST(u64)
+DEF_S64_CAST(ptrdiff_t)
 
 #define DEF_INTPTR_CAST(src_type) DEF_CAST_FN1(src_type, intptr_t, <= INTPTR_MAX)
 DEF_INTPTR_CAST(u64)
@@ -153,10 +155,43 @@ DEF_SIZE_T_CAST(intptr_t)
 #define U64(n) CHECKED_CAST_MACRO(u64, n)
 
 #define INTPTR_T(n) CHECKED_CAST_MACRO(intptr_t, n)
-
+#define PTRDIFF_T(n) CHECKED_CAST_MACRO(intptr_t, n)
 #define SIZE_T(n) CHECKED_CAST_MACRO(size_t, n)
 
 // END CHecked Casts
+
+
+
+template< class T, class U >
+T narrow_cast( U u ) //NOEXCEPT
+{
+    return static_cast<T>( u );
+}
+
+
+// jacked from https://github.com/martinmoene/gsl-lite/blob/master/include/gsl/gsl-lite.h
+// and tweaked
+template< class T, class U >
+T narrow( U u ) //NOEXCEPT
+{
+    T t = narrow_cast<T>( u );
+
+    assert( static_cast<U>( t ) != u );
+    // if ( static_cast<U>( t ) != u )
+    // {
+    //     throw narrowing_error();
+    // }
+
+    // No gsl type traits
+    // Don't assume T() works:
+    assert( ( t < 0 ) != ( u < 0 ) );
+    // if ( ( t < 0 ) != ( u < 0 ) )
+    // {
+    //     throw narrowing_error();
+    // }
+    return t;
+}
+
 
 
 #define NUMERIC_TYPES_H

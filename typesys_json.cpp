@@ -112,7 +112,7 @@ TypeDescriptor *typedesc_from_json_object(ProgramState *prgstate, json_value_s *
          elem = elem->next)
     {
         CompoundTypeMember *member = dynarray::append(&members);
-        member->name = nametable_find_or_add(&prgstate->names,
+        member->name = nametable::find_or_add(&prgstate->names,
                                              elem->name->string, elem->name->string_size);
         member->typedesc = typedesc_from_json(prgstate, elem->value);
     }

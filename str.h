@@ -14,6 +14,8 @@
 typedef u16 StrLen;
 #define STR_LENGTH_MAX UINT16_MAX
 
+
+
 template<typename TInteger>
 StrLen STRLEN(TInteger i)
 {

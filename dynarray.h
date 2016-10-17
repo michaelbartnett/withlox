@@ -132,19 +132,43 @@ bool contains(DynArray<T> *da, T *ptr)
 
 
 template<typename T>
+struct OpEqualsComparer
+{
+    bool operator()(T a, T b)
+    {
+        return a == b;
+    }
+};
+
+
+template<typename T, typename EqualityComparer>
 bool try_find_index(OUTPARAM DynArrayCount *index, const DynArray<T> *da, T value)
 {
+    EqualityComparer comparer;
     for (DynArrayCount i = 0, e = da->count; i < e; ++i)
     {
-        if ((*da)[i] == value)
+        if (comparer((*da)[0], value))
+        // if ((*da)[i] == value)
         {
-            *index = i;
+            if (index)
+            {
+                *index = i;
+            }
             return true;
         }
     }
 
-    *index = DYNARRAY_COUNT_MAX;
+    if (index)
+    {
+        *index = DYNARRAY_COUNT_MAX;
+    }
     return false;
+}
+
+template<typename T>
+bool try_find_index(OUTPARAM DynArrayCount *index, const DynArray<T> *da, T value)
+{
+    return try_find_index<T, OpEqualsComparer<T> >(index, da, value);
 }
 
 
@@ -302,6 +326,26 @@ void sort_unstable(const DynArray<T> *dynarray, const Compare &comp)
     std::sort(dynarray->data,
               dynarray->data + dynarray->count,
               comp);
+}
+
+
+// Return true on fresh insert
+template<typename T, typename EqualityComparer>
+bool append_if_not_present(DynArray<T> *da, T value)
+{
+    if (!try_find_index<T, EqualityComparer>(nullptr, da, value))
+    {
+        append(da, value);
+        return true;
+    }
+    return false;
+}
+
+// Return true on fresh insert
+template<typename T>
+bool append_if_not_present(DynArray<T> *da, T value)
+{
+    return append_if_not_present<T, OpEqualsComparer<T> >(da, value);
 }
 
 }

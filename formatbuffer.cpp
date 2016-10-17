@@ -1,8 +1,11 @@
-#include "formatbuffer.h"
 #include <cstring>
 #include <cstdio>
 #include <cstdarg>
 #include <cstdint>
+
+#include "formatbuffer.h"
+#include "common.h"
+#include "platform.h"
 
 #ifdef __clang__
 #pragma clang diagnostic push
@@ -18,9 +21,8 @@ void fallback_flush_fn(void *userdata, const char *buffer, size_t bufsize)
 
 
 // Storage for defaults
-void *FormatBuffer::default_flush_fn_userdata = nullptr;
+void *FormatBuffer::default_flush_fn_userdata = 0; // nullptr causes an error here for some reason
 FormatBuffer::flush_char_buffer_fn *FormatBuffer::default_flush_fn = &fallback_flush_fn;
-
 
 
 void FormatBuffer::set_default_flush_fn(
@@ -49,9 +51,9 @@ FormatBuffer::~FormatBuffer()
     {
         this->flush_to_log();
     }
-    // mem::IAllocator *allocator = mem::default_allocator();
+    ASSERT(this->allocator);
     if (this->buffer) {
-        allocator->dealloc(this->buffer);
+        this->allocator->dealloc(this->buffer);
     }
 }
 

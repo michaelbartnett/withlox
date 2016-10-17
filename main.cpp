@@ -215,7 +215,7 @@ void test_json_import(ProgramState *prgstate, int filename_count, char **filenam
         }
 
         TypeDescriptor *typedesc = typedesc_from_json(prgstate, jv);
-        NameRef bound_name = nametable_find_or_add(&prgstate->names, filename);
+        NameRef bound_name = nametable::find_or_add(&prgstate->names, filename);
         bind_typedesc_name(prgstate, bound_name, typedesc);
 
         logln("New type desciptor:");
@@ -588,86 +588,167 @@ bool draw_collection_editor(Collection *collection)
     bool window_open = true;
     ImGui::Begin(collection->load_path.data, &window_open, wndflags);
 
-    // collect and render column names
-    DynArrayCount column_count = 0;
-    if (collection->records.count > 0)
+    TypeDescriptor *toptype = collection->top_typedesc;
+
+    bool is_compound_ish = tIS_COMPOUND(toptype) || (tIS_UNION(toptype) && all_typecases_compound(&toptype->union_type));
+
+    if (!is_compound_ish)
     {
-        Value *value = &collection->records[0]->value;
+        ImGui::Text("Top type of a collection must be Compound");
+    }
+    else
+    {
+        DynArray<NameRef> names = dynarray::init<NameRef>(toptype->compound_type.members.count);
 
-        column_count = value->compound_value.members.count;
-
-        ImGui::Columns((int)column_count, "Data Yay");
-        ImGui::Separator();
-
-        Str col_label = {};
-        for (DynArrayCount i = 0; i < column_count; ++i)
+        if (tIS_COMPOUND(toptype))
         {
-            str_overwrite(&col_label, str_slice(value->compound_value.members[i].name));
-            ImGui::Text("%s", col_label.data);
+            for (DynArrayCount i = 0, e = toptype->compound_type.members.count; i < e; ++i)
+            {
+                dynarray::append(&names, toptype->compound_type.members[i].name);
+            }
+        }
+        else
+        {
+            for (DynArrayCount i = 0, ie = toptype->union_type.type_cases.count; i < ie; ++i)
+            {
+                TypeDescriptor *t = toptype->union_type.type_cases[i];
+                ASSERT(tIS_COMPOUND(t));
+                CompoundType *ct = &t->compound_type;
+
+                for (DynArrayCount j = 0, je = ct->members.count; j < je; ++j)
+                {
+                    std::printf("NAME: %s ", str_slice(ct->members[j].name).data);
+                    bool inserted = dynarray::append_if_not_present<NameRef, NameRefIdentical>(&names, ct->members[j].name);
+                    std::printf("inserted: %s\n", inserted ? "YES" : "NO");
+                }
+            }
+        }
+
+        ImGui::Columns(S32(names.count), "Data yay");
+        ImGui::Separator();
+        // Str col_label = {};
+
+        for (DynArrayCount i = 0; i < names.count; ++i)
+        {
+            // str_overwrite(&col_label, str_slice(value->compound_value.members[i].name));
+            ImGui::Text("%s", str_slice(names[i]).data);
             ImGui::NextColumn();
         }
-        str_free(&col_label);
+
+        // str_free(&col_label);
         ImGui::Separator();
-    }
 
-    for (DynArrayCount i = 0; i < collection->records.count; ++i)
-    {
-        ImGui::PushID(S32(i));
+        // // collect and render column names
+        // DynArrayCount column_count = 0;
+        // if (collection->records.count > 0)
+        // {
+        //     Value *value = &collection->records[0]->value;
 
-        Value *value = &collection->records[i]->value;
-        ASSERT(vIS_COMPOUND(value));
+        //     column_count = value->compound_value.members.count;
 
-        for (DynArrayCount j = 0, memcount = value->typedesc->compound_type.members.count;
-             j < memcount;
-             ++j)
+        //     ImGui::Columns((int)column_count, "Data Yay");
+        //     ImGui::Separator();
+
+        //     Str col_label = {};
+        //     for (DynArrayCount i = 0; i < column_count; ++i)
+        //     {
+        //         str_overwrite(&col_label, str_slice(value->compound_value.members[i].name));
+        //         ImGui::Text("%s", col_label.data);
+        //         ImGui::NextColumn();
+        //     }
+        //     str_free(&col_label);
+        //     ImGui::Separator();
+        // }
+
+        for (DynArrayCount i = 0, ie = collection->records.count; i < ie; ++i)
         {
-            ImGui::PushID(S32(j));
+            ImGui::PushID(S32(i));
 
-            Value *memval = &value->compound_value.members[j].value;
-            TypeDescriptor *memtype = memval->typedesc;
-            TYPESWITCH (memtype->type_id)
+            Value *value = &collection->records[i]->value;
+            ASSERT(vIS_COMPOUND(value)); // kind of unnecessary since we branch on this
+
+            for (DynArrayCount j = 0, je = names.count; j < je; ++j)
             {
-                case TypeID::String:
-                    ImGui_InputText("##field", &memval->str_val);
-                    break;
+                ImGui::PushID(S32(j));
 
-                case TypeID::Int:
-                    ImGui::InputInt("##field", &memval->s32_val);
-                    break;
+                CompoundValueMember *memval = find_member(value, names[j]);
 
-                case TypeID::Float:
-                    ImGui::InputFloat("##field", &memval->f32_val);
-                    break;
+                if (!memval)
+                {
+                    ImGui::Text("NOPE");
+                }
+                else
+                {
+                    Value *val = &memval->value;
 
-                case TypeID::Bool:
-                    ImGui::Checkbox("##field", &memval->bool_val);
-                    break;
+                    switch ((TypeID::Tag)(val->typedesc->type_id))
+                    {
+                        case TypeID::String:
+                            ImGui_InputText("##field", &val->str_val);
+                            break;
 
-                default:
-                    ImGui::Text("TODO: %s", TypeID::to_string(memtype->type_id));
-                    break;
+                        case TypeID::Int:
+                            ImGui::InputInt("##field", &val->s32_val);
+                            break;
+
+                        case TypeID::Float:
+                            ImGui::InputFloat("##field", &val->f32_val);
+                            break;
+
+                        case TypeID::Bool:
+                            ImGui::Checkbox("##field", &val->bool_val);
+                            break;
+
+                        default:
+                            ImGui::Text("TODO: %s", TypeID::to_string(val->typedesc->type_id));
+                            break;
+                    }
+                }
+
+                ImGui::PopID();
+                ImGui::NextColumn();
             }
 
+            // for (DynArrayCount j = 0, memcount = value->typedesc->compound_type.members.count;
+            //      j < memcount;
+            //      ++j)
+            // {
+            //     ImGui::PushID(S32(j));
+
+            //     Value *memval = &value->compound_value.members[j].value;
+            //     TypeDescriptor *memtype = memval->typedesc;
+
+            //     switch ((TypeID::Tag)(memtype->type_id))
+            //     {
+            //         case TypeID::String:
+            //             ImGui_InputText("##field", &memval->str_val);
+            //             break;
+
+            //         case TypeID::Int:
+            //             ImGui::InputInt("##field", &memval->s32_val);
+            //             break;
+
+            //         case TypeID::Float:
+            //             ImGui::InputFloat("##field", &memval->f32_val);
+            //             break;
+
+            //         case TypeID::Bool:
+            //             ImGui::Checkbox("##field", &memval->bool_val);
+            //             break;
+
+            //         default:
+            //             ImGui::Text("TODO: %s", TypeID::to_string(memtype->type_id));
+            //             break;
+            //     }
+
+            //     ImGui::PopID();
+            //     ImGui::NextColumn();
+            // }
+
             ImGui::PopID();
-            ImGui::NextColumn();
         }
 
-        ImGui::PopID();
     }
-
-
-    // // get max columns
-    // for (DynArrayCount j = 0; i < prgstate->collection.count; ++i)
-    // {
-    //     Value *value = &prgstate->collection[i].value;
-
-    //     if (vIS_COMPOUND(value))
-    //     {
-    //         column_count = max(column_count, value->compound_value.members.count);
-    //     }
-    // }
-
-    // ImGui::Columns(column_count);
 
     ImGui::Columns(1);
     ImGui::Separator();
@@ -768,10 +849,15 @@ void log_display_info()
 }
 
 
+s32 run_nametable_tests();
+
 int main(int argc, char **argv)
 {
     mem::memory_init(logf_with_userdata, nullptr);
     FormatBuffer::set_default_flush_fn(log_write_with_userdata, nullptr);
+
+    s32 fails = run_nametable_tests();
+    ASSERT(fails == 0);
 
     ProgramState prgstate;
     prgstate_init(&prgstate);

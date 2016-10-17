@@ -25,7 +25,18 @@ struct NameRef
     NameTable *table;
 };
 
+
 bool nameref_identical(const NameRef &lhs, const NameRef &rhs);
+
+
+struct NameRefIdentical
+{
+    bool operator()(const NameRef &a, const NameRef &b)
+    {
+        return nameref_identical(a, b);
+    }
+};
+
 
 
 inline bool hashtable_keys_equal(const NameRef &lhs, const NameRef &rhs)
@@ -41,20 +52,25 @@ inline Str str(NameRef nameref)
     return str(str_slice(nameref));
 }
 
-void nametable_init(NameTable *nt, size_t storage_size, mem::IAllocator *allocator = nullptr);
+namespace nametable
+{
 
-NameRef nametable_find(NameTable *nt, StrSlice name);
+void init(NameTable *nt, size_t storage_size, mem::IAllocator *allocator = nullptr);
 
-NameRef nametable_find(NameTable *nt, const char *name);
+NameRef find(NameTable *nt, StrSlice name);
 
-NameRef nametable_find_or_add(NameTable *nt, StrSlice name);
+NameRef find(NameTable *nt, const char *name);
 
-NameRef nametable_find_or_add(NameTable *nt, const char *name);
+NameRef find_or_add(NameTable *nt, StrSlice name);
 
-inline NameRef nametable_find_or_add(NameTable *nt, const char *name, size_t length)
+NameRef find_or_add(NameTable *nt, const char *name);
+
+inline NameRef find_or_add(NameTable *nt, const char *name, size_t length)
 {
     StrSlice nameslice = str_slice(name, STRLEN(length));
-    return nametable_find_or_add(nt, nameslice);
+    return find_or_add(nt, nameslice);
+}
+
 }
 
 #define NAMETABLE_H
