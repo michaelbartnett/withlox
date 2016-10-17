@@ -83,7 +83,7 @@ NameRef next(NameRef nameref)
     NameRef result;
     result.table = nameref.table;
     ptrdiff_t new_offset = (nameref.offset + allocated_size(namelen));
-    result.offset = (new_offset < PTRDIFF_T(nameref.table->storage_capacity))
+    result.offset = (new_offset < nameref.table->next_storage_offset)
         ? new_offset
         : 0;
     return result;

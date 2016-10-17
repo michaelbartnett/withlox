@@ -652,6 +652,19 @@ CLI_COMMAND_FN_SIG(memstats)
 }
 
 
+CLI_COMMAND_FN_SIG(lsnames)
+{
+    UNUSED(prgstate);
+    UNUSED(userdata);
+    UNUSED(args);
+
+    for (NameRef name = nametable::first(&prgstate->names); name.offset; name = nametable::next(name))
+    {
+        logf_ln("%s", str_slice(name).data);
+    }
+}
+
+
 // CLI_COMMAND_FN_SIG($newcommandname)
 // {
 //     UNUSED(prgstate);
@@ -685,4 +698,5 @@ void init_cli_commands(ProgramState *prgstate)
     REGISTER_COMMAND(prgstate, lscollections, nullptr);
     REGISTER_COMMAND(prgstate, edit, nullptr);
     REGISTER_COMMAND(prgstate, memstats, nullptr);
+    REGISTER_COMMAND(prgstate, lsnames, nullptr);
 }

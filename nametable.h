@@ -65,6 +65,11 @@ NameRef find_or_add(NameTable *nt, StrSlice name);
 
 NameRef find_or_add(NameTable *nt, const char *name);
 
+NameRef first(NameTable *nt);
+
+NameRef next(NameRef nameref);
+
+
 inline NameRef find_or_add(NameTable *nt, const char *name, size_t length)
 {
     StrSlice nameslice = str_slice(name, STRLEN(length));
