@@ -147,8 +147,7 @@ bool try_find_index(OUTPARAM DynArrayCount *index, const DynArray<T> *da, T valu
     EqualityComparer comparer;
     for (DynArrayCount i = 0, e = da->count; i < e; ++i)
     {
-        if (comparer((*da)[0], value))
-        // if ((*da)[i] == value)
+        if (comparer((*da)[i], value))
         {
             if (index)
             {
