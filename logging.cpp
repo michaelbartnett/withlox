@@ -26,18 +26,6 @@ static Str concatenated = {};
 
 void append_log(Str log_entry)
 {
-    // for (int i = log_entry.length - 1; i >= 0; --i)
-    // {
-    //     if (log_entry.data[i] == '\n')
-    //     {
-    //         log_entry.data[i] = '\0';
-    //         --log_entry.length;
-    //     }
-    //     else
-    //     {
-    //         break;
-    //     }
-    // }
     dynarray::append(&log_entries, log_entry);
     concatenated_dirty = true;
 }

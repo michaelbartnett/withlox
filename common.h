@@ -7,14 +7,13 @@
 
 #define SANITY_CHECK 1
 
+// this doesn't do anything, just an annotation for the reader's benefit
 #define OUTPARAM
 
 #define XSTRFY(s) #s
 #define STRFY(s) XSTRFY(s)
 
 #define S__LINE__ STRFY(__LINE__)
-
-#define HEADERFN inline
 
 #define STATIC_ASSERT(label, expr) typedef int static_assertion__##label[(expr) ? 1 : -1]
 
@@ -62,40 +61,8 @@ using std::size_t;
 #define println(text) printf("%s\n", text)
 #define println_indent(indent, text) printf_ln_indent(indent, "%s", text)
 
-#define IGNORE(x)
 
-#define CALLOC(type) ((type *)std::calloc(1, sizeof (type)))
-#define CALLOC_ARRAY(type, count) ((type *)std::calloc(count, sizeof (type)))
-
-#define MALLOC(type) ((type *)std::malloc(sizeof (type)))
-#define MALLOC_ARRAY(type, count) ((type *)std::malloc(count * sizeof (type)))
-
-#define REALLOC(ptr, type) ((type *)std::realloc((ptr), sizeof (type)))
-#define REALLOC_ARRAY(ptr, type, count) ptr = ((type *)std::realloc((ptr), (count) * sizeof (type)))
-
-#define ZERO_ARRAY(ptr, type, count) std::memset((ptr), 0, sizeof (type) * (count))
-#define ZERO_PTR(ptr) std::memset((ptr), 0, sizeof(*(ptr)))
-
-
-inline void zeromem(void *ptr, size_t size)
-{
-    std::memset(ptr, 0, size);
-}
-
-template<typename T>
-void zero_obj(T &obj)
-{
-    zeromem(&obj, sizeof(T));
-}
-
-template<typename T>
-void zero_array(T *obj, size_t count)
-{
-    zeromem(obj, sizeof(T) * count);
-}
-
-
-// TODO(mike): Maybe move into platform header?
+// TODO(mike): Move into a platform header
 #if __cplusplus < 201103L
     #define OVERRIDE
     #if defined(__clang__) || defined(__GNUC__)
@@ -113,7 +80,7 @@ void zero_array(T *obj, size_t count)
 // Clang/Xcode defines nullptr even with -std=C++03, so
 // you can't rely on a __cplusplus check by itself,
 // but you do need to still check for __cplusplus
-// because linux is stupid.
+// because linux is different because who knows.
 #if !defined(nullptr) && (!defined(__cplusplus) || (__cplusplus < 201103L))
     #define nullptr NULL
 #endif

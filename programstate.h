@@ -14,18 +14,32 @@
 typedef OAHashtable<StrSlice, Value, StrSliceEqual, StrSliceHash> StrToValueMap;
 
 
-struct LoadedRecord
+struct RecordInfo
 {
     Str fullpath;
-    Value value;
 };
+
+inline void recordinfo_deinit(RecordInfo *ri)
+{
+    str_free(&ri->fullpath);
+}
 
 
 struct Collection
 {
     Str load_path;
-    DynArray<LoadedRecord *> records;
     TypeDescriptor *top_typedesc;
+
+    // Will be an array of top_typedesc
+    Value value;
+    DynArray<RecordInfo> info;
+};
+
+
+struct CollectionEditor
+{
+    Collection *collection;
+    DynArray<Value *> breadcrumbs;
 };
 
 
@@ -46,30 +60,22 @@ struct ProgramState
     StrToValueMap value_map;
 
     BucketArray<Collection> collections;
-    BucketArray<LoadedRecord> loaded_records;
 
     bool colection_editor_active;
     DynArray<Collection *> editing_collections;
 };
 
 
-HEADERFN void prgstate_init(ProgramState *prgstate)
+inline void collection_assert_invariants(Collection *coll)
 {
-    nametable::init(&prgstate->names, MEGABYTES(2));
-    bucketarray::init(&prgstate->type_descriptors);
-    ht_init(&prgstate->typedesc_bindings);
-    ht_init(&prgstate->typedesc_reverse_bindings);
-
-    bucketarray::init(&prgstate->collections);
-    bucketarray::init(&prgstate->loaded_records);
-
-    ht_init(&prgstate->command_map);
-    ht_init(&prgstate->value_map);
-
-    dynarray::init(&prgstate->editing_collections, 0);
+    ASSERT(coll->info.count == coll->value.array_value.elements.count);
+    ASSERT(vIS_ARRAY(&coll->value));
 }
 
 
+void collection_deinit(Collection *coll);
+
+void prgstate_init(ProgramState *prgstate);
 
 void drop_collection(ProgramState *prgstate, BucketIndex bucket_index);
 

@@ -10,13 +10,7 @@ wd=$(pwd)
 mkdir -p build/makefiles
 pushd build/makefiles
 
-if [ ! -f Makefile ]; then
-    echo running CMake...
-    cmake -G "Unix Makefiles" "$wd"
-fi
-
-echo running make
-make
-
+echo running CMake...
+cmake -G "Unix Makefiles" "$wd"
 
 popd

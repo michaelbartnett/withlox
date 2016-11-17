@@ -12,7 +12,7 @@
 #include "json.h"
 #include "linenoise.h"
 #include "imgui_helpers.h"
-// #include "dearimgui/imgui_internal.h"
+#include "dearimgui/imgui_internal.h"
 #include "dearimgui/imgui.h"
 #include "dearimgui/imgui_impl_sdl.h"
 #include "memory.h"
@@ -30,153 +30,6 @@
 
 #include "typesys_json.h"
 
-/*
-
-Memory Management:
-
-http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2271.html#Appendix_26
-
-http://www.ibm.com/developerworks/aix/tutorials/au-memorymanager/
-
-https://bitbucket.org/bitsquid/foundation/src/7f896236dbafd2cb842655004b1c7bf6e76dcef9?at=default
-https://bitbucket.org/bitsquid/foundation/src/7f896236dbafd2cb842655004b1c7bf6e76dcef9/memory.h?at=default&fileviewer=file-view-default
-https://bitbucket.org/bitsquid/foundation/src/7f896236dbafd2cb842655004b1c7bf6e76dcef9/memory.cpp?at=default&fileviewer=file-view-default
-https://bitbucket.org/bitsquid/foundation/src/7f896236dbafd2cb842655004b1c7bf6e76dcef9/temp_allocator.h?at=default&fileviewer=file-view-default
-https://www.google.com/search?q=bitsquid+blog&oq=bitsquid+blog&aqs=chrome..69i57j0j69i59.2205j0j7&sourceid=chrome&ie=UTF-8
-http://bitsquid.blogspot.com/2016/04/the-poolroom-figure-seq-figure-arabic-1.html
-http://bitsquid.blogspot.com/2012/11/bitsquid-foundation-library.html
-http://bitsquid.blogspot.com/2012/09/a-new-way-of-organizing-header-files.html
-http://gamesfromwithin.com/the-always-evolving-coding-style
-http://gamesfromwithin.com/opengl-and-uikit-demo
-https://twitter.com/GeorgeSealy/status/15800523038
-http://gamesfromwithin.com/backwards-is-forward-making-better-games-with-test-driven-development
-http://gamesfromwithin.com/simple-is-beautiful
-http://bitsquid.blogspot.com/2012/01/sensible-error-handling-part-1.html
-http://bitsquid.blogspot.com/2012/02/sensible-error-handling-part-2.html
-http://bitsquid.blogspot.com/2012/02/sensible-error-handling-part-3.html
-http://bitsquid.blogspot.com/2010/12/bitsquid-c-coding-style.html
-http://bitsquid.blogspot.com/2011/12/platform-specific-resources.html
-http://bitsquid.blogspot.com/2011/12/pragmatic-approach-to-performance.html
-http://bitsquid.blogspot.com/2011/08/idea-for-better-watch-windows.html
-http://bitsquid.blogspot.com/2011/05/monitoring-your-game.html
-http://web.archive.org/web/20120419004126/http://www.altdevblogaday.com/2011/05/17/a-birds-eye-view-of-your-memory-map/
-http://bitsquid.blogspot.com/2011/01/managing-coupling.html
-http://bitsquid.blogspot.com/2011/02/managing-decoupling-part-2-polling.html
-http://bitsquid.blogspot.com/2011/02/some-systems-need-to-manipulate-objects.html
-http://bitsquid.blogspot.com/2011/09/managing-decoupling-part-4-id-lookup.html
-http://bitsquid.blogspot.com/2011/11/example-in-data-oriented-design-sound.html
-
-
- */
-
-/* JSON Libraries
-
-http://www.json.org/
-http://lloyd.github.io/yajl/
-http://www.json.org/JSON_checker/
-https://github.com/udp/json-parser
-https://github.com/udp/json-builder
-https://github.com/zserge/jsmn
-https://docs.google.com/spreadsheets/d/1L8XrSas9_PS5RKduSgXUiHDmH50VQxsvwjYDoRHu_9I/edit#gid=0
-https://github.com/kgabis/parson
-https://github.com/esnme/ujson4c/
-https://github.com/esnme/ultrajson
-https://bitbucket.org/yarosla/nxjson/src
-https://github.com/cesanta/frozen
-
-https://github.com/nothings/stb/blob/master/docs/other_libs.md
-https://github.com/kazuho/picojson
-https://github.com/sheredom/json.h
-https://github.com/Zguy/Jzon/blob/master/Jzon.h
-https://github.com/kgabis/parson
-https://github.com/miloyip/nativejson-benchmark
-https://github.com/open-source-parsers/jsoncpp
-https://github.com/giacomodrago/minijson_writer
-https://www.quora.com/What-is-the-best-C-JSON-library
-https://github.com/esnme/ujson4c/blob/master/src/ujdecode.c
-https://www.google.com/search?q=c%2B%2B+json&oq=c%2B%2B+json&aqs=chrome.0.0l2j69i60j0j69i61l2.1031j0j7&sourceid=chrome&ie=UTF-8#q=c+json
-
- */
-
-// Debugging
-// http://stackoverflow.com/questions/312312/what-are-some-reasons-a-release-build-would-run-differently-than-a-debug-build
-// http://www.codeproject.com/Articles/548/Surviving-the-Release-Version
-
-
-// Type theory
-// http://chris-taylor.github.io/blog/2013/02/10/the-algebra-of-algebraic-data-types/
-// https://en.wikipedia.org/wiki/Algebraic_data_type
-// https://en.wikipedia.org/wiki/Generalized_algebraic_data_type
-
-// GraphQL has a type system. Interesting?
-// https://facebook.github.io/graphql/
-
-// class MemStack
-// {
-// public:
-//     MemoryStack(size_t size)
-//         : size(size)
-//         , top(0)
-//     {
-//         data = malloc(size);
-//     }
-
-//     size_t size;
-//     u8 *data;
-//     u8 *top;
-// /*
-
-
-// ----
-// size_prev:32
-// size_this:30
-// flags:2  ALLOC/FREE (meaning, this block)
-// ----
-// payload
-// ----
-// next header...
-// ----
-
-
-
-// HEADER
-
-// to push, add header
-// to pop, lookup header, remove by size
-
-// FOOTER
-
-
-
-
-
-
-
-void drop_collection(ProgramState *prgstate, BucketIndex bucket_index)
-{
-    Collection *coll = &prgstate->collections[bucket_index];
-
-    for (DynArrayCount i = 0, e = coll->records.count; i < e; ++i)
-    {
-        LoadedRecord *lr = coll->records[i];
-        str_free(&lr->fullpath);
-        value_free_components(&lr->value);
-        BucketIndex removed_bucket_index = bucketarray::remove(&prgstate->loaded_records, lr);
-        ASSERT(removed_bucket_index.is_valid());
-    }
-
-    str_free(&coll->load_path);
-    dynarray::deinit(&coll->records);
-
-    DynArrayCount edit_index;
-    if (dynarray::try_find_index(&edit_index, &prgstate->editing_collections, coll))
-    {
-        dynarray::swappop(&prgstate->editing_collections, edit_index);
-    }
-
-    bool removed = bucketarray::remove_at(&prgstate->collections, bucket_index);
-    ASSERT(removed);
-}
 
 
 void test_json_import(ProgramState *prgstate, int filename_count, char **filenames)
@@ -189,9 +42,9 @@ void test_json_import(ProgramState *prgstate, int filename_count, char **filenam
 
 
     size_t jsonflags = json_parse_flags_default
-        | json_parse_flags_allow_trailing_comma
-        | json_parse_flags_allow_c_style_comments
-        ;
+                     | json_parse_flags_allow_trailing_comma
+                     | json_parse_flags_allow_c_style_comments
+                     ;
 
     TypeDescriptor *result = nullptr;
 
@@ -569,7 +422,293 @@ void draw_imgui_json_cli(ProgramState *prgstate, SDL_Window *window)
 }
 
 
-bool draw_collection_editor(Collection *collection)
+
+void draw_value_editor(ProgramState *prgstate, Value *value, const char *label);
+
+
+float ImGui_GetVertSpacing()
+{
+    return GImGui->Style.ItemSpacing.y;
+}
+
+float ImGui_GetHorizSpacing()
+{
+    return GImGui->Style.ItemSpacing.x;
+}
+
+void draw_array_list_editor(ProgramState *prgstate, Value *value, const char *label)
+{
+    ASSERT(vIS_ARRAY(value));
+
+    if (ImGui::TreeNode("Array##array_list_editor"))
+    {
+        DynArray<Value> *elems = &value->array_value.elements;
+        for (DynArrayCount i = 0, e = elems->count; i < e; ++i)
+        {
+            ImGui::PushID(S32(i));
+            Value *val = elems->data + i;
+            if (ImGui::TreeNode("##array_elem", "[%i]", i))
+            {
+                draw_value_editor(prgstate, val, label);
+                ImGui::TreePop();
+            }
+            ImGui::PopID();
+        }
+
+        ImGui::TreePop();
+    }
+}
+
+void draw_array_table_editor(ProgramState *prgstate, Value *value, const char *label)
+{
+    ASSERT(vIS_ARRAY(value));
+
+    TypeDescriptor *elem_type = value->typedesc->array_type.elem_type;
+
+    bool is_compound_ish = (tIS_COMPOUND(elem_type) || (tIS_UNION(elem_type) &&
+                                                        all_typecases_compound(&elem_type->union_type)));
+
+    if (!is_compound_ish)
+    {
+        ImGui::Text("i dunno man");
+        return;
+    }
+
+    DynArray<NameRef> element_member_names = dynarray::init<NameRef>(16);
+
+    if (tIS_COMPOUND(elem_type))
+    {
+        for (DynArrayCount i = 0, e = elem_type->compound_type.members.count; i < e; ++i)
+        {
+            dynarray::append(&element_member_names, elem_type->compound_type.members[i].name);
+        }
+    }
+    else
+    {
+        for (DynArrayCount i = 0, ie = elem_type->union_type.type_cases.count; i < ie; ++i)
+        {
+            TypeDescriptor *t = elem_type->union_type.type_cases[i];
+            ASSERT(tIS_COMPOUND(t));
+            CompoundType *ct = &t->compound_type;
+
+            for (DynArrayCount j = 0, je = ct->members.count; j < je; ++j)
+            {
+                dynarray::append_if_not_present<NameRef, nameref::Identical>(&element_member_names, ct->members[j].name);
+            }
+        }
+    }
+
+    ImGui::PushID("array_editor");
+    ImGui::BeginChild("Array columns headers",
+                      ImVec2(0, ImGui::GetItemsLineHeightWithSpacing()+ ImGui_GetVertSpacing()),
+                      false, 0);
+    ImGui::Separator();
+    ImGui::Columns(S32(element_member_names.count), "column_headers");
+    ImGui::Separator();
+
+    for (DynArrayCount i = 0; i < element_member_names.count; ++i)
+    {
+        ImGui::Text("%s", nameref::str_slice(element_member_names[i]).data);
+        ImGui::NextColumn();
+    }
+
+    float *column_offsets = MAKE_ZEROED_ARRAY(mem::default_allocator(), element_member_names.count, float);
+    for (DynArrayCount i = 0; i < element_member_names.count; ++i)
+    {
+        column_offsets[i] = ImGui::GetColumnOffset(S32(i));
+    }
+
+    ImGui::Columns(1);
+    ImGui::Separator();
+    ImGui::EndChild();
+
+    NameRef name_name = nametable::find_or_add(&prgstate->names, "name");
+    NameRef name_id = nametable::find_or_add(&prgstate->names, "id");
+
+    ImGui::BeginChild("Array columns data", ImVec2(0, 0), false, 0);
+
+    ImGui::Separator();
+    ImGui::Columns(S32(element_member_names.count), "column_rows");
+    // ImGui::Columns(S32(element_member_names.count + 1), "column_rows");
+
+    for (DynArrayCount i = 0, ie = value->array_value.elements.count; i < ie; ++i)
+    {
+        ImGui::Separator();
+        ImGui::PushID(S32(i));
+
+        Value *elem_value = &value->array_value.elements[i];
+        ASSERT(vIS_COMPOUND(elem_value));
+
+        const char *use_label = label;
+        if (!use_label)
+        {
+            CompoundValueMember *identifier_mem = find_member(elem_value, name_name);
+            if (identifier_mem && vIS_STRING(&identifier_mem->value))
+            {
+                use_label = identifier_mem->value.str_val.data;
+            }
+            else
+            {
+                identifier_mem = find_member(elem_value, name_id);
+                if (identifier_mem && vIS_STRING(&identifier_mem->value))
+                {
+                    use_label = identifier_mem->value.str_val.data;
+                }
+                else
+                {
+                    use_label = "UNKNOWN_LABEL";
+                }
+            }
+        }
+
+        // ImGui::PushID(-1);
+        // bool selectable_pressed = ImGui::Selectable("##selectable", false,
+        //                                             ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_DrawFillAvailWidth,
+        //                                             ImVec2(0.00001, 0));
+        // ImGui::PopID();
+        // ImGui::NextColumn();
+
+        for (DynArrayCount j = 0, je = element_member_names.count; j < je; ++j)
+        {
+            ImGui::PushID(S32(j));
+
+            CompoundValueMember *memval = find_member(elem_value, element_member_names[j]);
+
+            if (!memval)
+            {
+                ImGui::Text("NOPE");
+            }
+            else
+            {
+                draw_value_editor(prgstate, &memval->value, use_label);
+            }
+
+            ImGui::PopID();
+            ImGui::NextColumn();
+        }
+
+        // if (i + 1 < ie) ImGui::Separator();
+        ImGui::PopID();
+    }
+
+    for (DynArrayCount i = 0; i < element_member_names.count; ++i)
+    {
+        ImGui::SetColumnOffset(S32(i), column_offsets[i]);
+        // ImGui::SetColumnOffset(S32(i+1), column_offsets[i]);
+    }
+    mem::default_allocator()->dealloc(column_offsets);
+    ImGui::Columns(1);
+    ImGui::Separator();
+
+    ImGui::EndChild();
+    ImGui::PopID();
+
+    dynarray::deinit(&element_member_names);
+}
+
+
+void draw_compound_value_editor(ProgramState *prgstate, Value *value)
+{
+    ASSERT(vIS_COMPOUND(value));
+
+    float max_width = 0;
+    float horiz_spacing = ImGui_GetHorizSpacing();
+
+    for (DynArrayCount i = 0, e = value->compound_value.members.count; i < e; ++i)
+    {
+        CompoundValueMember *member = &value->compound_value.members[i];
+        StrSlice namelabel = nameref::str_slice(member->name);
+        ImVec2 text_size = ImGui::CalcTextSize(namelabel.data, namelabel.data + namelabel.length);
+        max_width = max(max_width, text_size.x);
+    }
+
+    for (DynArrayCount i = 0, e = value->compound_value.members.count; i < e; ++i)
+    {
+        ImGui::PushID(S32(i));
+        CompoundValueMember *member = &value->compound_value.members[i];
+        if (tIS_COMPOUND(member->value.typedesc))
+        {
+            ImGui::Text("TODO: Compound in Compound");
+        }
+        else if (tIS_ARRAY(member->value.typedesc))
+        {
+            ImGui::Text("TODO: Array in Compound");
+        }
+        else
+        {
+            StrSlice namelabel = nameref::str_slice(member->name);
+            ImGui::Text("%s", namelabel.data);
+
+            float pos_x = max_width;
+
+            ImGuiWindow *window = ImGui::GetCurrentWindow();
+            if (window->DC.TreeDepth > 0)
+            {
+                pos_x += window->DC.CursorPos.x;
+            }
+
+            ImGui::SameLine(pos_x, horiz_spacing);
+            draw_value_editor(prgstate, &member->value, namelabel.data);
+        }
+        ImGui::PopID();
+    }
+}
+
+
+static int array_depth = 0;
+
+void draw_value_editor(ProgramState *prgstate, Value *value, const char *label)
+{
+    switch ((TypeID::Tag)(value->typedesc->type_id))
+    {
+        case TypeID::None:
+            ImGui::Text("%s NONE", label);
+            break;
+
+        case TypeID::String:
+            ImGui_InputText("##field_value", &value->str_val);
+            break;
+
+        case TypeID::Int:
+            ImGui::InputInt("##field_value", &value->s32_val);
+            break;
+
+        case TypeID::Float:
+            ImGui::InputFloat("##field_value", &value->f32_val);
+            break;
+
+        case TypeID::Bool:
+            ImGui::Checkbox("##field_value", &value->bool_val);
+            break;
+
+        case TypeID::Array:
+            if (array_depth == 0)
+            {
+                ++array_depth;
+                draw_array_table_editor(prgstate, value, label);
+                --array_depth;
+            }
+            else
+            {
+                ++array_depth;
+                draw_array_list_editor(prgstate, value, label);
+                --array_depth;
+            }
+            break;
+
+        case TypeID::Compound:
+            // ImGui::Text("TODO: Compound tree");
+            draw_compound_value_editor(prgstate, value);//, label);
+            break;
+
+        case TypeID::Union:
+            ASSERT_MSG("can't render a union");
+            break;
+    }
+}
+
+
+bool draw_window_value_editor(ProgramState *prgstate, Collection *collection)
 {
     ImGuiWindowFlags wndflags = 0
         | ImGuiWindowFlags_NoSavedSettings
@@ -582,107 +721,10 @@ bool draw_collection_editor(Collection *collection)
     bool window_open = true;
     ImGui::Begin(collection->load_path.data, &window_open, wndflags);
 
-    TypeDescriptor *toptype = collection->top_typedesc;
-
-    bool is_compound_ish = tIS_COMPOUND(toptype) || (tIS_UNION(toptype) && all_typecases_compound(&toptype->union_type));
-
-    if (!is_compound_ish)
-    {
-        ImGui::Text("Top type of a collection must be Compound");
-    }
-    else
-    {
-        DynArray<NameRef> names = dynarray::init<NameRef>(toptype->compound_type.members.count);
-
-        if (tIS_COMPOUND(toptype))
-        {
-            for (DynArrayCount i = 0, e = toptype->compound_type.members.count; i < e; ++i)
-            {
-                dynarray::append(&names, toptype->compound_type.members[i].name);
-            }
-        }
-        else
-        {
-            for (DynArrayCount i = 0, ie = toptype->union_type.type_cases.count; i < ie; ++i)
-            {
-                TypeDescriptor *t = toptype->union_type.type_cases[i];
-                ASSERT(tIS_COMPOUND(t));
-                CompoundType *ct = &t->compound_type;
-
-                for (DynArrayCount j = 0, je = ct->members.count; j < je; ++j)
-                {
-                    dynarray::append_if_not_present<NameRef, nameref::Identical>(&names, ct->members[j].name);
-                }
-            }
-        }
-
-        ImGui::Columns(S32(names.count), "Data yay");
-        ImGui::Separator();
-
-        for (DynArrayCount i = 0; i < names.count; ++i)
-        {
-            ImGui::Text("%s", nameref::str_slice(names[i]).data);
-            ImGui::NextColumn();
-        }
-
-        ImGui::Separator();
-
-        for (DynArrayCount i = 0, ie = collection->records.count; i < ie; ++i)
-        {
-            ImGui::PushID(S32(i));
-
-            Value *value = &collection->records[i]->value;
-            ASSERT(vIS_COMPOUND(value)); // kind of unnecessary since we branch on this
-
-            for (DynArrayCount j = 0, je = names.count; j < je; ++j)
-            {
-                ImGui::PushID(S32(j));
-
-                CompoundValueMember *memval = find_member(value, names[j]);
-
-                if (!memval)
-                {
-                    ImGui::Text("NOPE");
-                }
-                else
-                {
-                    Value *val = &memval->value;
-
-                    switch ((TypeID::Tag)(val->typedesc->type_id))
-                    {
-                        case TypeID::String:
-                            ImGui_InputText("##field", &val->str_val);
-                            break;
-
-                        case TypeID::Int:
-                            ImGui::InputInt("##field", &val->s32_val);
-                            break;
-
-                        case TypeID::Float:
-                            ImGui::InputFloat("##field", &val->f32_val);
-                            break;
-
-                        case TypeID::Bool:
-                            ImGui::Checkbox("##field", &val->bool_val);
-                            break;
-
-                        default:
-                            ImGui::Text("TODO: %s", TypeID::to_string(val->typedesc->type_id));
-                            break;
-                    }
-                }
-
-                ImGui::PopID();
-                ImGui::NextColumn();
-            }
-
-            ImGui::PopID();
-        }
-
-    }
+    draw_value_editor(prgstate, &collection->value, nullptr);
 
     ImGui::Columns(1);
-    ImGui::Separator();
+    // ImGui::Separator();
 
     ImGui::End();
     ImGui::PopStyleVar();
@@ -820,9 +862,11 @@ int main(int argc, char **argv)
     log_display_info();
     SDL_DisplayMode display_mode;
     SDL_GetCurrentDisplayMode(0, &display_mode);
+    float wpct = 1;
+    float hpct = 1;
     SDL_Window *window = SDL_CreateWindow("jsoneditor",
                                           SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                          (int)(display_mode.w * 0.75), (int)(display_mode.h * 0.75),
+                                          (int)(display_mode.w * wpct), (int)(display_mode.h * hpct),
                                           SDL_WINDOW_OPENGL|SDL_WINDOW_RESIZABLE);
 
     u32 window_id = SDL_GetWindowID(window);
@@ -831,13 +875,18 @@ int main(int argc, char **argv)
     ImVec4 clear_color = ImColor(114, 144, 154);
     ImGui_ImplSdl_Init(window);
 
+
+    /////////// TESTING ///////////
+    process_console_input(&prgstate, str_slice("loadjson \"test/nested\""));
+    process_console_input(&prgstate, str_slice("edit 0"));
+    ///////////////////////////////
+
     bool show_imgui_testwindow = false;
-    bool running = true;
+    SDL_Event event;
+    bool running = SDL_PollEvent(&event);
     while (running)
     {
-        SDL_Event event;
-
-        while (SDL_PollEvent(&event)) {
+        do {
             if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE)
             {
                 running = false;
@@ -860,7 +909,7 @@ int main(int argc, char **argv)
                         break;
                 }
             }
-        }
+        } while (SDL_PollEvent(&event));
 
 
         ImGui_ImplSdl_NewFrame(window);
@@ -869,7 +918,8 @@ int main(int argc, char **argv)
 
         for (DynArrayCount i = 0, e = prgstate.editing_collections.count; i < e; ++i)
         {
-            bool open = draw_collection_editor(prgstate.editing_collections[i]);
+            bool open = draw_window_value_editor(&prgstate, prgstate.editing_collections[i]);
+
             if (!open)
             {
                 dynarray::swappop(&prgstate.editing_collections, i);
@@ -888,8 +938,16 @@ int main(int argc, char **argv)
         glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui::Render();
-        SDL_Delay(1);
         SDL_GL_SwapWindow(window);
+        if (ImGui::GetIO().WantCaptureMouse)
+        {
+            mem::zero_obj(event);
+        }
+        else
+        {
+            int sdl_wait_event_ok = SDL_WaitEvent(&event);
+            ASSERT(sdl_wait_event_ok);
+        }
     }
 
     ImGui_ImplSdl_Shutdown();

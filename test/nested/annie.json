@@ -1,0 +1,17 @@
+{
+  "costumes": [
+    {"category": "base", "name": "Annie Edison", "sheet": "base", "ow": 1},
+    {"category": "s2e23", "name": "Ace of Hearts", "sheet": "hearts", "ow": 8},
+    {"category": "s3e2", "name": "Annie Kim", "sheet": "kim", "ow": 9},
+    {"category": "s3e20", "name": "Armor", "sheet": "armor", "ow": 3},
+  ], 
+  "name": "annie",
+  "bbox": {
+    "width": 14,
+    "height": 32,
+    "duck_height": 20,
+    "x": 17,
+    "y": 16
+  },
+  "offset": 8
+}

@@ -375,7 +375,7 @@ bool ht_find_or_add_entry(typename OAHASH_TYPE::Entry **result, OAHASH_TYPE *ht,
     ht->buckets[picked_index].hash = hash;
     ht->buckets[picked_index].state = BucketState::Filled;
     ht->entries[picked_index].key = key;
-    ZERO_PTR(&ht->entries[picked_index].value);
+    mem::zero_obj(ht->entries[picked_index].value);
 
     assert(ht->count <= ht->bucket_count);
 
@@ -502,7 +502,7 @@ bool ht_set(OUTPARAM TValue **p_stored_value, OAHASH_TYPE *ht, TKey key, TValue 
 template OAHASH_TPARAMS
 bool ht_set(OAHASH_TYPE *ht, TKey key, TValue value)
 {
-    return ht_set(static_cast<TValue **>(nullptr), ht, key, value);
+    return ht_set<TKey, TValue>(nullptr, ht, key, value);
 }
 
 

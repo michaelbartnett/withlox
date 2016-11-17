@@ -4,7 +4,7 @@
 #include "common.h"
 #include "numeric_types.h"
 #include "memory.h"
-
+#include "dynarray.h"
 #include "platform.h" // uggggghhhhh
 
 
@@ -248,7 +248,7 @@ Bucket<T, ItemCount> *addbucket(BucketArray<T, ItemCount> *ba)
     bucket->index = ba->all_buckets.count;
     bucket->count = 0;
     ba->capacity += ItemCount;
-    zero_obj(bucket->occupied);
+    mem::zero_obj(bucket->occupied);
     dynarray::append(&ba->all_buckets, bucket);
     return *dynarray::append(&ba->vacancy_buckets, bucket);
 }

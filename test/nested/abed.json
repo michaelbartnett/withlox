@@ -1,0 +1,16 @@
+{
+  "costumes": [
+    { "category": "base", "name": "Abed Nadir", "sheet": "base", "ow": 1 }, 
+    { "category": "s2e6", "name": "Alien", "sheet": "alien", "ow": 2 }, 
+    { "category": "s1e7", "name": "Batman", "sheet": "batman", "ow": 3 },
+  ], 
+  "name": "abed", 
+  "bbox": {
+    "width": 14,
+    "height": 41,
+    "duck_height": 20,
+    "x": 17,
+    "y": 7
+  },
+  "offset": 5
+}

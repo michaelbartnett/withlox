@@ -303,7 +303,7 @@ void print_stacktrace(int skip_frames)
 
 static void DirLister_init(DirLister *dl, Str path)
 {
-    ZERO_PTR(dl);
+    mem::zero_ptr(dl);
 
     DIR *dirp = opendir(path.data);
 

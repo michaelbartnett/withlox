@@ -528,16 +528,18 @@ CLI_COMMAND_FN_SIG(loadjson)
         FormatBuffer fmt_buf;
         fmt_buf.flush_on_destruct();
 
-        for (DynArrayCount i = 0; i < collection->records.count; ++i)
+        collection_assert_invariants(collection);
+        for (DynArrayCount i = 0; i < collection->info.count; ++i)
         {
             fmt_buf.write('\n');
-            LoadedRecord *record = collection->records[i];
+            RecordInfo *record_info = &collection->info[i];
             fmt_buf.write("Path: ");
-            fmt_buf.write(record->fullpath.data);
+            fmt_buf.write(record_info->fullpath.data);
             fmt_buf.write("\nValue: ");
-            pretty_print(&record->value, &fmt_buf);
-            fmt_buf.writef("Parsed value's type: %p ", record->value.typedesc);
-            pretty_print(record->value.typedesc, &fmt_buf);
+            Value *value = &collection->value.array_value.elements[i];
+            pretty_print(value, &fmt_buf);
+            fmt_buf.writef("Parsed value's type: %p ", value->typedesc);
+            pretty_print(value->typedesc, &fmt_buf);
             fmt_buf.flush_to_log();
         }
     }

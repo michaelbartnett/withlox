@@ -20,7 +20,7 @@ static Token eof_token()
 
 void init(State *state, const char *input, size_t length)
 {
-    ZERO_PTR(state);
+    std::memset(state, 0, sizeof(*state));
     state->current = input;
     state->end = input + length;
 }

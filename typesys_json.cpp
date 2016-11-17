@@ -23,7 +23,9 @@ TypeDescriptor *typedesc_from_json_array(ProgramState *prgstate, json_value_s *j
     {
         TypeDescriptor *typedesc = typedesc_from_json(prgstate, elem->value);
 
-        // This is a set insertion
+        // This is a set insertion. Should probably have set
+        // operations for dynarray with compile flags for optional
+        // duplicate checking.
         bool found = false;
         for (DynArrayCount i = 0; i < element_types.count; ++i)
         {
@@ -71,8 +73,8 @@ TypeDescriptor *typedesc_from_json_array(ProgramState *prgstate, json_value_s *j
 
         if (element_types.count == 0)
         {
-            // empty,  untyped array...?
-            // maybe use an Any type here, if that ever becomes a thing.
+            // empty, untyped array...?
+            // maybe generate an Any type here, if that ever becomes a thing.
             logln("Got an empty json array. This defaults to type [None], but I don't like it!");
             array_type.elem_type = prgstate->prim_none;
             constructed_typedesc.array_type = array_type;
@@ -180,9 +182,9 @@ TypeDescriptor *typedesc_from_json(ProgramState *prgstate, json_value_s *jv)
 
 Value create_value_from_token(ProgramState *prgstate, tokenizer::Token token)
 {
-    // good test: {"tulsi": "gabbard", "julienne": { "fries": 42.2, "asponge": {}, "hillarymoney": 9001}}
-    // bindinfer "Candidate" {"tulsi": "gabbard", "julienne": { "fries": 42.2, "asponge": {}, "hillarymoney": 9001}}
-    // checktype "Candidate" {"tulsi":"poopoo","julienne":{"fries":9999999.0,"asponge":{},"hillarymoney":250000}}
+    // good test: {"tulsi": "gabbard", "julian": { "frenchfries": 42.2, "spongebob": {}, "berniebro": 9001}}
+    // bindinfer "Candidate" {"tulsi": "gabbard", "julian": { "frenchfries": 42.2, "spongebob": {}, "berniebro": 9001}}
+    // checktype "Candidate" {"tulsi":"something else","julian":{"frenchfries":9999999.0,"spongebob":{},"berniebro":250000}}
     Str token_copy = str(token.text);
     Value result = {};
 
@@ -479,8 +481,11 @@ LoadJsonDirResult load_json_dir(ProgramState *prgstate, const char *path, size_t
 {
     LoadJsonDirResult result = {};
 
-    DynArray<LoadedRecord *> records;
-    dynarray::init(&records, 0);
+    DynArray<RecordInfo> record_infos;
+    dynarray::init(&record_infos, 8);
+
+    DynArray<Value> values;
+    dynarray::init(&values, 8);
 
     DirLister dirlist(path, path_length);
 
@@ -535,40 +540,38 @@ LoadJsonDirResult load_json_dir(ProgramState *prgstate, const char *path, size_t
                 }
                 else
                 {
-                    LoadedRecord *lr = bucketarray::add(&prgstate->loaded_records).elem;
-                    lr->fullpath = fullpath;
-                    lr->value = parsed_value;
-                    dynarray::append(&records, lr);
+                    dynarray::append(&values, parsed_value);
+
+                    RecordInfo record_info = {};
+                    record_info.fullpath = fullpath;
+                    dynarray::append(&record_infos, record_info);
+
                     bind_typedesc_name(prgstate, dirlist.current.access_path, parsed_value.typedesc);
                 }
                 break;
             }
         }
     }
-BreakWhile:
+BreakWhile: {}
 
     Collection *collection = nullptr;
-    if (records.count > 0)
+    if (values.count > 0)
     {
         collection = bucketarray::add(&prgstate->collections).elem;
+        mem::zero_ptr(collection);
 
-        DynArray<TypeDescriptor *> types;
-        dynarray::init(&types, records.count);
-        for (DynArrayCount i = 0, e = records.count; i < e; ++i)
-        {
-            dynarray::append(&types, records[i]->value.typedesc);
-        }
+        init_array_value(&collection->value, prgstate, values);
+        collection->top_typedesc = collection->value.typedesc->array_type.elem_type;
 
-        collection->top_typedesc = merge_each_type(prgstate, types);
-
+        collection->info = record_infos;
         collection->load_path = str(path, STRLEN(path_length));
-        collection->records = records;
 
         bind_typedesc_name(prgstate, collection->load_path, collection->top_typedesc);
     }
     else
     {
-        dynarray::deinit(&records);
+        dynarray::deinit(&values);
+        dynarray::deinit(&record_infos);
     }
 
     result.collection = collection;

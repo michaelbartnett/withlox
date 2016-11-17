@@ -68,6 +68,7 @@ set(CXX_SOURCES
   clicommands.h
   clicommands.cpp
   programstate.h
+  programstate.cpp
   typesys.h
   typesys.cpp
   typesys_json.h

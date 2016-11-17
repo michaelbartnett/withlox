@@ -47,6 +47,30 @@ typedef void logf_fn(void *userdata, const char *fmt, ...);
 void memory_init(logf_fn *logf, void *userdata);
 
 
+inline void zero_range(void *ptr, size_t size)
+{
+    std::memset(ptr, 0, size);
+}
+
+template<typename T>
+void zero_obj(T &obj)
+{
+    zero_range(&obj, sizeof(T));
+}
+
+template<typename T>
+void zero_ptr(T *obj)
+{
+    zero_range(obj, sizeof(T));
+}
+
+template<typename T>
+void zero_array(T *obj, size_t count)
+{
+    zero_range(obj, sizeof(T) * count);
+}
+
+
 class AllocationMetadata
 {
 public:

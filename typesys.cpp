@@ -2,6 +2,20 @@
 #include "programstate.h"
 
 
+bool all_typecases_compound(UnionType *union_type)
+{
+    for (DynArrayCount i = 0, e = union_type->type_cases.count; i < e; ++i)
+    {
+        if (union_type->type_cases[i]->type_id != TypeID::Compound)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
 void load_base_type_descriptors(ProgramState *prgstate)
 {
     ASSERT(prgstate);
@@ -79,6 +93,9 @@ TypeDescriptor *find_equiv_typedesc(ProgramState *prgstate, TypeDescriptor *type
 
 TypeDescriptor *find_equiv_typedesc_or_add(ProgramState *prgstate, TypeDescriptor *typedesc, bool *new_type_added)
 {
+    bool _placeholder;
+    new_type_added = new_type_added ? new_type_added : (&_placeholder);
+
     TypeDescriptor *preexisting = find_equiv_typedesc(prgstate, typedesc);
     if (preexisting)
     {
@@ -388,7 +405,7 @@ TypeDescriptor *merge_types(ProgramState *prgstate, /*const*/ TypeDescriptor *a_
 }
 
 
-TypeDescriptor *merge_each_type(ProgramState *prgstate, DynArray<TypeDescriptor *> types)
+TypeDescriptor *merge_each_type(ProgramState *prgstate, const DynArray<TypeDescriptor *> &types)
 {
     ASSERT(types.count > 0);
     // if (types.count == 0) {
@@ -407,6 +424,29 @@ TypeDescriptor *merge_each_type(ProgramState *prgstate, DynArray<TypeDescriptor 
 
     return last_merged;
 }
+
+
+TypeDescriptor *merge_each_type(ProgramState *prgstate, const DynArray<Value> &values)
+{
+    ASSERT(values.count > 0);
+    // if (types.count == 0) {
+    //     return nullptr;
+    // }
+    if (values.count == 1) {
+        return values[0].typedesc;
+    }
+
+    TypeDescriptor *last_merged = merge_types(prgstate, values[0].typedesc, values[1].typedesc);
+
+    for (DynArrayCount i = 2, e = values.count; i < e; ++i)
+    {
+        last_merged = merge_types(prgstate, last_merged, values[i].typedesc);
+    }
+
+    return last_merged;
+}
+
+
 
 
 TypeDescriptor *compound_member_merge(ProgramState *prgstate, TypeDescriptor *a_desc, TypeDescriptor *b_desc)
@@ -901,9 +941,26 @@ void value_free_components(Value *value)
             ASSERT_MSG("There must never be a value of type Union");
     }
 
-    ZERO_PTR(value);
+    mem::zero_ptr(value);
 }
 
+
+void init_array_value(Value *array_value, TypeDescriptor *typedesc, DynArray<Value> values)
+{
+    array_value->array_value.elements = values;
+    array_value->typedesc = typedesc;
+}
+
+
+void init_array_value(Value *array_value, ProgramState *prgstate, DynArray<Value> values)
+{
+    TypeDescriptor array_type = {};
+    array_type.type_id = TypeID::Array;
+    array_type.array_type.elem_type = merge_each_type(prgstate, values);
+
+    TypeDescriptor *typedesc = find_equiv_typedesc_or_add(prgstate, &array_type, nullptr);
+    init_array_value(array_value, typedesc, values);
+}
 
 // struct ValueEqual
 // {

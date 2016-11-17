@@ -1,0 +1,114 @@
+Memory Management:
+
+http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2271.html#Appendix_26
+
+http://www.ibm.com/developerworks/aix/tutorials/au-memorymanager/
+
+https://bitbucket.org/bitsquid/foundation/src/7f896236dbafd2cb842655004b1c7bf6e76dcef9?at=default
+https://bitbucket.org/bitsquid/foundation/src/7f896236dbafd2cb842655004b1c7bf6e76dcef9/memory.h?at=default&fileviewer=file-view-default
+https://bitbucket.org/bitsquid/foundation/src/7f896236dbafd2cb842655004b1c7bf6e76dcef9/memory.cpp?at=default&fileviewer=file-view-default
+https://bitbucket.org/bitsquid/foundation/src/7f896236dbafd2cb842655004b1c7bf6e76dcef9/temp_allocator.h?at=default&fileviewer=file-view-default
+https://www.google.com/search?q=bitsquid+blog&oq=bitsquid+blog&aqs=chrome..69i57j0j69i59.2205j0j7&sourceid=chrome&ie=UTF-8
+http://bitsquid.blogspot.com/2016/04/the-poolroom-figure-seq-figure-arabic-1.html
+http://bitsquid.blogspot.com/2012/11/bitsquid-foundation-library.html
+http://bitsquid.blogspot.com/2012/09/a-new-way-of-organizing-header-files.html
+http://gamesfromwithin.com/the-always-evolving-coding-style
+http://gamesfromwithin.com/opengl-and-uikit-demo
+https://twitter.com/GeorgeSealy/status/15800523038
+http://gamesfromwithin.com/backwards-is-forward-making-better-games-with-test-driven-development
+http://gamesfromwithin.com/simple-is-beautiful
+http://bitsquid.blogspot.com/2012/01/sensible-error-handling-part-1.html
+http://bitsquid.blogspot.com/2012/02/sensible-error-handling-part-2.html
+http://bitsquid.blogspot.com/2012/02/sensible-error-handling-part-3.html
+http://bitsquid.blogspot.com/2010/12/bitsquid-c-coding-style.html
+http://bitsquid.blogspot.com/2011/12/platform-specific-resources.html
+http://bitsquid.blogspot.com/2011/12/pragmatic-approach-to-performance.html
+http://bitsquid.blogspot.com/2011/08/idea-for-better-watch-windows.html
+http://bitsquid.blogspot.com/2011/05/monitoring-your-game.html
+http://web.archive.org/web/20120419004126/http://www.altdevblogaday.com/2011/05/17/a-birds-eye-view-of-your-memory-map/
+http://bitsquid.blogspot.com/2011/01/managing-coupling.html
+http://bitsquid.blogspot.com/2011/02/managing-decoupling-part-2-polling.html
+http://bitsquid.blogspot.com/2011/02/some-systems-need-to-manipulate-objects.html
+http://bitsquid.blogspot.com/2011/09/managing-decoupling-part-4-id-lookup.html
+http://bitsquid.blogspot.com/2011/11/example-in-data-oriented-design-sound.html
+
+
+JSON Libraries
+
+http://www.json.org/
+http://lloyd.github.io/yajl/
+http://www.json.org/JSON_checker/
+https://github.com/udp/json-parser
+https://github.com/udp/json-builder
+https://github.com/zserge/jsmn
+https://docs.google.com/spreadsheets/d/1L8XrSas9_PS5RKduSgXUiHDmH50VQxsvwjYDoRHu_9I/edit#gid=0
+https://github.com/kgabis/parson
+https://github.com/esnme/ujson4c/
+https://github.com/esnme/ultrajson
+https://bitbucket.org/yarosla/nxjson/src
+https://github.com/cesanta/frozen
+
+https://github.com/nothings/stb/blob/master/docs/other_libs.md
+https://github.com/kazuho/picojson
+https://github.com/sheredom/json.h
+https://github.com/Zguy/Jzon/blob/master/Jzon.h
+https://github.com/kgabis/parson
+https://github.com/miloyip/nativejson-benchmark
+https://github.com/open-source-parsers/jsoncpp
+https://github.com/giacomodrago/minijson_writer
+https://www.quora.com/What-is-the-best-C-JSON-library
+https://github.com/esnme/ujson4c/blob/master/src/ujdecode.c
+https://www.google.com/search?q=c%2B%2B+json&oq=c%2B%2B+json&aqs=chrome.0.0l2j69i60j0j69i61l2.1031j0j7&sourceid=chrome&ie=UTF-8#q=c+json
+
+
+Debugging
+
+http://stackoverflow.com/questions/312312/what-are-some-reasons-a-release-build-would-run-differently-than-a-debug-build
+http://www.codeproject.com/Articles/548/Surviving-the-Release-Version
+
+
+Type Theory
+
+http://chris-taylor.github.io/blog/2013/02/10/the-algebra-of-algebraic-data-types/
+https://en.wikipedia.org/wiki/Algebraic_data_type
+https://en.wikipedia.org/wiki/Generalized_algebraic_data_type
+
+https://www.reddit.com/r/programming/comments/5a0d2b/type_systems_and_logic/
+
+GraphQL has a type system,
+https://facebook.github.io/graphql/
+
+class MemStack
+{
+public:
+    MemoryStack(size_t size)
+        : size(size)
+        , top(0)
+    {
+        data = malloc(size);
+    }
+
+    size_t size;
+    u8 *data;
+    u8 *top;
+/*
+
+
+----
+size_prev:32
+size_this:30
+flags:2  ALLOC/FREE (meaning, this block)
+----
+payload
+----
+next header...
+----
+
+
+
+HEADER
+
+to push, add header
+to pop, lookup header, remove by size
+
+FOOTER

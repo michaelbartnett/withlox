@@ -127,67 +127,6 @@ struct TypeDescriptor
 };
 
 
-inline DynArrayCount union_num_cases(TypeDescriptor *typedesc)
-{
-    ASSERT(tIS_UNION(typedesc));
-    return typedesc->union_type.type_cases.count;
-}
-
-
-inline TypeDescriptor *union_getcase(TypeDescriptor *typedesc, DynArrayCount i)
-{
-    ASSERT(tIS_UNION(typedesc));
-    return typedesc->union_type.type_cases[i];
-}
-
-
-bool are_typedescs_unique(const DynArray<TypeDescriptor *> *types);
-
-CompoundTypeMember *find_member(const TypeDescriptor *type_desc, NameRef name);
-
-bool typedesc_equal(const TypeDescriptor *a, const TypeDescriptor *b);
-
-
-struct ProgramState;
-
-TypeDescriptor *add_typedescriptor(ProgramState *prgstate);
-TypeDescriptor *add_typedescriptor(ProgramState *prgstate, TypeDescriptor type_desc);
-
-TypeDescriptor *find_equiv_typedesc(ProgramState *prgstate, TypeDescriptor *type_desc);
-TypeDescriptor *find_equiv_typedesc_or_add(ProgramState *prgstate, TypeDescriptor *type_desc, bool *new_type_added);
-
-void bind_typedesc_name(ProgramState *prgstate, NameRef name, TypeDescriptor *typedesc);
-void bind_typedesc_name(ProgramState *prgstate, StrSlice name, TypeDescriptor *typedesc);
-void bind_typedesc_name(ProgramState *prgstate, Str name, TypeDescriptor *typedesc);
-void bind_typedesc_name(ProgramState *prgstate, const char *name, TypeDescriptor *typedesc);
-
-DynArray<NameRef> *find_names_of_typedesc(ProgramState *prgstate, TypeDescriptor *typedesc);
-DynArrayCount find_names_of_typedesc(OUTPARAM DynArray<NameRef> *result_list, ProgramState *prgstate, TypeDescriptor *typedesc);
-TypeDescriptor *find_typedesc_by_name(ProgramState *prgstate, NameRef name);
-TypeDescriptor *find_typedesc_by_name(ProgramState *prgstate, StrSlice name);
-TypeDescriptor *find_typedesc_by_name(ProgramState *prgstate, Str name);
-
-CompoundTypeMember *find_member(const TypeDescriptor &type_desc, NameRef name);
-
-TypeDescriptor copy_typedesc(const TypeDescriptor *src_typedesc);
-
-TypeDescriptor *compound_member_merge(ProgramState *prgstate, TypeDescriptor *a_desc, TypeDescriptor *b_desc);
-
-TypeDescriptor *merge_types(ProgramState *prgstate, /*const*/ TypeDescriptor *a_desc, /*const*/ TypeDescriptor *b_desc);
-TypeDescriptor *merge_each_type(ProgramState *prgstate, DynArray<TypeDescriptor *> types);
-
-void free_typedescriptor_components(TypeDescriptor *typedesc);
-
-
-
-HEADERFN void add_member(TypeDescriptor *typedesc, const CompoundTypeMember &member)
-{
-    CompoundTypeMember *new_member = dynarray::append(&typedesc->compound_type.members);
-    new_member->name = member.name;
-    new_member->typedesc = member.typedesc;
-}
-
-
 enum TypeCheckResult
 {
     TypeCheckResult_Invalid,
@@ -201,7 +140,7 @@ enum TypeCheckResult
     TypeCheckResult_MismatchedUnions
 };
 
-HEADERFN const char *to_string(TypeCheckResult e)
+inline const char *to_string(TypeCheckResult e)
 {
     switch (e)
     {
@@ -215,20 +154,6 @@ HEADERFN const char *to_string(TypeCheckResult e)
         case TypeCheckResult_NoMatchForUnionCase:      return "NoMatchForUnionCase";
         case TypeCheckResult_MismatchedUnions:         return "MismatchedUnions";
     }
-}
-
-
-HEADERFN bool all_typecases_compound(UnionType *union_type)
-{
-    for (DynArrayCount i = 0, e = union_type->type_cases.count; i < e; ++i)
-    {
-        if (union_type->type_cases[i]->type_id != TypeID::Compound)
-        {
-            return false;
-        }
-    }
-
-    return true;
 }
 
 
@@ -311,6 +236,66 @@ inline void value_assertions(const Value *value)
 // };
 
 
+inline DynArrayCount union_num_cases(TypeDescriptor *typedesc)
+{
+    ASSERT(tIS_UNION(typedesc));
+    return typedesc->union_type.type_cases.count;
+}
+
+
+inline TypeDescriptor *union_getcase(TypeDescriptor *typedesc, DynArrayCount i)
+{
+    ASSERT(tIS_UNION(typedesc));
+    return typedesc->union_type.type_cases[i];
+}
+
+
+bool all_typecases_compound(UnionType *union_type);
+
+bool are_typedescs_unique(const DynArray<TypeDescriptor *> *types);
+
+CompoundTypeMember *find_member(const TypeDescriptor *type_desc, NameRef name);
+
+bool typedesc_equal(const TypeDescriptor *a, const TypeDescriptor *b);
+
+TypeDescriptor *add_typedescriptor(ProgramState *prgstate);
+TypeDescriptor *add_typedescriptor(ProgramState *prgstate, TypeDescriptor type_desc);
+
+TypeDescriptor *find_equiv_typedesc(ProgramState *prgstate, TypeDescriptor *type_desc);
+TypeDescriptor *find_equiv_typedesc_or_add(ProgramState *prgstate, TypeDescriptor *type_desc, bool *new_type_added);
+
+void bind_typedesc_name(ProgramState *prgstate, NameRef name, TypeDescriptor *typedesc);
+void bind_typedesc_name(ProgramState *prgstate, StrSlice name, TypeDescriptor *typedesc);
+void bind_typedesc_name(ProgramState *prgstate, Str name, TypeDescriptor *typedesc);
+void bind_typedesc_name(ProgramState *prgstate, const char *name, TypeDescriptor *typedesc);
+
+DynArray<NameRef> *find_names_of_typedesc(ProgramState *prgstate, TypeDescriptor *typedesc);
+DynArrayCount find_names_of_typedesc(OUTPARAM DynArray<NameRef> *result_list, ProgramState *prgstate, TypeDescriptor *typedesc);
+TypeDescriptor *find_typedesc_by_name(ProgramState *prgstate, NameRef name);
+TypeDescriptor *find_typedesc_by_name(ProgramState *prgstate, StrSlice name);
+TypeDescriptor *find_typedesc_by_name(ProgramState *prgstate, Str name);
+
+CompoundTypeMember *find_member(const TypeDescriptor &type_desc, NameRef name);
+
+TypeDescriptor copy_typedesc(const TypeDescriptor *src_typedesc);
+
+TypeDescriptor *compound_member_merge(ProgramState *prgstate, TypeDescriptor *a_desc, TypeDescriptor *b_desc);
+
+TypeDescriptor *merge_types(ProgramState *prgstate, /*const*/ TypeDescriptor *a_desc, /*const*/ TypeDescriptor *b_desc);
+TypeDescriptor *merge_each_type(ProgramState *prgstate, const DynArray<TypeDescriptor *> &types);
+TypeDescriptor *merge_each_type(ProgramState *prgstate, const DynArray<Value> &values);
+
+void free_typedescriptor_components(TypeDescriptor *typedesc);
+
+
+inline void add_member(TypeDescriptor *typedesc, const CompoundTypeMember &member)
+{
+    CompoundTypeMember *new_member = dynarray::append(&typedesc->compound_type.members);
+    new_member->name = member.name;
+    new_member->typedesc = member.typedesc;
+}
+
+
 CompoundValueMember *find_member(const Value *value, NameRef name);
 
 Value clone(const Value *src);
@@ -318,6 +303,9 @@ Value clone(const Value *src);
 bool value_equal(const Value &lhs, const Value &rhs);
 
 void value_free_components(Value *value);
+
+void init_array_value(Value *array_value, ProgramState *prgstate, DynArray<Value> values);
+
 
 #define TYPES_H
 #endif
